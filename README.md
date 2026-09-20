@@ -8,8 +8,7 @@ response (Slack + dashboard), and can remediate only through
 and produces an evidence-grounded postmortem.
 
 It is built as a **portfolio / production-style demo**: a simulated distributed
-system plus IncidentPilot, with reproducible scenario evaluation. It is **not**
-“an AI that magically fixes outages.”
+system plus IncidentPilot, with reproducible scenario evaluation. 
 
 ## Documentation
 
