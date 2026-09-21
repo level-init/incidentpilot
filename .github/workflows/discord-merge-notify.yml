@@ -1,0 +1,31 @@
+name: Discord merge notify
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    types: [closed]
+    branches: [main, dev]
+
+jobs:
+  notify:
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post to Discord
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            TITLE="PR merged into \`${{ github.event.pull_request.base.ref }}\`"
+            BODY="**${{ github.repository }}**\n[${{ github.event.pull_request.title }}](${{ github.event.pull_request.html_url }})\nby ${{ github.event.pull_request.merged_by.login }}"
+          else
+            TITLE="Push to \`${{ github.ref_name }}\`"
+            BODY="**${{ github.repository }}**\n[${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})\nby ${{ github.actor }}"
+          fi
+
+          curl -H "Content-Type: application/json" \
+            -d "{\"content\": \"**${TITLE}**\\n${BODY}\"}" \
+            "$WEBHOOK_URL"
