@@ -16,6 +16,23 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | --- | --- |
 | [docs/product-overview.md](docs/product-overview.md) | Product goal, closed loop, locked design decisions |
 | [docs/git-standards.md](docs/git-standards.md) | Branching, commits, PRs (`main` / `dev`) |
+| [docs/repo-layout.md](docs/repo-layout.md) | Monorepo packages ↔ deployables |
+
+## Repository layout
+
+| Path | Deployable / role |
+| --- | --- |
+| `api/` | `incidentpilot-api` (FastAPI) |
+| `worker/` | `incidentpilot-worker` (Temporal + reasoning) |
+| `remediation_worker/` | privileged remediation execute |
+| `web/` | `incidentpilot-web` dashboard |
+| `shared/` | shared domain library |
+| `adapters/` | outbound integrations |
+| `simulation/` | demo microservices |
+| `scenario_runner/` | scenario runner (no GroundTruth) |
+| `evaluator/` | evaluator (GroundTruth-isolated) |
+
+Details: [docs/repo-layout.md](docs/repo-layout.md).
 
 ## Stack (summary)
 
@@ -54,6 +71,5 @@ git checkout dev
 
 ## Status
 
-Early stage: documentation and collaboration standards first; implementation
-follows the product overview’s build order (simulator-first vertical, then
-widen).
+Monorepo package layout is scaffolded (A2). Next foundation work: tooling (#2),
+Compose (#3), schemas (#4). Build order follows the product overview.
