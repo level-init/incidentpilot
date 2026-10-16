@@ -1,0 +1,77 @@
+[project]
+name = "incidentpilot"
+version = "0.0.0"
+description = "Evidence-driven incident-response control plane (monorepo)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "pytest>=8.3.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = [
+    "api",
+    "worker",
+    "remediation_worker",
+    "shared",
+    "adapters",
+    "scenario_runner",
+    "evaluator",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "UP", # pyupgrade
+    "B",  # bugbear
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+pretty = true
+packages = [
+    "incidentpilot_api",
+    "incidentpilot_worker",
+    "incidentpilot_remediation",
+    "incidentpilot_shared",
+    "incidentpilot_adapters",
+    "incidentpilot_scenario_runner",
+    "incidentpilot_evaluator",
+]
+mypy_path = [
+    "api",
+    "worker",
+    "remediation_worker",
+    "shared",
+    "adapters",
+    "scenario_runner",
+    "evaluator",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [
+    "api",
+    "worker",
+    "remediation_worker",
+    "shared",
+    "adapters",
+    "scenario_runner",
+    "evaluator",
+]
+addopts = "-q"

@@ -1,0 +1,5 @@
+# Dev / quality-gate tools for local make targets (A3 / #2).
+# Install via: make bootstrap
+ruff>=0.8.0
+mypy>=1.13.0
+pytest>=8.3.0
