@@ -60,16 +60,30 @@ See [docs/git-standards.md](docs/git-standards.md).
 
 ## Local development
 
-Local Compose profiles and `make` targets will land with the platform foundation.
-Until then:
+Requires **Python 3.12+**.
 
 ```bash
 git clone git@github.com:level-init/incidentpilot.git
 cd incidentpilot
 git checkout dev
+
+make bootstrap   # creates .venv + installs ruff, mypy, pytest
+make lint        # ruff check + format check + mypy
+make test        # pytest smoke imports
+make format      # auto-fix lint + format (optional)
 ```
+
+| Target | Purpose |
+| --- | --- |
+| `make bootstrap` | Create `.venv` and install `requirements-dev.txt` |
+| `make lint` | Ruff lint + format check + mypy |
+| `make format` | Apply ruff fixes / format |
+| `make typecheck` | mypy only |
+| `make test` | pytest (scaffold smoke tests for now) |
+
+Compose profiles land in #3 (A4). Tool config lives in `pyproject.toml`.
 
 ## Status
 
-Monorepo package layout is scaffolded (A2). Next foundation work: tooling (#2),
-Compose (#3), schemas (#4). Build order follows the product overview.
+Foundation in progress: layout (A2) + local tooling (A3). Next: Compose (#3),
+schemas (#4). Build order follows the product overview.
