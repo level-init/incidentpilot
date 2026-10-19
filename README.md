@@ -18,6 +18,7 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/git-standards.md](docs/git-standards.md) | Branching, commits, PRs (`main` / `dev`) |
 | [docs/repo-layout.md](docs/repo-layout.md) | Monorepo packages ↔ deployables |
 | [docs/local-compose.md](docs/local-compose.md) | Compose profiles (`core` / `evidence` / `simulation` / `full`) |
+| [docs/db.md](docs/db.md) | Postgres schemas, roles, migrations, GT isolation |
 
 ## Repository layout
 
@@ -85,6 +86,8 @@ make format      # auto-fix lint + format (optional)
 | `make compose-full` | Start all profiles |
 | `make compose-down` | Stop compose services |
 | `make compose-config` | Validate compose YAML for `PROFILE` (default `core`) |
+| `make migrate` | Apply SQL migrations (`domain` / `scenarios` / `eval` + roles) |
+| `make db-verify-isolation` | Prove GroundTruth denied for `ip_app` / `ip_runner` |
 
 ### Compose profiles
 
@@ -95,9 +98,16 @@ make compose-up PROFILE=evidence
 make compose-full
 ```
 
-Details and local ports: [docs/local-compose.md](docs/local-compose.md). Tool config: `pyproject.toml`.
+Details and local ports: [docs/local-compose.md](docs/local-compose.md).
+DB roles / GT isolation: [docs/db.md](docs/db.md). Tool config: `pyproject.toml`.
+
+```bash
+make compose-core
+make migrate
+make db-verify-isolation
+```
 
 ## Status
 
-Foundation in progress: layout (A2), tooling (A3), Compose profiles (A4). Next:
-schemas (#4), Temporal/MinIO hardening (#5).
+Foundation in progress through A5 (schemas/roles). Next: Temporal/MinIO hardening (#5),
+then domain entities (Epic B).
