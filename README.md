@@ -112,5 +112,5 @@ make verify-local-infra
 
 ## Status
 
-Foundation A2–A6 complete path: layout, tooling, Compose, DB roles, Temporal + local S3.
-Next: domain entities (Epic B / #6).
+Foundation A2–A6 done. Epic B starts with domain Incident/Alert/Evidence schema (B1).
+Next after B1: B2 hypotheses/changes/runbooks (#7).

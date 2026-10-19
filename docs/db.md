@@ -63,3 +63,16 @@ make db-verify-isolation   # ip_app/ip_runner denied GT; app cannot DDL; migrato
 ```
 
 Migrations are recorded in `public.schema_migrations`.
+
+## Domain tables (Epic B / B1+)
+
+| Table | Notes |
+| --- | --- |
+| `domain.service` | Deployable/service identity (`key` + `environment`) |
+| `domain.incident` | Includes `incident_revision` (optimistic concurrency) |
+| `domain.incident_service` | M:N involvement (`affected` / `suspected` / …) |
+| `domain.alert` | Unique IncidentPilot `fingerprint` |
+| `domain.evidence` | Append-only factual substrate (UPDATE/DELETE forbidden) |
+| `domain.evidence_relation` | Evidence graph edges |
+
+Hypothesis / Action / etc. land in later B tickets.
