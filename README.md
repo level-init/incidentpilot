@@ -17,6 +17,7 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/product-overview.md](docs/product-overview.md) | Product goal, closed loop, locked design decisions |
 | [docs/git-standards.md](docs/git-standards.md) | Branching, commits, PRs (`main` / `dev`) |
 | [docs/repo-layout.md](docs/repo-layout.md) | Monorepo packages ↔ deployables |
+| [docs/local-compose.md](docs/local-compose.md) | Compose profiles (`core` / `evidence` / `simulation` / `full`) |
 
 ## Repository layout
 
@@ -80,10 +81,23 @@ make format      # auto-fix lint + format (optional)
 | `make format` | Apply ruff fixes / format |
 | `make typecheck` | mypy only |
 | `make test` | pytest (scaffold smoke tests for now) |
+| `make compose-core` | Start `core` infra (Postgres, Temporal, local S3, Redis) |
+| `make compose-full` | Start all profiles |
+| `make compose-down` | Stop compose services |
+| `make compose-config` | Validate compose YAML for `PROFILE` (default `core`) |
 
-Compose profiles land in #3 (A4). Tool config lives in `pyproject.toml`.
+### Compose profiles
+
+```bash
+cp .env.example .env    # optional; never commit .env
+make compose-core       # postgres + temporal + local S3 (Silo) + redis
+make compose-up PROFILE=evidence
+make compose-full
+```
+
+Details and local ports: [docs/local-compose.md](docs/local-compose.md). Tool config: `pyproject.toml`.
 
 ## Status
 
-Foundation in progress: layout (A2) + local tooling (A3). Next: Compose (#3),
-schemas (#4). Build order follows the product overview.
+Foundation in progress: layout (A2), tooling (A3), Compose profiles (A4). Next:
+schemas (#4), Temporal/MinIO hardening (#5).
