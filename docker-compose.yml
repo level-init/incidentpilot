@@ -1,14 +1,15 @@
-# IncidentPilot local Compose profiles (A4 / #3).
+# IncidentPilot local Compose profiles (A4 / A6).
 #
 # Profiles:
-#   core        — postgres, temporal (+ UI), local S3 (Silo/MinIO-API), redis
+#   core        — postgres, temporal (+ UI), local S3 (Silo/MinIO-API) + bucket init
+#   redis       — optional cache-only Redis (not required for core)
 #   evidence    — placeholder for Prom/Loki/Tempo/AM (Epic E/G)
 #   simulation  — placeholder for demo microservices (Epic E)
-#   full        — everything above
+#   full        — core + redis + evidence + simulation
 #
 # Examples:
 #   docker compose --profile core up -d
-#   docker compose --profile core --profile evidence up -d
+#   docker compose --profile core --profile redis up -d
 #   docker compose --profile full up -d
 #   make compose-core
 
@@ -52,9 +53,10 @@ services:
       POSTGRES_SEEDS: postgres
       DBNAME: temporal
       VISIBILITY_DBNAME: temporal_visibility
+      # Listen on all interfaces so localhost healthchecks and UI connect reliably.
+      BIND_ON_IP: "0.0.0.0"
     ports:
       - "7233:7233"
-    # auto-setup image varies on CLI; TCP accept is enough for local DX.
     healthcheck:
       test:
         [
@@ -70,12 +72,23 @@ services:
     image: temporalio/ui:2.31.2
     profiles: ["core", "full"]
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     environment:
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_CORS_ORIGINS: http://localhost:3000
     ports:
       - "8088:8080"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   # Local S3-compatible blob store. MinIO CE images left Docker Hub; Silo is a
   # MinIO-API compatible drop-in (same MINIO_* env vars and /minio/health/live).
@@ -98,10 +111,36 @@ services:
       retries: 5
       start_period: 10s
 
+  # Create local buckets once Silo is healthy (idempotent).
+  minio-init:
+    image: amazon/aws-cli:2.22.35
+    profiles: ["core", "full"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+      S3_ENDPOINT: http://minio:9000
+      EVIDENCE_BUCKET: ${S3_BUCKET_EVIDENCE:-incidentpilot-evidence}
+      AI_ARTIFACTS_BUCKET: ${S3_BUCKET_AI_ARTIFACTS:-incidentpilot-ai-artifacts}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        for b in "$${EVIDENCE_BUCKET}" "$${AI_ARTIFACTS_BUCKET}"; do
+          aws --endpoint-url "$${S3_ENDPOINT}" s3 mb "s3://$${b}" 2>/dev/null || true
+          aws --endpoint-url "$${S3_ENDPOINT}" s3api head-bucket --bucket "$${b}" >/dev/null
+          echo "bucket ready: $${b}"
+        done
+    restart: "no"
+
   # Optional local cache only — never authoritative for domain state.
+  # Enable with: docker compose --profile core --profile redis up -d
   redis:
     image: redis:7-alpine
-    profiles: ["core", "full"]
+    profiles: ["redis", "full"]
     ports:
       - "6379:6379"
     healthcheck:
