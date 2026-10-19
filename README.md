@@ -82,18 +82,20 @@ make format      # auto-fix lint + format (optional)
 | `make format` | Apply ruff fixes / format |
 | `make typecheck` | mypy only |
 | `make test` | pytest (scaffold smoke tests for now) |
-| `make compose-core` | Start `core` infra (Postgres, Temporal, local S3, Redis) |
-| `make compose-full` | Start all profiles |
+| `make compose-core` | Start `core` infra (Postgres, Temporal, local S3 + buckets) |
+| `make compose-full` | Start all profiles (includes optional Redis) |
 | `make compose-down` | Stop compose services |
 | `make compose-config` | Validate compose YAML for `PROFILE` (default `core`) |
 | `make migrate` | Apply SQL migrations (`domain` / `scenarios` / `eval` + roles) |
 | `make db-verify-isolation` | Prove GroundTruth denied for `ip_app` / `ip_runner` |
+| `make verify-local-infra` | Temporal UI + local S3 put/get smoke |
 
 ### Compose profiles
 
 ```bash
 cp .env.example .env    # optional; never commit .env
-make compose-core       # postgres + temporal + local S3 (Silo) + redis
+make compose-core       # postgres + temporal + local S3 (Silo) + bucket init
+docker compose --profile core --profile redis up -d   # optional cache
 make compose-up PROFILE=evidence
 make compose-full
 ```
@@ -105,9 +107,10 @@ DB roles / GT isolation: [docs/db.md](docs/db.md). Tool config: `pyproject.toml`
 make compose-core
 make migrate
 make db-verify-isolation
+make verify-local-infra
 ```
 
 ## Status
 
-Foundation in progress through A5 (schemas/roles). Next: Temporal/MinIO hardening (#5),
-then domain entities (Epic B).
+Foundation A2–A6 complete path: layout, tooling, Compose, DB roles, Temporal + local S3.
+Next: domain entities (Epic B / #6).

@@ -16,7 +16,7 @@ PROFILE ?= core
 
 .PHONY: bootstrap lint format typecheck test help \
 	compose-core compose-full compose-up compose-down compose-ps compose-config \
-	migrate db-verify-isolation
+	migrate db-verify-isolation verify-local-infra
 
 help:
 	@echo "Targets:"
@@ -27,12 +27,13 @@ help:
 	@echo "  make test                  - pytest (scaffold smoke tests)"
 	@echo "  make compose-core          - docker compose --profile core up -d"
 	@echo "  make compose-full          - docker compose --profile full up -d"
-	@echo "  make compose-up PROFILE=…  - evidence|simulation|core|full"
+	@echo "  make compose-up PROFILE=…  - evidence|simulation|redis|core|full"
 	@echo "  make compose-down          - stop all compose profiles"
 	@echo "  make compose-ps            - list compose services"
 	@echo "  make compose-config        - validate compose for PROFILE (default core)"
 	@echo "  make migrate               - apply deploy/db/migrations"
 	@echo "  make db-verify-isolation   - prove GT denied for ip_app/ip_runner; no app DDL"
+	@echo "  make verify-local-infra    - Temporal UI + local S3 put/get smoke"
 
 bootstrap:
 	$(PYTHON) -m venv $(VENV)
@@ -64,10 +65,10 @@ compose-up:
 	$(COMPOSE) --profile $(PROFILE) up -d
 
 compose-down:
-	$(COMPOSE) --profile core --profile evidence --profile simulation --profile full down
+	$(COMPOSE) --profile core --profile redis --profile evidence --profile simulation --profile full down
 
 compose-ps:
-	$(COMPOSE) --profile core --profile evidence --profile simulation --profile full ps
+	$(COMPOSE) --profile core --profile redis --profile evidence --profile simulation --profile full ps
 
 compose-config:
 	$(COMPOSE) --profile $(PROFILE) config >/dev/null
@@ -78,6 +79,9 @@ migrate:
 
 db-verify-isolation:
 	./scripts/db_verify_isolation.sh
+
+verify-local-infra:
+	./scripts/verify_local_infra.sh
 
 $(VENV):
 	@echo "Missing $(VENV). Run: make bootstrap" >&2
