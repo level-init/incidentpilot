@@ -1,0 +1,137 @@
+# IncidentPilot local Compose profiles (A4 / #3).
+#
+# Profiles:
+#   core        — postgres, temporal (+ UI), local S3 (Silo/MinIO-API), redis
+#   evidence    — placeholder for Prom/Loki/Tempo/AM (Epic E/G)
+#   simulation  — placeholder for demo microservices (Epic E)
+#   full        — everything above
+#
+# Examples:
+#   docker compose --profile core up -d
+#   docker compose --profile core --profile evidence up -d
+#   docker compose --profile full up -d
+#   make compose-core
+
+name: incidentpilot
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["core", "full"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-incidentpilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-incidentpilot}
+      POSTGRES_DB: ${POSTGRES_DB:-incidentpilot}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deploy/compose/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-incidentpilot} -d ${POSTGRES_DB:-incidentpilot}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  temporal:
+    image: temporalio/auto-setup:1.26.2
+    profiles: ["core", "full"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-incidentpilot}
+      POSTGRES_PWD: ${POSTGRES_PASSWORD:-incidentpilot}
+      POSTGRES_SEEDS: postgres
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+    ports:
+      - "7233:7233"
+    # auto-setup image varies on CLI; TCP accept is enough for local DX.
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -c 'exec 3<>/dev/tcp/127.0.0.1/7233'",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  temporal-ui:
+    image: temporalio/ui:2.31.2
+    profiles: ["core", "full"]
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "8088:8080"
+
+  # Local S3-compatible blob store. MinIO CE images left Docker Hub; Silo is a
+  # MinIO-API compatible drop-in (same MINIO_* env vars and /minio/health/live).
+  minio:
+    image: pgsty/silo:RELEASE.2026-10-15T00-00-00Z
+    profiles: ["core", "full"]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Optional local cache only — never authoritative for domain state.
+  redis:
+    image: redis:7-alpine
+    profiles: ["core", "full"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # --- Placeholders: keep profiles valid until Epic E/G wires real services ---
+
+  evidence-stack-placeholder:
+    image: alpine:3.20
+    profiles: ["evidence", "full"]
+    command:
+      [
+        "sh",
+        "-c",
+        "echo 'evidence profile: Prometheus/Loki/Tempo/Alertmanager land in Epic E/G'; sleep infinity",
+      ]
+
+  simulation-stack-placeholder:
+    image: alpine:3.20
+    profiles: ["simulation", "full"]
+    command:
+      [
+        "sh",
+        "-c",
+        "echo 'simulation profile: gateway/auth/checkout/… land in Epic E'; sleep infinity",
+      ]
+
+volumes:
+  postgres_data:
+  minio_data:
