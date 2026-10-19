@@ -15,21 +15,24 @@ COMPOSE ?= docker compose
 PROFILE ?= core
 
 .PHONY: bootstrap lint format typecheck test help \
-	compose-core compose-full compose-up compose-down compose-ps compose-config
+	compose-core compose-full compose-up compose-down compose-ps compose-config \
+	migrate db-verify-isolation
 
 help:
 	@echo "Targets:"
-	@echo "  make bootstrap       - create .venv and install requirements-dev.txt"
-	@echo "  make lint            - ruff check + format check + mypy"
-	@echo "  make format          - ruff format (writes files)"
-	@echo "  make typecheck       - mypy only"
-	@echo "  make test            - pytest (scaffold smoke tests)"
-	@echo "  make compose-core    - docker compose --profile core up -d"
-	@echo "  make compose-full    - docker compose --profile full up -d"
-	@echo "  make compose-up PROFILE=evidence|simulation|core|full"
-	@echo "  make compose-down    - stop all compose profiles"
-	@echo "  make compose-ps      - list compose services"
-	@echo "  make compose-config  - validate compose for PROFILE (default core)"
+	@echo "  make bootstrap             - create .venv and install requirements-dev.txt"
+	@echo "  make lint                  - ruff check + format check + mypy"
+	@echo "  make format                - ruff format (writes files)"
+	@echo "  make typecheck             - mypy only"
+	@echo "  make test                  - pytest (scaffold smoke tests)"
+	@echo "  make compose-core          - docker compose --profile core up -d"
+	@echo "  make compose-full          - docker compose --profile full up -d"
+	@echo "  make compose-up PROFILE=…  - evidence|simulation|core|full"
+	@echo "  make compose-down          - stop all compose profiles"
+	@echo "  make compose-ps            - list compose services"
+	@echo "  make compose-config        - validate compose for PROFILE (default core)"
+	@echo "  make migrate               - apply deploy/db/migrations"
+	@echo "  make db-verify-isolation   - prove GT denied for ip_app/ip_runner; no app DDL"
 
 bootstrap:
 	$(PYTHON) -m venv $(VENV)
@@ -69,6 +72,12 @@ compose-ps:
 compose-config:
 	$(COMPOSE) --profile $(PROFILE) config >/dev/null
 	@echo "compose config OK for profile=$(PROFILE)"
+
+migrate:
+	./scripts/db_migrate.sh
+
+db-verify-isolation:
+	./scripts/db_verify_isolation.sh
 
 $(VENV):
 	@echo "Missing $(VENV). Run: make bootstrap" >&2

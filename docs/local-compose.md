@@ -45,7 +45,8 @@ docker compose --profile core config
 | Redis | `localhost:6379` | no auth; cache-only |
 
 Postgres also creates empty `temporal` and `temporal_visibility` databases on first boot
-(`deploy/compose/postgres/init/`). Domain / scenarios / eval schemas land in #4 (A5).
+(`deploy/compose/postgres/init/`). After `make compose-core`, run `make migrate` for
+`domain` / `scenarios` / `eval` schemas and roles — see [db.md](db.md).
 Bucket bootstrap lands in #5 (A6) if needed.
 
 **Why Silo, not `minio/minio`?** MinIO Community Edition container images were removed from
