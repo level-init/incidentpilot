@@ -79,4 +79,11 @@ Migrations are recorded in `public.schema_migrations`.
 | `domain.runbook` | Logical runbook identity |
 | `domain.runbook_version` | Versioned body + `allowed_action_types`; published = immutable |
 
-Action / Approval / Policy land in B3+.
+| `domain.action` | Remediation proposal; `is_reversible` / `reverse_action_type` |
+| `domain.action_version` | Immutable snapshot; policy/approval/attempt bind here |
+| `domain.policy_decision` | Unique per `(action_id, action_version)` |
+| `domain.approval` | Unique per `(action_id, action_version)` |
+| `domain.execution_attempt` | `RESERVED` before MITIGATING allowed |
+| `domain.validation_result` | Post-remediation validation outcome |
+
+Impact / timeline / audit land in B4+.
