@@ -1,16 +1,18 @@
-# HTTP API (B8)
+# HTTP API
 
-## Auth stub (until Epic C)
+## Auth (C1 session identity)
 
 ```http
 Authorization: Bearer local-dev
-X-Actor: optional-name
-X-Role: viewer|responder|admin
 ```
 
+See [auth.md](auth.md). Do **not** send `actor_id` / `actor` / `decided_by` in bodies.
+
+Stub tokens: `local-dev` (responder), `local-dev-admin`, `local-dev-viewer`.
+
 - Missing/invalid bearer → **401**
-- Role not permitted for mutation → **403**
-- Viewer can list/read; responder/admin can create/transition
+- Role not permitted → **403**
+- Spoofed identity fields in JSON body → **400**
 
 ## Local run
 
@@ -18,14 +20,12 @@ X-Role: viewer|responder|admin
 make bootstrap
 make compose-core && make migrate
 make api-run
-# http://localhost:8000/docs
-# http://localhost:8000/openapi.json
 ```
 
 ```bash
 curl -s http://localhost:8000/health
 curl -s -H 'Authorization: Bearer local-dev' http://localhost:8000/incidents
-curl -s -X POST -H 'Authorization: Bearer local-dev' -H 'X-Role: responder' \
+curl -s -X POST -H 'Authorization: Bearer local-dev' \
   -H 'Content-Type: application/json' \
   -d '{"title":"demo"}' \
   http://localhost:8000/incidents
