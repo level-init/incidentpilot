@@ -19,6 +19,7 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/repo-layout.md](docs/repo-layout.md) | Monorepo packages ↔ deployables |
 | [docs/local-compose.md](docs/local-compose.md) | Compose profiles (`core` / `evidence` / `simulation` / `full`) |
 | [docs/db.md](docs/db.md) | Postgres schemas, roles, migrations, GT isolation |
+| [docs/outbox.md](docs/outbox.md) | Transactional outbox + idempotency semantics |
 
 ## Repository layout
 
