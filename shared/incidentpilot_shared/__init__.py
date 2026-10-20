@@ -19,15 +19,23 @@ from incidentpilot_shared.domain import (
     transition_incident_command,
     try_begin_idempotent,
 )
+from incidentpilot_shared.redaction import (
+    EvidenceProjection,
+    RedactionError,
+    project_evidence_for_llm,
+    supply_projection_to_llm,
+)
 
 __version__ = "0.0.0"
 
 __all__ = [
     "AppendEvidenceResult",
     "ApprovalDecisionResult",
+    "EvidenceProjection",
     "IllegalTransitionError",
     "IncidentState",
     "OutboxRequiredError",
+    "RedactionError",
     "ReserveAttemptResult",
     "StaleRevisionError",
     "TransitionResult",
@@ -37,7 +45,9 @@ __all__ = [
     "apply_transition",
     "decide_approval_command",
     "enqueue_outbox",
+    "project_evidence_for_llm",
     "reserve_execution_attempt_command",
+    "supply_projection_to_llm",
     "transition_incident",
     "transition_incident_command",
     "try_begin_idempotent",
