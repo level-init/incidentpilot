@@ -86,4 +86,11 @@ Migrations are recorded in `public.schema_migrations`.
 | `domain.execution_attempt` | `RESERVED` before MITIGATING allowed |
 | `domain.validation_result` | Post-remediation validation outcome |
 
-Impact / timeline / audit land in B4+.
+| `domain.impact_snapshot` | Point-in-time impact estimate |
+| `domain.slo_burn` | SLO burn / error-budget observations |
+| `domain.timeline_event` | Append-only process chronicle |
+| `domain.audit_event` | Append-only privileged ops audit |
+| `domain.ai_invocation` | Minimum AI provenance (artifacts URI later) |
+| `domain.postmortem` | DRAFT/FINAL; `corrective_actions` JSON array |
+
+State machine / outbox land in B5+.
