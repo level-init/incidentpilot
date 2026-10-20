@@ -74,5 +74,9 @@ Migrations are recorded in `public.schema_migrations`.
 | `domain.alert` | Unique IncidentPilot `fingerprint` |
 | `domain.evidence` | Append-only factual substrate (UPDATE/DELETE forbidden) |
 | `domain.evidence_relation` | Evidence graph edges |
+| `domain.change` | Deployments / commits / flags / config signals |
+| `domain.hypothesis` | Statuses: PROPOSED / LEADING / CONFIRMED / REJECTED / SUPERSEDED |
+| `domain.runbook` | Logical runbook identity |
+| `domain.runbook_version` | Versioned body + `allowed_action_types`; published = immutable |
 
-Hypothesis / Action / etc. land in later B tickets.
+Action / Approval / Policy land in B3+.
