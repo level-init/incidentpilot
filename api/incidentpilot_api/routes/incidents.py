@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -88,8 +89,23 @@ def create_incident(
         )
         row = cur.fetchone()
         assert row is not None
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.audit_event (
+                incident_id, action, actor, resource_type, resource_id, details
+            ) VALUES (
+                %s, 'incident.create', %s, 'incident', %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                principal.actor_id,
+                str(incident_id),
+                json.dumps({"auth_mode": principal.auth_mode, "title": body.title}),
+            ),
+        )
     conn.commit()
-    _ = principal  # actor reserved for audit in later tickets
     return _row_to_incident(row)
 
 
@@ -131,7 +147,7 @@ def transition_incident(
             incident_id=incident_id,
             expected_revision=body.expected_revision,
             to_state=to_state,
-            actor=principal.actor,
+            actor=principal.actor_id,
             commit=True,
         )
     except StaleRevisionError as exc:

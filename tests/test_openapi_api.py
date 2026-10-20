@@ -89,10 +89,7 @@ def test_incidents_require_auth(client: TestClient) -> None:
 def test_viewer_forbidden_from_create(client: TestClient) -> None:
     res = client.post(
         "/incidents",
-        headers={
-            "Authorization": "Bearer local-dev",
-            "X-Role": "viewer",
-        },
+        headers={"Authorization": "Bearer local-dev-viewer"},
         json={"title": "should fail"},
     )
     assert res.status_code == 403
@@ -100,7 +97,7 @@ def test_viewer_forbidden_from_create(client: TestClient) -> None:
 
 @pytest.mark.skipif(not _db_available(), reason="Postgres not reachable")
 def test_incident_create_and_list(client: TestClient) -> None:
-    headers = {"Authorization": "Bearer local-dev", "X-Role": "responder"}
+    headers = {"Authorization": "Bearer local-dev"}
     create = client.post(
         "/incidents",
         headers=headers,
