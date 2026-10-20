@@ -1,5 +1,14 @@
 """Shared domain library for IncidentPilot deployables."""
 
+from incidentpilot_shared.ai_tools import (
+    AI_SANDBOX_IDENTITY,
+    DENIED_TOOL_NAMES,
+    AiToolRegistry,
+    ToolCapability,
+    ToolDeniedError,
+    ToolSchemaError,
+    default_ai_tool_registry,
+)
 from incidentpilot_shared.domain import (
     AppendEvidenceResult,
     ApprovalDecisionResult,
@@ -29,6 +38,9 @@ from incidentpilot_shared.redaction import (
 __version__ = "0.0.0"
 
 __all__ = [
+    "AI_SANDBOX_IDENTITY",
+    "DENIED_TOOL_NAMES",
+    "AiToolRegistry",
     "AppendEvidenceResult",
     "ApprovalDecisionResult",
     "EvidenceProjection",
@@ -38,12 +50,16 @@ __all__ = [
     "RedactionError",
     "ReserveAttemptResult",
     "StaleRevisionError",
+    "ToolCapability",
+    "ToolDeniedError",
+    "ToolSchemaError",
     "TransitionResult",
     "UnitOfWork",
     "__version__",
     "append_evidence_command",
     "apply_transition",
     "decide_approval_command",
+    "default_ai_tool_registry",
     "enqueue_outbox",
     "project_evidence_for_llm",
     "reserve_execution_attempt_command",
