@@ -16,6 +16,29 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | --- | --- |
 | [docs/product-overview.md](docs/product-overview.md) | Product goal, closed loop, locked design decisions |
 | [docs/git-standards.md](docs/git-standards.md) | Branching, commits, PRs (`main` / `dev`) |
+| [docs/repo-layout.md](docs/repo-layout.md) | Monorepo packages ↔ deployables |
+| [docs/local-compose.md](docs/local-compose.md) | Compose profiles (`core` / `evidence` / `simulation` / `full`) |
+| [docs/db.md](docs/db.md) | Postgres schemas, roles, migrations, GT isolation |
+| [docs/outbox.md](docs/outbox.md) | Transactional outbox + idempotency semantics |
+| [docs/command-layer.md](docs/command-layer.md) | Shared domain commands (API + workers) |
+| [docs/api.md](docs/api.md) | HTTP API auth stub + local curl examples |
+| [openapi/openapi.json](openapi/openapi.json) | Published HTTP OpenAPI contract |
+
+## Repository layout
+
+| Path | Deployable / role |
+| --- | --- |
+| `api/` | `incidentpilot-api` (FastAPI) |
+| `worker/` | `incidentpilot-worker` (Temporal + reasoning) |
+| `remediation_worker/` | privileged remediation execute |
+| `web/` | `incidentpilot-web` dashboard |
+| `shared/` | shared domain library |
+| `adapters/` | outbound integrations |
+| `simulation/` | demo microservices |
+| `scenario_runner/` | scenario runner (no GroundTruth) |
+| `evaluator/` | evaluator (GroundTruth-isolated) |
+
+Details: [docs/repo-layout.md](docs/repo-layout.md).
 
 ## Stack (summary)
 
@@ -43,17 +66,57 @@ See [docs/git-standards.md](docs/git-standards.md).
 
 ## Local development
 
-Local Compose profiles and `make` targets will land with the platform foundation.
-Until then:
+Requires **Python 3.12+**.
 
 ```bash
 git clone git@github.com:level-init/incidentpilot.git
 cd incidentpilot
 git checkout dev
+
+make bootstrap   # creates .venv + installs ruff, mypy, pytest
+make lint        # ruff check + format check + mypy
+make test        # pytest smoke imports
+make format      # auto-fix lint + format (optional)
+```
+
+| Target | Purpose |
+| --- | --- |
+| `make bootstrap` | Create `.venv` and install `requirements-dev.txt` |
+| `make lint` | Ruff lint + format check + mypy |
+| `make format` | Apply ruff fixes / format |
+| `make typecheck` | mypy only |
+| `make test` | pytest (scaffold smoke tests for now) |
+| `make compose-core` | Start `core` infra (Postgres, Temporal, local S3 + buckets) |
+| `make compose-full` | Start all profiles (includes optional Redis) |
+| `make compose-down` | Stop compose services |
+| `make compose-config` | Validate compose YAML for `PROFILE` (default `core`) |
+| `make migrate` | Apply SQL migrations (`domain` / `scenarios` / `eval` + roles) |
+| `make db-verify-isolation` | Prove GroundTruth denied for `ip_app` / `ip_runner` |
+| `make verify-local-infra` | Temporal UI + local S3 put/get smoke |
+| `make openapi-export` | Write `openapi/openapi.json` from FastAPI app |
+| `make api-run` | Run local API on :8000 (`Bearer local-dev`) |
+
+### Compose profiles
+
+```bash
+cp .env.example .env    # optional; never commit .env
+make compose-core       # postgres + temporal + local S3 (Silo) + bucket init
+docker compose --profile core --profile redis up -d   # optional cache
+make compose-up PROFILE=evidence
+make compose-full
+```
+
+Details and local ports: [docs/local-compose.md](docs/local-compose.md).
+DB roles / GT isolation: [docs/db.md](docs/db.md). Tool config: `pyproject.toml`.
+
+```bash
+make compose-core
+make migrate
+make db-verify-isolation
+make verify-local-infra
 ```
 
 ## Status
 
-Early stage: documentation and collaboration standards first; implementation
-follows the product overview’s build order (simulator-first vertical, then
-widen).
+Foundation (Epic A) done. Epic B (Domain SoR) completes with OpenAPI (B8).
+Next epic after B ships to `main`: Epic C (Auth & security).
