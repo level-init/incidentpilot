@@ -99,4 +99,4 @@ Migrations are recorded in `public.schema_migrations`.
 It enforces Freeze-2 legal edges and `expected_revision` optimistic concurrency.
 Persist via `apply_transition(conn, ...)`.
 
-Outbox / command layer land in B6–B7.
+Outbox + idempotency: [outbox.md](outbox.md) (B6). Command layer: B7.
