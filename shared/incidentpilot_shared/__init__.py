@@ -1,5 +1,14 @@
 """Shared domain library for IncidentPilot deployables."""
 
+from incidentpilot_shared.ai_tools import (
+    AI_SANDBOX_IDENTITY,
+    DENIED_TOOL_NAMES,
+    AiToolRegistry,
+    ToolCapability,
+    ToolDeniedError,
+    ToolSchemaError,
+    default_ai_tool_registry,
+)
 from incidentpilot_shared.domain import (
     AppendEvidenceResult,
     ApprovalDecisionResult,
@@ -19,25 +28,50 @@ from incidentpilot_shared.domain import (
     transition_incident_command,
     try_begin_idempotent,
 )
+from incidentpilot_shared.redaction import (
+    EvidenceProjection,
+    RedactionError,
+    project_evidence_for_llm,
+    supply_projection_to_llm,
+)
+from incidentpilot_shared.tool_scope import (
+    ScopeViolationError,
+    ToolScope,
+    enforce_tool_scope,
+)
 
 __version__ = "0.0.0"
 
 __all__ = [
+    "AI_SANDBOX_IDENTITY",
+    "DENIED_TOOL_NAMES",
+    "AiToolRegistry",
     "AppendEvidenceResult",
     "ApprovalDecisionResult",
+    "EvidenceProjection",
     "IllegalTransitionError",
     "IncidentState",
     "OutboxRequiredError",
+    "RedactionError",
     "ReserveAttemptResult",
+    "ScopeViolationError",
     "StaleRevisionError",
+    "ToolCapability",
+    "ToolDeniedError",
+    "ToolSchemaError",
+    "ToolScope",
     "TransitionResult",
     "UnitOfWork",
     "__version__",
     "append_evidence_command",
     "apply_transition",
     "decide_approval_command",
+    "default_ai_tool_registry",
+    "enforce_tool_scope",
     "enqueue_outbox",
+    "project_evidence_for_llm",
     "reserve_execution_attempt_command",
+    "supply_projection_to_llm",
     "transition_incident",
     "transition_incident_command",
     "try_begin_idempotent",

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "IncidentPilot API",
-    "description": "Evidence-driven incident-response control plane HTTP surface. Auth is a local stub (`Bearer local-dev`) until Epic C.",
+    "description": "Evidence-driven incident-response control plane HTTP surface. Session identity: Bearer stub tokens (see docs/auth.md); client-supplied actor_id is rejected. GroundTruth requires eval entitlement (C3), separate from ops RBAC.",
     "version": "0.1.0"
   },
   "paths": {
@@ -49,38 +49,6 @@
                 }
               ],
               "title": "Authorization"
-            }
-          },
-          {
-            "name": "X-Actor",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor"
-            }
-          },
-          {
-            "name": "X-Role",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role"
             }
           }
         ],
@@ -132,38 +100,6 @@
                 }
               ],
               "title": "Authorization"
-            }
-          },
-          {
-            "name": "X-Actor",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor"
-            }
-          },
-          {
-            "name": "X-Role",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role"
             }
           }
         ],
@@ -234,38 +170,6 @@
               ],
               "title": "Authorization"
             }
-          },
-          {
-            "name": "X-Actor",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor"
-            }
-          },
-          {
-            "name": "X-Role",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role"
-            }
           }
         ],
         "responses": {
@@ -324,38 +228,6 @@
                 }
               ],
               "title": "Authorization"
-            }
-          },
-          {
-            "name": "X-Actor",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor"
-            }
-          },
-          {
-            "name": "X-Role",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role"
             }
           }
         ],
@@ -433,38 +305,6 @@
               ],
               "title": "Authorization"
             }
-          },
-          {
-            "name": "X-Actor",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor"
-            }
-          },
-          {
-            "name": "X-Role",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role"
-            }
           }
         ],
         "responses": {
@@ -534,38 +374,6 @@
                 }
               ],
               "title": "Authorization"
-            }
-          },
-          {
-            "name": "X-Actor",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor"
-            }
-          },
-          {
-            "name": "X-Role",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role"
             }
           }
         ],
@@ -637,38 +445,6 @@
               ],
               "title": "Authorization"
             }
-          },
-          {
-            "name": "X-Actor",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor"
-            }
-          },
-          {
-            "name": "X-Role",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role"
-            }
           }
         ],
         "responses": {
@@ -739,38 +515,6 @@
               ],
               "title": "Authorization"
             }
-          },
-          {
-            "name": "X-Actor",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor"
-            }
-          },
-          {
-            "name": "X-Role",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role"
-            }
           }
         ],
         "responses": {
@@ -823,38 +567,6 @@
                 }
               ],
               "title": "Authorization"
-            }
-          },
-          {
-            "name": "X-Actor",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor"
-            }
-          },
-          {
-            "name": "X-Role",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role"
             }
           }
         ],
@@ -919,38 +631,6 @@
               ],
               "title": "Authorization"
             }
-          },
-          {
-            "name": "X-Actor",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor"
-            }
-          },
-          {
-            "name": "X-Role",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role"
-            }
           }
         ],
         "responses": {
@@ -1014,38 +694,6 @@
               ],
               "title": "Authorization"
             }
-          },
-          {
-            "name": "X-Actor",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Actor"
-            }
-          },
-          {
-            "name": "X-Role",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Role"
-            }
           }
         ],
         "responses": {
@@ -1055,6 +703,216 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PostmortemOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incidents/{incident_id}/observations": {
+      "post": {
+        "tags": [
+          "human"
+        ],
+        "summary": "Create Human Observation",
+        "description": "HUMAN_OBSERVATION evidence \u2014 actor_id from session, never from body.",
+        "operationId": "create_human_observation_incidents__incident_id__observations_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HumanObservationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/approvals/{approval_id}/decide": {
+      "post": {
+        "tags": [
+          "human"
+        ],
+        "summary": "Decide Approval",
+        "description": "Approval decision \u2014 session actor; gated by RBAC + PolicyDecision.",
+        "operationId": "decide_approval_approvals__approval_id__decide_post",
+        "parameters": [
+          {
+            "name": "approval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Approval Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalDecideBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/eval/ground-truth": {
+      "get": {
+        "tags": [
+          "eval"
+        ],
+        "summary": "List Ground Truth",
+        "description": "Read GroundTruth \u2014 requires eval entitlement (not ops Admin/Responder).",
+        "operationId": "list_ground_truth_eval_ground_truth_get",
+        "parameters": [
+          {
+            "name": "scenario_key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scenario Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GroundTruthOut"
+                  },
+                  "title": "Response List Ground Truth Eval Ground Truth Get"
                 }
               }
             }
@@ -1163,6 +1021,20 @@
         ],
         "title": "AlertOut"
       },
+      "ApprovalDecideBody": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "APPROVED or REJECTED"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ApprovalDecideBody"
+      },
       "ApprovalOut": {
         "properties": {
           "id": {
@@ -1255,6 +1127,36 @@
         ],
         "title": "EvidenceOut"
       },
+      "GroundTruthOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "scenario_key": {
+            "type": "string",
+            "title": "Scenario Key"
+          },
+          "answer_payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Answer Payload"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "scenario_key",
+          "created_at"
+        ],
+        "title": "GroundTruthOut"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1283,6 +1185,26 @@
         },
         "type": "object",
         "title": "HealthResponse"
+      },
+      "HumanObservationCreate": {
+        "properties": {
+          "summary": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Summary"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary"
+        ],
+        "title": "HumanObservationCreate"
       },
       "HypothesisOut": {
         "properties": {
