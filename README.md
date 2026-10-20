@@ -21,7 +21,8 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/db.md](docs/db.md) | Postgres schemas, roles, migrations, GT isolation |
 | [docs/outbox.md](docs/outbox.md) | Transactional outbox + idempotency semantics |
 | [docs/command-layer.md](docs/command-layer.md) | Shared domain commands (API + workers) |
-| [docs/api.md](docs/api.md) | HTTP API auth stub + local curl examples |
+| [docs/api.md](docs/api.md) | HTTP API local curl examples |
+| [docs/auth.md](docs/auth.md) | Session identity (stub → OIDC contract) |
 | [openapi/openapi.json](openapi/openapi.json) | Published HTTP OpenAPI contract |
 
 ## Repository layout

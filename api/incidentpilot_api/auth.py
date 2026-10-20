@@ -1,13 +1,19 @@
-"""Auth stub until Epic C (OIDC + RBAC)."""
+"""Session identity (C1).
+
+Contract is identical for local stub and future OIDC:
+- `actor_id` is bound from the verified session/token only
+- Clients must never supply `actor_id` / `actor` / `decided_by` in bodies
+"""
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Any, Literal
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 
 
 class Role(StrEnum):
@@ -16,22 +22,89 @@ class Role(StrEnum):
     ADMIN = "admin"
 
 
+AuthMode = Literal["stub", "oidc"]
+
+
 @dataclass(frozen=True, slots=True)
 class Principal:
-    actor: str
+    """Authenticated session principal — source of human provenance."""
+
+    actor_id: str
     role: Role
+    auth_mode: AuthMode
+    email: str | None = None
+
+    @property
+    def actor(self) -> str:
+        """Legacy alias used by timeline/outbox fields."""
+        return self.actor_id
+
+
+# Local stub token → session map (AUTH_MODE=stub). OIDC replaces resolve_principal().
+_STUB_SESSIONS: dict[str, Principal] = {
+    "local-dev": Principal(
+        actor_id="user_local_dev",
+        role=Role.RESPONDER,
+        auth_mode="stub",
+        email="local-dev@incidentpilot.local",
+    ),
+    "local-dev-admin": Principal(
+        actor_id="user_local_admin",
+        role=Role.ADMIN,
+        auth_mode="stub",
+        email="admin@incidentpilot.local",
+    ),
+    "local-dev-viewer": Principal(
+        actor_id="user_local_viewer",
+        role=Role.VIEWER,
+        auth_mode="stub",
+        email="viewer@incidentpilot.local",
+    ),
+}
+
+
+FORBIDDEN_CLIENT_IDENTITY_FIELDS = frozenset({"actor_id", "actor", "decided_by", "observed_by"})
+
+
+def auth_mode() -> AuthMode:
+    mode = os.environ.get("AUTH_MODE", "stub").lower()
+    if mode not in {"stub", "oidc"}:
+        return "stub"
+    return mode  # type: ignore[return-value]
+
+
+def _resolve_stub(token: str) -> Principal:
+    principal = _STUB_SESSIONS.get(token)
+    if principal is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=(
+                "unknown stub token; use Bearer local-dev | local-dev-admin | "
+                "local-dev-viewer (see docs/auth.md)"
+            ),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return principal
+
+
+def _resolve_oidc(token: str) -> Principal:
+    """Placeholder for Epic C OIDC validation — same Principal contract."""
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="AUTH_MODE=oidc is not wired yet; use AUTH_MODE=stub (docs/auth.md)",
+    )
+
+
+def resolve_bearer_token(token: str) -> Principal:
+    if auth_mode() == "oidc":
+        return _resolve_oidc(token)
+    return _resolve_stub(token)
 
 
 def get_principal(
     authorization: Annotated[str | None, Header()] = None,
-    x_actor: Annotated[str | None, Header(alias="X-Actor")] = None,
-    x_role: Annotated[str | None, Header(alias="X-Role")] = None,
 ) -> Principal:
-    """Accept `Authorization: Bearer local-dev` plus optional actor/role headers.
-
-    401 if bearer missing/invalid. Role defaults to responder for local DX.
-    Full OIDC/RBAC lands in C1/C2; 403 hooks use require_roles().
-    """
+    """Bind Principal from Authorization bearer only (no client actor headers)."""
     if authorization is None or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -39,23 +112,38 @@ def get_principal(
             headers={"WWW-Authenticate": "Bearer"},
         )
     token = authorization.removeprefix("Bearer ").strip()
-    if token != "local-dev":
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid bearer token (use local-dev until OIDC)",
+            detail="empty bearer token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    return resolve_bearer_token(token)
 
-    role_raw = (x_role or Role.RESPONDER.value).lower()
+
+async def reject_spoofed_identity(request: Request) -> None:
+    """Reject client-supplied identity fields on JSON bodies (C1)."""
+    if request.method not in {"POST", "PUT", "PATCH"}:
+        return
+    content_type = request.headers.get("content-type", "")
+    if "application/json" not in content_type:
+        return
     try:
-        role = Role(role_raw)
-    except ValueError as exc:
+        body: Any = await request.json()
+    except Exception:
+        return
+    if not isinstance(body, dict):
+        return
+    spoofed = FORBIDDEN_CLIENT_IDENTITY_FIELDS.intersection(body.keys())
+    if spoofed:
+        fields = ", ".join(sorted(spoofed))
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"unknown role: {role_raw}",
-        ) from exc
-
-    return Principal(actor=x_actor or "local-user", role=role)
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"client-supplied identity field(s) forbidden: {fields}; "
+                "actor_id is bound from the authenticated session only"
+            ),
+        )
 
 
 def require_roles(*allowed: Role) -> Callable[..., Principal]:
