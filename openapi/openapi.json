@@ -796,7 +796,7 @@
           "human"
         ],
         "summary": "Decide Approval",
-        "description": "Approval decision \u2014 decided_by is always the session actor_id.",
+        "description": "Approval decision \u2014 session actor; gated by RBAC + PolicyDecision.",
         "operationId": "decide_approval_approvals__approval_id__decide_post",
         "parameters": [
           {

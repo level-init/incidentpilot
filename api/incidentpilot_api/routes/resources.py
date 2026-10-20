@@ -11,6 +11,7 @@ from psycopg.rows import dict_row
 
 from incidentpilot_api.auth import Principal, get_principal
 from incidentpilot_api.db import get_conn
+from incidentpilot_api.rbac import Permission, require_permission
 from incidentpilot_api.schemas import (
     ActionOut,
     AlertOut,
@@ -26,10 +27,11 @@ router = APIRouter(tags=["resources"])
 
 @router.get("/alerts", response_model=list[AlertOut])
 def list_alerts(
-    _principal: Annotated[Principal, Depends(get_principal)],
+    principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn)],
     incident_id: UUID | None = None,
 ) -> list[AlertOut]:
+    require_permission(principal, Permission.INCIDENT_READ)
     sql = """
         SELECT id, fingerprint, source, status, incident_id, received_at
         FROM domain.alert
@@ -46,10 +48,11 @@ def list_alerts(
 
 @router.get("/evidence", response_model=list[EvidenceOut])
 def list_evidence(
-    _principal: Annotated[Principal, Depends(get_principal)],
+    principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn)],
     incident_id: UUID | None = None,
 ) -> list[EvidenceOut]:
+    require_permission(principal, Permission.INCIDENT_READ)
     sql = """
         SELECT id, evidence_key, incident_id, kind, summary, fingerprint,
                observed_at, producer
@@ -67,10 +70,11 @@ def list_evidence(
 
 @router.get("/hypotheses", response_model=list[HypothesisOut])
 def list_hypotheses(
-    _principal: Annotated[Principal, Depends(get_principal)],
+    principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn)],
     incident_id: UUID | None = None,
 ) -> list[HypothesisOut]:
+    require_permission(principal, Permission.INCIDENT_READ)
     sql = """
         SELECT id, incident_id, status, statement, proposed_by, confidence
         FROM domain.hypothesis
@@ -87,10 +91,11 @@ def list_hypotheses(
 
 @router.get("/actions", response_model=list[ActionOut])
 def list_actions(
-    _principal: Annotated[Principal, Depends(get_principal)],
+    principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn)],
     incident_id: UUID | None = None,
 ) -> list[ActionOut]:
+    require_permission(principal, Permission.INCIDENT_READ)
     sql = """
         SELECT id, incident_id, action_type, status, current_version, is_reversible
         FROM domain.action
@@ -107,9 +112,10 @@ def list_actions(
 
 @router.get("/approvals", response_model=list[ApprovalOut])
 def list_approvals(
-    _principal: Annotated[Principal, Depends(get_principal)],
+    principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn)],
 ) -> list[ApprovalOut]:
+    require_permission(principal, Permission.INCIDENT_READ)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
@@ -125,9 +131,10 @@ def list_approvals(
 @router.get("/incidents/{incident_id}/timeline", response_model=list[TimelineEventOut])
 def list_timeline(
     incident_id: UUID,
-    _principal: Annotated[Principal, Depends(get_principal)],
+    principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn)],
 ) -> list[TimelineEventOut]:
+    require_permission(principal, Permission.INCIDENT_READ)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
@@ -145,9 +152,10 @@ def list_timeline(
 @router.get("/incidents/{incident_id}/postmortem", response_model=PostmortemOut)
 def get_postmortem(
     incident_id: UUID,
-    _principal: Annotated[Principal, Depends(get_principal)],
+    principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn)],
 ) -> PostmortemOut:
+    require_permission(principal, Permission.INCIDENT_READ)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """

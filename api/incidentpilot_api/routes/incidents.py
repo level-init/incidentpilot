@@ -8,9 +8,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from psycopg import Connection
 from psycopg.rows import dict_row
 
-from incidentpilot_api.auth import Principal, Role, get_principal, require_roles
+from incidentpilot_api.auth import Principal, get_principal
 from incidentpilot_api.commands import transition_incident_command
 from incidentpilot_api.db import get_conn
+from incidentpilot_api.rbac import Permission, require_permission
 from incidentpilot_api.schemas import (
     IncidentCreate,
     IncidentOut,
@@ -46,9 +47,10 @@ def _row_to_incident(row: dict[str, object]) -> IncidentOut:
 
 @router.get("", response_model=list[IncidentOut])
 def list_incidents(
-    _principal: Annotated[Principal, Depends(get_principal)],
+    principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn)],
 ) -> list[IncidentOut]:
+    require_permission(principal, Permission.INCIDENT_READ)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
@@ -65,9 +67,10 @@ def list_incidents(
 @router.post("", response_model=IncidentOut, status_code=status.HTTP_201_CREATED)
 def create_incident(
     body: IncidentCreate,
-    principal: Annotated[Principal, Depends(require_roles(Role.RESPONDER, Role.ADMIN))],
+    principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn)],
 ) -> IncidentOut:
+    require_permission(principal, Permission.INCIDENT_WRITE)
     incident_id = uuid4()
     public_id = f"INC-{incident_id.hex[:8].upper()}"
     with conn.cursor(row_factory=dict_row) as cur:
@@ -112,9 +115,10 @@ def create_incident(
 @router.get("/{incident_id}", response_model=IncidentOut)
 def get_incident(
     incident_id: UUID,
-    _principal: Annotated[Principal, Depends(get_principal)],
+    principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn)],
 ) -> IncidentOut:
+    require_permission(principal, Permission.INCIDENT_READ)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
@@ -134,9 +138,10 @@ def get_incident(
 def transition_incident(
     incident_id: UUID,
     body: IncidentTransition,
-    principal: Annotated[Principal, Depends(require_roles(Role.RESPONDER, Role.ADMIN))],
+    principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn)],
 ) -> IncidentOut:
+    require_permission(principal, Permission.INCIDENT_WRITE)
     try:
         to_state = IncidentState(body.to_state)
     except ValueError as exc:

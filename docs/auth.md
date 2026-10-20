@@ -9,7 +9,7 @@ JSON bodies — those fields are rejected with **400**.
 | Field | Meaning |
 | --- | --- |
 | `actor_id` | Stable subject id from the session |
-| `role` | Ops role (viewer / responder / admin) — full RBAC in C2 |
+| `role` | Ops role (viewer / responder / admin) — see RBAC below |
 | `auth_mode` | `stub` or `oidc` |
 | `email` | Optional |
 
@@ -43,6 +43,21 @@ Session identity on human actions:
 - `POST /incidents/{id}/observations` → Evidence `HUMAN_OBSERVATION` with
   `provenance.actor_id` = session
 - `POST /approvals/{id}/decide` → `decided_by` = session `actor_id`
+
+## Ops RBAC (C2)
+
+| Permission | Viewer | Responder | Admin |
+| --- | --- | --- | --- |
+| `incident:read` | ✓ | ✓ | ✓ |
+| `incident:write` | | ✓ | ✓ |
+| `observation:write` | | ✓ | ✓ |
+| `approval:decide` | | ✓ | ✓ |
+| `admin:config` | | | ✓ |
+
+**Non-negotiable:** a `PolicyDecision` of `BLOCK` cannot be approved by anyone,
+including Admin. Approval is only allowed when policy is `REQUIRE_APPROVAL`.
+
+Stub tokens map to roles (table above). Implementation: `api/incidentpilot_api/rbac.py`.
 
 ## Swap stub → OIDC (`AUTH_MODE=oidc`)
 
