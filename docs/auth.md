@@ -18,11 +18,12 @@ HTTP: `Authorization: Bearer <token>` only. Identity headers like `X-Actor` are
 
 ## Local stub (`AUTH_MODE=stub`, default)
 
-| Bearer token | `actor_id` | role |
-| --- | --- | --- |
-| `local-dev` | `user_local_dev` | responder |
-| `local-dev-admin` | `user_local_admin` | admin |
-| `local-dev-viewer` | `user_local_viewer` | viewer |
+| Bearer token | `actor_id` | ops role | `eval_entitled` |
+| --- | --- | --- | --- |
+| `local-dev` | `user_local_dev` | responder | no |
+| `local-dev-admin` | `user_local_admin` | admin | no |
+| `local-dev-viewer` | `user_local_viewer` | viewer | no |
+| `local-dev-evaluator` | `user_local_evaluator` | viewer | **yes** |
 
 ```bash
 curl -s -H 'Authorization: Bearer local-dev' http://localhost:8000/incidents
@@ -58,6 +59,18 @@ Session identity on human actions:
 including Admin. Approval is only allowed when policy is `REQUIRE_APPROVAL`.
 
 Stub tokens map to roles (table above). Implementation: `api/incidentpilot_api/rbac.py`.
+
+## Eval entitlement (C3) — separate authz domain
+
+GroundTruth / answer-key APIs use `principal.eval_entitled`, **not** ops role.
+
+| Who | `GET /eval/ground-truth` |
+| --- | --- |
+| Responder / Admin (ops only) | **403** |
+| Evaluator stub (`local-dev-evaluator`) | **200** (uses `ip_evaluator` DB role) |
+
+Ops Admin does **not** imply eval access. DB isolation (`ip_app` denied on
+`eval.ground_truth`) remains the second line of defense.
 
 ## Swap stub → OIDC (`AUTH_MODE=oidc`)
 

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "IncidentPilot API",
-    "description": "Evidence-driven incident-response control plane HTTP surface. Session identity: Bearer stub tokens (see docs/auth.md); client-supplied actor_id is rejected.",
+    "description": "Evidence-driven incident-response control plane HTTP surface. Session identity: Bearer stub tokens (see docs/auth.md); client-supplied actor_id is rejected. GroundTruth requires eval entitlement (C3), separate from ops RBAC.",
     "version": "0.1.0"
   },
   "paths": {
@@ -859,6 +859,76 @@
           }
         }
       }
+    },
+    "/eval/ground-truth": {
+      "get": {
+        "tags": [
+          "eval"
+        ],
+        "summary": "List Ground Truth",
+        "description": "Read GroundTruth \u2014 requires eval entitlement (not ops Admin/Responder).",
+        "operationId": "list_ground_truth_eval_ground_truth_get",
+        "parameters": [
+          {
+            "name": "scenario_key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scenario Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GroundTruthOut"
+                  },
+                  "title": "Response List Ground Truth Eval Ground Truth Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1056,6 +1126,36 @@
           "producer"
         ],
         "title": "EvidenceOut"
+      },
+      "GroundTruthOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "scenario_key": {
+            "type": "string",
+            "title": "Scenario Key"
+          },
+          "answer_payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Answer Payload"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "scenario_key",
+          "created_at"
+        ],
+        "title": "GroundTruthOut"
       },
       "HTTPValidationError": {
         "properties": {
