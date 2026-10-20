@@ -68,6 +68,7 @@ def test_openapi_json_validates(client: TestClient) -> None:
         "/hypotheses",
         "/actions",
         "/approvals",
+        "/eval/ground-truth",
     ):
         assert required in paths
 

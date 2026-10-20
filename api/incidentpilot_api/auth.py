@@ -27,12 +27,17 @@ AuthMode = Literal["stub", "oidc"]
 
 @dataclass(frozen=True, slots=True)
 class Principal:
-    """Authenticated session principal — source of human provenance."""
+    """Authenticated session principal — source of human provenance.
+
+    `role` is ops RBAC only. `eval_entitled` is a separate authz domain (C3)
+    and is never implied by Viewer/Responder/Admin.
+    """
 
     actor_id: str
     role: Role
     auth_mode: AuthMode
     email: str | None = None
+    eval_entitled: bool = False
 
     @property
     def actor(self) -> str:
@@ -47,18 +52,29 @@ _STUB_SESSIONS: dict[str, Principal] = {
         role=Role.RESPONDER,
         auth_mode="stub",
         email="local-dev@incidentpilot.local",
+        eval_entitled=False,
     ),
     "local-dev-admin": Principal(
         actor_id="user_local_admin",
         role=Role.ADMIN,
         auth_mode="stub",
         email="admin@incidentpilot.local",
+        eval_entitled=False,
     ),
     "local-dev-viewer": Principal(
         actor_id="user_local_viewer",
         role=Role.VIEWER,
         auth_mode="stub",
         email="viewer@incidentpilot.local",
+        eval_entitled=False,
+    ),
+    # Eval entitlement is orthogonal to ops role (minimal ops role + eval flag).
+    "local-dev-evaluator": Principal(
+        actor_id="user_local_evaluator",
+        role=Role.VIEWER,
+        auth_mode="stub",
+        email="evaluator@incidentpilot.local",
+        eval_entitled=True,
     ),
 }
 
@@ -80,7 +96,7 @@ def _resolve_stub(token: str) -> Principal:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=(
                 "unknown stub token; use Bearer local-dev | local-dev-admin | "
-                "local-dev-viewer (see docs/auth.md)"
+                "local-dev-viewer | local-dev-evaluator (see docs/auth.md)"
             ),
             headers={"WWW-Authenticate": "Bearer"},
         )

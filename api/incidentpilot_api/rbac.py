@@ -19,6 +19,8 @@ class Permission(StrEnum):
     OBSERVATION_WRITE = "observation:write"
     APPROVAL_DECIDE = "approval:decide"
     ADMIN_CONFIG = "admin:config"
+    # Eval domain (C3) — never granted via ops ROLE_PERMISSIONS alone.
+    EVAL_GROUND_TRUTH_READ = "eval:ground_truth:read"
 
 
 ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
@@ -44,15 +46,30 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
 
 
 def has_permission(principal: Principal, permission: Permission) -> bool:
+    if permission is Permission.EVAL_GROUND_TRUTH_READ:
+        return principal.eval_entitled
     return permission in ROLE_PERMISSIONS.get(principal.role, frozenset())
 
 
 def require_permission(principal: Principal, permission: Permission) -> None:
     if not has_permission(principal, permission):
+        if permission is Permission.EVAL_GROUND_TRUTH_READ:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "GroundTruth requires eval entitlement; "
+                    f"ops role {principal.role} is not sufficient"
+                ),
+            )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"role {principal.role} lacks permission {permission}",
         )
+
+
+def require_eval_entitlement(principal: Principal) -> None:
+    """Explicit C3 gate — ops Admin/Responder alone must fail."""
+    require_permission(principal, Permission.EVAL_GROUND_TRUTH_READ)
 
 
 def assert_approval_allowed_by_policy(decision: str | None) -> None:
