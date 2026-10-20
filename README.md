@@ -20,6 +20,7 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/local-compose.md](docs/local-compose.md) | Compose profiles (`core` / `evidence` / `simulation` / `full`) |
 | [docs/db.md](docs/db.md) | Postgres schemas, roles, migrations, GT isolation |
 | [docs/outbox.md](docs/outbox.md) | Transactional outbox + idempotency semantics |
+| [docs/command-layer.md](docs/command-layer.md) | Shared domain commands (API + workers) |
 
 ## Repository layout
 
