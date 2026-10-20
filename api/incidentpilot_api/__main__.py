@@ -1,12 +1,16 @@
-"""Placeholder entrypoint for incidentpilot-api.
+"""Run: python -m incidentpilot_api"""
 
-Real FastAPI app wiring lands in later foundation / domain tickets.
-"""
+from __future__ import annotations
 
 
 def main() -> None:
-    raise SystemExit(
-        "incidentpilot-api is scaffolded only; application code is not implemented yet."
+    import uvicorn
+
+    uvicorn.run(
+        "incidentpilot_api.app:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=False,
     )
 
 

@@ -21,6 +21,8 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/db.md](docs/db.md) | Postgres schemas, roles, migrations, GT isolation |
 | [docs/outbox.md](docs/outbox.md) | Transactional outbox + idempotency semantics |
 | [docs/command-layer.md](docs/command-layer.md) | Shared domain commands (API + workers) |
+| [docs/api.md](docs/api.md) | HTTP API auth stub + local curl examples |
+| [openapi/openapi.json](openapi/openapi.json) | Published HTTP OpenAPI contract |
 
 ## Repository layout
 
@@ -91,6 +93,8 @@ make format      # auto-fix lint + format (optional)
 | `make migrate` | Apply SQL migrations (`domain` / `scenarios` / `eval` + roles) |
 | `make db-verify-isolation` | Prove GroundTruth denied for `ip_app` / `ip_runner` |
 | `make verify-local-infra` | Temporal UI + local S3 put/get smoke |
+| `make openapi-export` | Write `openapi/openapi.json` from FastAPI app |
+| `make api-run` | Run local API on :8000 (`Bearer local-dev`) |
 
 ### Compose profiles
 
@@ -114,5 +118,5 @@ make verify-local-infra
 
 ## Status
 
-Foundation A2–A6 done. Epic B starts with domain Incident/Alert/Evidence schema (B1).
-Next after B1: B2 hypotheses/changes/runbooks (#7).
+Foundation (Epic A) done. Epic B (Domain SoR) completes with OpenAPI (B8).
+Next epic after B ships to `main`: Epic C (Auth & security).
