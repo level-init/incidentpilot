@@ -155,6 +155,14 @@ def test_approval_decide_uses_session_actor(client: TestClient) -> None:
             )
             cur.execute(
                 """
+                INSERT INTO domain.policy_decision (
+                    action_id, action_version, decision, reason
+                ) VALUES (%s, 1, 'REQUIRE_APPROVAL', 'level2')
+                """,
+                (str(action_id),),
+            )
+            cur.execute(
+                """
                 INSERT INTO domain.approval (id, action_id, action_version, status)
                 VALUES (%s, %s, 1, 'PENDING')
                 """,
