@@ -93,4 +93,10 @@ Migrations are recorded in `public.schema_migrations`.
 | `domain.ai_invocation` | Minimum AI provenance (artifacts URI later) |
 | `domain.postmortem` | DRAFT/FINAL; `corrective_actions` JSON array |
 
-State machine / outbox land in B5+.
+## Incident transitions (B5)
+
+`TransitionIncident` lives in `shared/incidentpilot_shared/domain/transitions.py`.
+It enforces Freeze-2 legal edges and `expected_revision` optimistic concurrency.
+Persist via `apply_transition(conn, ...)`.
+
+Outbox / command layer land in B6–B7.
