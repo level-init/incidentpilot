@@ -16,6 +16,8 @@ from typing import Any, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from incidentpilot_shared.tool_scope import ToolScope, enforce_tool_scope
+
 
 class ToolDeniedError(Exception):
     """Raised when the AI sandbox requests a forbidden or unregistered tool."""
@@ -198,6 +200,27 @@ class AiToolRegistry:
         except ValidationError as exc:
             raise ToolSchemaError(str(exc)) from exc
         return model.model_dump()
+
+    def validate_scoped_invocation(
+        self,
+        scope: ToolScope,
+        tool_name: str,
+        arguments: dict[str, Any],
+        *,
+        resource_owner_incident_id: str | None = None,
+        resource_environment: str | None = None,
+        resource_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Schema-validate then enforce incident/env/resource scope (C6)."""
+        validated = self.validate_args(tool_name, arguments)
+        enforce_tool_scope(
+            scope,
+            arguments=validated,
+            resource_owner_incident_id=resource_owner_incident_id,
+            resource_environment=resource_environment,
+            resource_id=resource_id,
+        )
+        return validated
 
     def json_schemas(self) -> dict[str, dict[str, Any]]:
         return {name: spec.json_schema() for name, spec in sorted(self._tools.items())}
