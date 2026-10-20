@@ -16,11 +16,11 @@ PROFILE ?= core
 
 .PHONY: bootstrap lint format typecheck test help \
 	compose-core compose-full compose-up compose-down compose-ps compose-config \
-	migrate db-verify-isolation verify-local-infra
+	migrate db-verify-isolation verify-local-infra openapi-export api-run
 
 help:
 	@echo "Targets:"
-	@echo "  make bootstrap             - create .venv and install requirements-dev.txt"
+	@echo "  make bootstrap             - create .venv and install requirements + dev tools"
 	@echo "  make lint                  - ruff check + format check + mypy"
 	@echo "  make format                - ruff format (writes files)"
 	@echo "  make typecheck             - mypy only"
@@ -34,11 +34,13 @@ help:
 	@echo "  make migrate               - apply deploy/db/migrations"
 	@echo "  make db-verify-isolation   - prove GT denied for ip_app/ip_runner; no app DDL"
 	@echo "  make verify-local-infra    - Temporal UI + local S3 put/get smoke"
+	@echo "  make openapi-export        - write openapi/openapi.json"
+	@echo "  make api-run               - run FastAPI on :8000"
 
 bootstrap:
 	$(PYTHON) -m venv $(VENV)
 	$(PIP) install --upgrade pip
-	$(PIP) install -r requirements-dev.txt
+	$(PIP) install -r requirements.txt -r requirements-dev.txt
 
 lint: $(VENV)
 	$(RUFF) check $(PY_SRC) tests
@@ -82,6 +84,13 @@ db-verify-isolation:
 
 verify-local-infra:
 	./scripts/verify_local_infra.sh
+
+openapi-export: $(VENV)
+	$(BIN)/python scripts/export_openapi.py
+
+api-run: $(VENV)
+	cd api && PYTHONPATH="$(CURDIR)/api:$(CURDIR)/shared:$$PYTHONPATH" \
+		../$(BIN)/python -m incidentpilot_api
 
 $(VENV):
 	@echo "Missing $(VENV). Run: make bootstrap" >&2
