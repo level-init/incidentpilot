@@ -50,3 +50,17 @@ Activities take `expected_revision` from a fresh Postgres snapshot, then call
 error; the workflow re-queries and retries with the new revision (D3). The
 workflow never inserts Incident rows (no duplicates on crash-resume). Optional
 signal `proceed_after_triaging` pauses after TRIAGING for kill/restart tests.
+
+## Durable timers (D5)
+
+After `INVESTIGATING`, `IncidentWorkflow` can arm three Temporal durable timers
+(`WorkflowTimerConfig`):
+
+| Timer name | Default | Purpose (handlers stubbed until I5/J7) |
+| --- | --- | --- |
+| `investigation_deadline` | 4h | Bound investigation window |
+| `approval_timeout` | 30m | Approval hanging approvals |
+| `validation_window` | 15m | Post-remediation validation wait |
+
+Timers use `workflow.sleep` and survive worker kill/restart; each name fires
+**once** per arming. Queries: `timers_armed`, `timer_fire_count(name)`.
