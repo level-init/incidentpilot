@@ -45,7 +45,8 @@ Workers subscribe briefly with a placeholder `queue_subscribe_ping` activity
 
 `DETECTED → TRIAGING → INVESTIGATING`
 
-Activities re-read Postgres (`state`, `incident_revision`) before each
-`transition_incident_command`. The workflow never inserts Incident rows (no
-duplicates on crash-resume). Optional signal `proceed_after_triaging` pauses
-after TRIAGING for kill/restart tests.
+Activities take `expected_revision` from a fresh Postgres snapshot, then call
+`transition_incident_command`. `StaleRevision` is a **non-retryable** Temporal
+error; the workflow re-queries and retries with the new revision (D3). The
+workflow never inserts Incident rows (no duplicates on crash-resume). Optional
+signal `proceed_after_triaging` pauses after TRIAGING for kill/restart tests.
