@@ -1,12 +1,13 @@
-"""IncidentWorkflow: DETECTED → TRIAGING → INVESTIGATING (D2/D3).
+"""IncidentWorkflow: DETECTED → TRIAGING → INVESTIGATING (+ durable timers).
 
-Activities take expected_revision. StaleRevision is non-retryable; the workflow
-re-queries Postgres and retries with a fresh revision. Optional
-``wait_after_triaging`` supports crash-resume tests.
+D2/D3: transition activities with expected_revision / StaleRevision re-query.
+D4: idempotent domain_event signals from the outbox dispatcher.
+D5: investigation / approval / validation durable timers (handlers stubbed).
 """
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, cast
@@ -20,6 +21,10 @@ with workflow.unsafe.imports_passed_through():
         STALE_REVISION_ERROR_TYPE,
     )
     from incidentpilot_worker.domain_events import DomainEventEnvelope
+    from incidentpilot_worker.workflows.timers import (
+        ALL_TIMER_NAMES,
+        WorkflowTimerConfig,
+    )
 
 
 @dataclass
@@ -27,6 +32,10 @@ class IncidentWorkflowInput:
     incident_id: str
     wait_after_triaging: bool = False
     wait_for_domain_event: bool = False
+    # D5: when set, arm durable timers after INVESTIGATING (stub handlers).
+    timers: WorkflowTimerConfig | None = None
+    # When set, block until that named timer has fired (tests / kill-resume).
+    wait_for_timer: str | None = None
 
 
 _EARLY_PATH = ("DETECTED", "TRIAGING", "INVESTIGATING")
@@ -47,6 +56,8 @@ class IncidentWorkflow:
         self._domain_event_count: int = 0
         self._last_domain_event: DomainEventEnvelope | None = None
         self._wait_for_domain_event: bool = False
+        self._timers_armed: list[str] = []
+        self._timer_fire_counts: dict[str, int] = {name: 0 for name in ALL_TIMER_NAMES}
 
     @workflow.signal
     def proceed_after_triaging(self) -> None:
@@ -55,11 +66,7 @@ class IncidentWorkflow:
 
     @workflow.signal
     def domain_event(self, envelope: DomainEventEnvelope) -> None:
-        """Idempotent outbox consumer — never applies domain transitions (D4).
-
-        Domain state was already committed with the outbox row. Duplicate
-        dispatches (at-least-once) must not double-transition.
-        """
+        """Idempotent outbox consumer — never applies domain transitions (D4)."""
         if envelope.message_id in self._seen_outbox_message_ids:
             return
         self._seen_outbox_message_ids.add(envelope.message_id)
@@ -69,6 +76,14 @@ class IncidentWorkflow:
     @workflow.query
     def domain_event_count(self) -> int:
         return self._domain_event_count
+
+    @workflow.query
+    def timers_armed(self) -> list[str]:
+        return list(self._timers_armed)
+
+    @workflow.query
+    def timer_fire_count(self, name: str) -> int:
+        return int(self._timer_fire_counts.get(name, 0))
 
     async def _load(self, incident_id: str) -> dict[str, Any]:
         result = await workflow.execute_activity(
@@ -90,7 +105,6 @@ class IncidentWorkflow:
             maximum_attempts=1,
             non_retryable_error_types=[STALE_REVISION_ERROR_TYPE],
         )
-        # Bound workflow-side re-query loops (activity itself is non-retryable on stale).
         for _ in range(8):
             snap = await self._load(incident_id)
             state = str(snap["state"])
@@ -124,25 +138,46 @@ class IncidentWorkflow:
             non_retryable=True,
         )
 
+    async def _fire_timer(self, name: str, delay: timedelta) -> None:
+        """Durable sleep then stub handler — survives worker death (D5)."""
+        if name not in self._timers_armed:
+            self._timers_armed.append(name)
+        await workflow.sleep(delay)
+        self._timer_fire_counts[name] = self._timer_fire_counts.get(name, 0) + 1
+        workflow.logger.info("durable timer fired: %s (stub handler)", name)
+
+    async def _arm_timers(self, config: WorkflowTimerConfig) -> None:
+        await asyncio.gather(
+            *[self._fire_timer(name, delay) for name, delay in config.as_named_delays()]
+        )
+
     @workflow.run
     async def run(self, input: IncidentWorkflowInput) -> str:
         self._wait_for_domain_event = input.wait_for_domain_event
 
         snap = await self._load(input.incident_id)
-        if snap["state"] == "INVESTIGATING":
-            if input.wait_for_domain_event:
-                await workflow.wait_condition(lambda: self._domain_event_count > 0)
-            return "INVESTIGATING"
+        if snap["state"] != "INVESTIGATING":
+            await self._advance_to(input.incident_id, "TRIAGING")
 
-        await self._advance_to(input.incident_id, "TRIAGING")
+            if input.wait_after_triaging:
+                await workflow.wait_condition(lambda: self._proceed_after_triaging)
 
-        if input.wait_after_triaging:
-            await workflow.wait_condition(lambda: self._proceed_after_triaging)
-
-        await self._advance_to(input.incident_id, "INVESTIGATING")
+            await self._advance_to(input.incident_id, "INVESTIGATING")
 
         if input.wait_for_domain_event:
             await workflow.wait_condition(lambda: self._domain_event_count > 0)
+
+        if input.timers is not None:
+            if input.wait_for_timer is not None:
+                # Arm all timers in background; wait for the named one (kill-resume).
+                for name, delay in input.timers.as_named_delays():
+                    asyncio.create_task(self._fire_timer(name, delay))
+                wait_name = input.wait_for_timer
+                await workflow.wait_condition(
+                    lambda: self._timer_fire_counts.get(wait_name, 0) >= 1
+                )
+            else:
+                await self._arm_timers(input.timers)
 
         final = await self._load(input.incident_id)
         return str(final["state"])
