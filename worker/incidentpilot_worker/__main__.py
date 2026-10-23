@@ -1,4 +1,4 @@
-"""Entrypoint for incidentpilot-worker / evidence-worker."""
+"""Entrypoint for incidentpilot-worker / evidence-worker / outbox dispatcher."""
 
 from __future__ import annotations
 
@@ -27,20 +27,33 @@ async def _run_forever(queues: tuple[TaskQueue, ...]) -> None:
     await asyncio.gather(*(w.run() for w in workers))
 
 
+async def _run_dispatcher(*, once: bool) -> None:
+    from incidentpilot_shared.temporal_runtime import connect_temporal
+    from incidentpilot_worker.outbox_dispatcher import dispatch_loop, dispatch_once
+
+    client = await connect_temporal()
+    if once:
+        n = await dispatch_once(client)
+        print(f"ok outbox dispatch once: published={n}")
+        return
+    print("starting outbox dispatcher loop", file=sys.stderr)
+    await dispatch_loop(client)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="incidentpilot_worker")
     parser.add_argument(
         "role",
         nargs="?",
         default="general",
-        choices=("general", "evidence", "smoke"),
-        help="general (default), evidence, or smoke all worker-owned queues",
+        choices=("general", "evidence", "smoke", "dispatch"),
+        help="general (default), evidence, smoke, or dispatch (outbox→signals)",
     )
     parser.add_argument(
         "smoke_flag",
         nargs="?",
-        choices=("smoke",),
-        help="with role general|evidence: run subscribe smoke and exit",
+        choices=("smoke", "once"),
+        help="with role general|evidence: smoke; with dispatch: once",
     )
     args = parser.parse_args(argv)
 
@@ -52,6 +65,10 @@ def main(argv: list[str] | None = None) -> None:
             ]
         )
         print("ok worker queue smoke:", ", ".join(names))
+        return
+
+    if args.role == "dispatch":
+        asyncio.run(_run_dispatcher(once=args.smoke_flag == "once"))
         return
 
     queues = _queues_for_role(args.role)

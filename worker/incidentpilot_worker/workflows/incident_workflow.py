@@ -19,12 +19,14 @@ with workflow.unsafe.imports_passed_through():
     from incidentpilot_worker.activities.incident_transitions import (
         STALE_REVISION_ERROR_TYPE,
     )
+    from incidentpilot_worker.domain_events import DomainEventEnvelope
 
 
 @dataclass
 class IncidentWorkflowInput:
     incident_id: str
     wait_after_triaging: bool = False
+    wait_for_domain_event: bool = False
 
 
 _EARLY_PATH = ("DETECTED", "TRIAGING", "INVESTIGATING")
@@ -41,11 +43,32 @@ def _rank(state: str) -> int:
 class IncidentWorkflow:
     def __init__(self) -> None:
         self._proceed_after_triaging = False
+        self._seen_outbox_message_ids: set[str] = set()
+        self._domain_event_count: int = 0
+        self._last_domain_event: DomainEventEnvelope | None = None
+        self._wait_for_domain_event: bool = False
 
     @workflow.signal
     def proceed_after_triaging(self) -> None:
         """Release the mid-triage pause (tests / operator resume)."""
         self._proceed_after_triaging = True
+
+    @workflow.signal
+    def domain_event(self, envelope: DomainEventEnvelope) -> None:
+        """Idempotent outbox consumer — never applies domain transitions (D4).
+
+        Domain state was already committed with the outbox row. Duplicate
+        dispatches (at-least-once) must not double-transition.
+        """
+        if envelope.message_id in self._seen_outbox_message_ids:
+            return
+        self._seen_outbox_message_ids.add(envelope.message_id)
+        self._domain_event_count += 1
+        self._last_domain_event = envelope
+
+    @workflow.query
+    def domain_event_count(self) -> int:
+        return self._domain_event_count
 
     async def _load(self, incident_id: str) -> dict[str, Any]:
         result = await workflow.execute_activity(
@@ -103,8 +126,12 @@ class IncidentWorkflow:
 
     @workflow.run
     async def run(self, input: IncidentWorkflowInput) -> str:
+        self._wait_for_domain_event = input.wait_for_domain_event
+
         snap = await self._load(input.incident_id)
         if snap["state"] == "INVESTIGATING":
+            if input.wait_for_domain_event:
+                await workflow.wait_condition(lambda: self._domain_event_count > 0)
             return "INVESTIGATING"
 
         await self._advance_to(input.incident_id, "TRIAGING")
@@ -113,6 +140,9 @@ class IncidentWorkflow:
             await workflow.wait_condition(lambda: self._proceed_after_triaging)
 
         await self._advance_to(input.incident_id, "INVESTIGATING")
+
+        if input.wait_for_domain_event:
+            await workflow.wait_condition(lambda: self._domain_event_count > 0)
 
         final = await self._load(input.incident_id)
         return str(final["state"])

@@ -10,9 +10,14 @@ from incidentpilot_shared.domain.commands import (
     transition_incident_command,
 )
 from incidentpilot_shared.domain.outbox import (
+    OutboxMessage,
     OutboxRequiredError,
     UnitOfWork,
     enqueue_outbox,
+    fetch_pending_outbox,
+    mark_outbox_published,
+    mark_outbox_retry,
+    release_outbox_lease,
     try_begin_idempotent,
 )
 from incidentpilot_shared.domain.transitions import (
@@ -29,6 +34,7 @@ __all__ = [
     "ApprovalDecisionResult",
     "IllegalTransitionError",
     "IncidentState",
+    "OutboxMessage",
     "OutboxRequiredError",
     "ReserveAttemptResult",
     "StaleRevisionError",
@@ -38,6 +44,10 @@ __all__ = [
     "apply_transition",
     "decide_approval_command",
     "enqueue_outbox",
+    "fetch_pending_outbox",
+    "mark_outbox_published",
+    "mark_outbox_retry",
+    "release_outbox_lease",
     "reserve_execution_attempt_command",
     "transition_incident",
     "transition_incident_command",

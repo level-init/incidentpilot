@@ -11,6 +11,8 @@ Also hosts the **evidence-worker** entrypoint (same package, separate task queue
 
 Smoke: `python -m incidentpilot_worker smoke` (or `make temporal-queue-smoke`).
 
+Outbox dispatcher (D4): `python -m incidentpilot_worker dispatch once`
+
 **Owns:** `IncidentWorkflow` on `incidentpilot-general` (D2 early path),
 transition activities, evidence/reasoning orchestration (later).
 

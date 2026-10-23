@@ -13,6 +13,7 @@ cannot succeed without at least one outbox enqueue in that unit of work.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
@@ -132,6 +133,158 @@ def enqueue_outbox(
                 ),
             )
     return message_id
+
+
+@dataclass(frozen=True, slots=True)
+class OutboxMessage:
+    """Pending (or recently claimed) outbox row for the dispatcher (D4)."""
+
+    id: UUID
+    aggregate_type: str
+    aggregate_id: str
+    event_type: str
+    payload: dict[str, Any]
+    headers: dict[str, Any]
+    attempts: int
+
+
+def fetch_pending_outbox(
+    conn: Connection,
+    *,
+    limit: int = 10,
+    lease_seconds: float = 15.0,
+    aggregate_id: str | None = None,
+) -> list[OutboxMessage]:
+    """Claim pending rows for delivery (SKIP LOCKED + visibility lease).
+
+    Rows stay ``pending`` until ``mark_outbox_published``. A dispatcher crash
+    before publish re-delivers after the lease (at-least-once). Consumers must
+    be idempotent.
+    """
+    import json
+    from datetime import datetime, timedelta
+
+    if limit < 1:
+        raise ValueError("limit must be >= 1")
+
+    lease_until = datetime.now(UTC) + timedelta(seconds=max(lease_seconds, 0.0))
+    with conn.cursor() as cur:
+        if aggregate_id is None:
+            cur.execute(
+                """
+                SELECT id, aggregate_type, aggregate_id, event_type,
+                       payload, headers, attempts
+                FROM domain.outbox_message
+                WHERE status = 'pending'
+                  AND available_at <= now()
+                ORDER BY created_at
+                FOR UPDATE SKIP LOCKED
+                LIMIT %s
+                """,
+                (limit,),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT id, aggregate_type, aggregate_id, event_type,
+                       payload, headers, attempts
+                FROM domain.outbox_message
+                WHERE status = 'pending'
+                  AND available_at <= now()
+                  AND aggregate_id = %s
+                ORDER BY created_at
+                FOR UPDATE SKIP LOCKED
+                LIMIT %s
+                """,
+                (aggregate_id, limit),
+            )
+        rows = cur.fetchall()
+        messages: list[OutboxMessage] = []
+        for row in rows:
+            message_id = UUID(str(row[0]))
+            cur.execute(
+                """
+                UPDATE domain.outbox_message
+                SET attempts = attempts + 1,
+                    available_at = %s
+                WHERE id = %s
+                """,
+                (lease_until, str(message_id)),
+            )
+            payload = row[4]
+            headers = row[5]
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            if isinstance(headers, str):
+                headers = json.loads(headers)
+            messages.append(
+                OutboxMessage(
+                    id=message_id,
+                    aggregate_type=str(row[1]),
+                    aggregate_id=str(row[2]),
+                    event_type=str(row[3]),
+                    payload=dict(payload or {}),
+                    headers=dict(headers or {}),
+                    attempts=int(row[6]) + 1,
+                )
+            )
+    return messages
+
+
+def release_outbox_lease(conn: Connection, message_id: UUID) -> None:
+    """Make a claimed-but-unpublished row immediately available again (tests)."""
+    from datetime import datetime
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE domain.outbox_message
+            SET available_at = %s
+            WHERE id = %s AND status = 'pending'
+            """,
+            (datetime.now(UTC), str(message_id)),
+        )
+
+
+def mark_outbox_published(conn: Connection, message_id: UUID) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE domain.outbox_message
+            SET status = 'published',
+                published_at = now(),
+                last_error = NULL
+            WHERE id = %s
+            """,
+            (str(message_id),),
+        )
+
+
+def mark_outbox_retry(
+    conn: Connection,
+    message_id: UUID,
+    *,
+    error: str,
+    delay_seconds: float = 5.0,
+) -> None:
+    """Keep pending; schedule later delivery after a dispatcher failure."""
+    from datetime import datetime, timedelta
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE domain.outbox_message
+            SET status = 'pending',
+                last_error = %s,
+                available_at = %s
+            WHERE id = %s
+            """,
+            (
+                error[:2000],
+                datetime.now(UTC) + timedelta(seconds=delay_seconds),
+                str(message_id),
+            ),
+        )
 
 
 def try_begin_idempotent(
