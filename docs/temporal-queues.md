@@ -37,4 +37,15 @@ python -m incidentpilot_remediation smoke
 ```
 
 Workers subscribe briefly with a placeholder `queue_subscribe_ping` activity
-(Temporal requires ≥1 handler) and exit 0 on success. Real workflows land in D2+.
+(Temporal requires ≥1 handler) and exit 0 on success.
+
+## IncidentWorkflow (D2)
+
+`incidentpilot-general` runs `IncidentWorkflow`:
+
+`DETECTED → TRIAGING → INVESTIGATING`
+
+Activities re-read Postgres (`state`, `incident_revision`) before each
+`transition_incident_command`. The workflow never inserts Incident rows (no
+duplicates on crash-resume). Optional signal `proceed_after_triaging` pauses
+after TRIAGING for kill/restart tests.

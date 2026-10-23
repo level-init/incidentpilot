@@ -1,4 +1,4 @@
-"""Entrypoint for incidentpilot-worker / evidence-worker (D1 queue subscription)."""
+"""Entrypoint for incidentpilot-worker / evidence-worker."""
 
 from __future__ import annotations
 
@@ -19,10 +19,11 @@ def _queues_for_role(role: str) -> tuple[TaskQueue, ...]:
 
 
 async def _run_forever(queues: tuple[TaskQueue, ...]) -> None:
-    from incidentpilot_shared.temporal_runtime import build_queue_worker, connect_temporal
+    from incidentpilot_shared.temporal_runtime import connect_temporal
+    from incidentpilot_worker.worker_factory import build_worker
 
     client = await connect_temporal()
-    workers = [build_queue_worker(client, q) for q in queues]
+    workers = [build_worker(client, q) for q in queues]
     await asyncio.gather(*(w.run() for w in workers))
 
 
@@ -43,7 +44,6 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    # `python -m incidentpilot_worker smoke` → smoke both general + evidence
     if args.role == "smoke":
         names = run_smoke_subscribe(
             [

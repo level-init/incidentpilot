@@ -11,7 +11,8 @@ Also hosts the **evidence-worker** entrypoint (same package, separate task queue
 
 Smoke: `python -m incidentpilot_worker smoke` (or `make temporal-queue-smoke`).
 
-**Owns (later):** workflow activities, evidence/reasoning orchestration.
+**Owns:** `IncidentWorkflow` on `incidentpilot-general` (D2 early path),
+transition activities, evidence/reasoning orchestration (later).
 
 **Does not own:** rollback / privileged remediation keys, GroundTruth access.
 
