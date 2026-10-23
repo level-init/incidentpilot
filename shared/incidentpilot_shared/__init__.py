@@ -34,6 +34,12 @@ from incidentpilot_shared.redaction import (
     project_evidence_for_llm,
     supply_projection_to_llm,
 )
+from incidentpilot_shared.temporal_queues import (
+    ALL_TASK_QUEUES,
+    QUEUE_CONSUMER_CONTRACTS,
+    TaskQueue,
+    queues_for_process,
+)
 from incidentpilot_shared.tool_scope import (
     ScopeViolationError,
     ToolScope,
@@ -44,7 +50,9 @@ __version__ = "0.0.0"
 
 __all__ = [
     "AI_SANDBOX_IDENTITY",
+    "ALL_TASK_QUEUES",
     "DENIED_TOOL_NAMES",
+    "QUEUE_CONSUMER_CONTRACTS",
     "AiToolRegistry",
     "AppendEvidenceResult",
     "ApprovalDecisionResult",
@@ -56,6 +64,7 @@ __all__ = [
     "ReserveAttemptResult",
     "ScopeViolationError",
     "StaleRevisionError",
+    "TaskQueue",
     "ToolCapability",
     "ToolDeniedError",
     "ToolSchemaError",
@@ -70,6 +79,7 @@ __all__ = [
     "enforce_tool_scope",
     "enqueue_outbox",
     "project_evidence_for_llm",
+    "queues_for_process",
     "reserve_execution_attempt_command",
     "supply_projection_to_llm",
     "transition_incident",

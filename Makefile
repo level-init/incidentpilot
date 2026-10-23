@@ -16,7 +16,8 @@ PROFILE ?= core
 
 .PHONY: bootstrap lint format typecheck test help \
 	compose-core compose-full compose-up compose-down compose-ps compose-config \
-	migrate db-verify-isolation verify-local-infra openapi-export api-run
+	migrate db-verify-isolation verify-local-infra openapi-export api-run \
+	temporal-queue-smoke
 
 help:
 	@echo "Targets:"
@@ -34,6 +35,7 @@ help:
 	@echo "  make migrate               - apply deploy/db/migrations"
 	@echo "  make db-verify-isolation   - prove GT denied for ip_app/ip_runner; no app DDL"
 	@echo "  make verify-local-infra    - Temporal UI + local S3 put/get smoke"
+	@echo "  make temporal-queue-smoke  - workers subscribe to general/evidence/remediation"
 	@echo "  make openapi-export        - write openapi/openapi.json"
 	@echo "  make api-run               - run FastAPI on :8000"
 
@@ -84,6 +86,14 @@ db-verify-isolation:
 
 verify-local-infra:
 	./scripts/verify_local_infra.sh
+
+temporal-queue-smoke: $(VENV)
+	PYTHONPATH="$(CURDIR)/worker:$(CURDIR)/shared:$$PYTHONPATH" \
+		$(BIN)/python -m incidentpilot_worker smoke
+	PYTHONPATH="$(CURDIR)/worker:$(CURDIR)/shared:$$PYTHONPATH" \
+		$(BIN)/python -m incidentpilot_worker evidence smoke
+	PYTHONPATH="$(CURDIR)/remediation_worker:$(CURDIR)/shared:$$PYTHONPATH" \
+		$(BIN)/python -m incidentpilot_remediation smoke
 
 openapi-export: $(VENV)
 	$(BIN)/python scripts/export_openapi.py

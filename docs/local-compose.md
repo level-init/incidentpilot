@@ -80,7 +80,12 @@ make verify-local-infra
 # Temporal UI HTTP 200
 # Silo /minio/health/live
 # aws-cli put/get on incidentpilot-evidence
+
+make temporal-queue-smoke
+# workers subscribe to incidentpilot-general / -evidence / -remediation
 ```
+
+Task queue names and Freeze-9 consumer mapping: [temporal-queues.md](temporal-queues.md).
 
 ## Secrets
 
