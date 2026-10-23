@@ -1,22 +1,23 @@
-"""IncidentWorkflow: DETECTED → TRIAGING → INVESTIGATING (D2).
+"""IncidentWorkflow: DETECTED → TRIAGING → INVESTIGATING (D2/D3).
 
-Re-reads Postgres inside activities before each TransitionIncident. Optional
-``wait_after_triaging`` pause supports crash-resume verification (kill worker
-mid-triage, restart, signal proceed).
+Activities take expected_revision. StaleRevision is non-retryable; the workflow
+re-queries Postgres and retries with a fresh revision. Optional
+``wait_after_triaging`` supports crash-resume tests.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
+from typing import Any, cast
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
+from temporalio.exceptions import ActivityError, ApplicationError
 
 with workflow.unsafe.imports_passed_through():
     from incidentpilot_worker.activities.incident_transitions import (
-        advance_incident_state,
-        load_incident_snapshot,
+        STALE_REVISION_ERROR_TYPE,
     )
 
 
@@ -24,6 +25,16 @@ with workflow.unsafe.imports_passed_through():
 class IncidentWorkflowInput:
     incident_id: str
     wait_after_triaging: bool = False
+
+
+_EARLY_PATH = ("DETECTED", "TRIAGING", "INVESTIGATING")
+
+
+def _rank(state: str) -> int:
+    try:
+        return _EARLY_PATH.index(state)
+    except ValueError:
+        return -1
 
 
 @workflow.defn(name="IncidentWorkflow")
@@ -36,44 +47,72 @@ class IncidentWorkflow:
         """Release the mid-triage pause (tests / operator resume)."""
         self._proceed_after_triaging = True
 
+    async def _load(self, incident_id: str) -> dict[str, Any]:
+        result = await workflow.execute_activity(
+            "load_incident_snapshot",
+            incident_id,
+            result_type=dict[str, Any],
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=RetryPolicy(
+                initial_interval=timedelta(milliseconds=200),
+                maximum_attempts=5,
+            ),
+        )
+        return cast(dict[str, Any], result)
+
+    async def _advance_to(self, incident_id: str, to_state: str) -> None:
+        """Query revision, transition; on StaleRevision re-query and retry."""
+        retry = RetryPolicy(
+            initial_interval=timedelta(milliseconds=100),
+            maximum_attempts=1,
+            non_retryable_error_types=[STALE_REVISION_ERROR_TYPE],
+        )
+        # Bound workflow-side re-query loops (activity itself is non-retryable on stale).
+        for _ in range(8):
+            snap = await self._load(incident_id)
+            state = str(snap["state"])
+            if state == to_state or (
+                _rank(state) >= 0 and _rank(to_state) >= 0 and _rank(state) >= _rank(to_state)
+            ):
+                return
+            revision = int(snap["revision"])
+            try:
+                await workflow.execute_activity(
+                    "advance_incident_state",
+                    args=[incident_id, to_state, revision],
+                    result_type=dict[str, Any],
+                    start_to_close_timeout=timedelta(seconds=30),
+                    retry_policy=retry,
+                )
+                return
+            except ActivityError as exc:
+                cause = exc.cause
+                if isinstance(cause, ApplicationError) and cause.type == STALE_REVISION_ERROR_TYPE:
+                    workflow.logger.info(
+                        "StaleRevision on advance to %s; re-querying incident %s",
+                        to_state,
+                        incident_id,
+                    )
+                    continue
+                raise
+        raise ApplicationError(
+            f"exhausted stale-revision re-queries advancing to {to_state}",
+            type=STALE_REVISION_ERROR_TYPE,
+            non_retryable=True,
+        )
+
     @workflow.run
     async def run(self, input: IncidentWorkflowInput) -> str:
-        retry = RetryPolicy(
-            initial_interval=timedelta(milliseconds=200),
-            maximum_attempts=5,
-        )
-        timeout = timedelta(seconds=30)
-
-        snap = await workflow.execute_activity(
-            load_incident_snapshot,
-            input.incident_id,
-            start_to_close_timeout=timeout,
-            retry_policy=retry,
-        )
+        snap = await self._load(input.incident_id)
         if snap["state"] == "INVESTIGATING":
             return "INVESTIGATING"
 
-        await workflow.execute_activity(
-            advance_incident_state,
-            args=[input.incident_id, "TRIAGING"],
-            start_to_close_timeout=timeout,
-            retry_policy=retry,
-        )
+        await self._advance_to(input.incident_id, "TRIAGING")
 
         if input.wait_after_triaging:
             await workflow.wait_condition(lambda: self._proceed_after_triaging)
 
-        await workflow.execute_activity(
-            advance_incident_state,
-            args=[input.incident_id, "INVESTIGATING"],
-            start_to_close_timeout=timeout,
-            retry_policy=retry,
-        )
+        await self._advance_to(input.incident_id, "INVESTIGATING")
 
-        final = await workflow.execute_activity(
-            load_incident_snapshot,
-            input.incident_id,
-            start_to_close_timeout=timeout,
-            retry_policy=retry,
-        )
+        final = await self._load(input.incident_id)
         return str(final["state"])

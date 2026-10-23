@@ -1,4 +1,9 @@
-"""Activities that re-read Postgres then call TransitionIncident (D2)."""
+"""Activities that transition incidents with expected_revision (D2/D3).
+
+StaleRevision is mapped to a non-retryable Temporal ApplicationError so a
+lagging activity attempt cannot mutate after a newer revision landed. The
+workflow re-queries Postgres and retries with a fresh revision.
+"""
 
 from __future__ import annotations
 
@@ -6,8 +11,13 @@ from typing import Any
 from uuid import UUID
 
 from temporalio import activity
+from temporalio.exceptions import ApplicationError
 
-from incidentpilot_shared.domain.transitions import IncidentState
+from incidentpilot_shared.domain.transitions import (
+    IllegalTransitionError,
+    IncidentState,
+    StaleRevisionError,
+)
 from incidentpilot_worker.commands import transition_incident_command
 from incidentpilot_worker.db import connect
 
@@ -18,12 +28,23 @@ _EARLY_PATH: tuple[IncidentState, ...] = (
     IncidentState.INVESTIGATING,
 )
 
+STALE_REVISION_ERROR_TYPE = "StaleRevision"
+ILLEGAL_TRANSITION_ERROR_TYPE = "IllegalTransition"
+
 
 def _rank(state: IncidentState) -> int:
     try:
         return _EARLY_PATH.index(state)
     except ValueError:
         return -1
+
+
+def _raise_stale(exc: StaleRevisionError) -> None:
+    raise ApplicationError(
+        str(exc),
+        type=STALE_REVISION_ERROR_TYPE,
+        non_retryable=True,
+    ) from exc
 
 
 @activity.defn(name="load_incident_snapshot")
@@ -45,11 +66,16 @@ def load_incident_snapshot(incident_id: str) -> dict[str, Any]:
 
 
 @activity.defn(name="advance_incident_state")
-def advance_incident_state(incident_id: str, to_state: str) -> dict[str, Any]:
-    """Idempotent transition: re-read revision, then TransitionIncident command.
+def advance_incident_state(
+    incident_id: str,
+    to_state: str,
+    expected_revision: int,
+) -> dict[str, Any]:
+    """Transition with caller-supplied expected_revision (fail closed on stale).
 
-    Safe under activity retry / worker crash: if Postgres is already at or past
-    ``to_state`` on the D2 path, this is a no-op (no duplicate Incident rows).
+    Idempotent when Postgres is already at/past ``to_state`` on the D2 path.
+    Otherwise requires ``expected_revision`` to match the row; mismatches raise
+    non-retryable ``StaleRevision`` so Temporal will not keep hammering.
     """
     target = IncidentState(to_state)
     with connect() as conn:
@@ -68,6 +94,7 @@ def advance_incident_state(incident_id: str, to_state: str) -> dict[str, Any]:
             current = IncidentState(row[0])
             revision = int(row[1])
 
+        # Already applied (activity retry / concurrent success) — no mutate.
         if current is target or (
             _rank(current) >= 0 and _rank(target) >= 0 and _rank(current) >= _rank(target)
         ):
@@ -79,14 +106,33 @@ def advance_incident_state(incident_id: str, to_state: str) -> dict[str, Any]:
                 "skipped": True,
             }
 
-        result = transition_incident_command(
-            conn,
-            incident_id=UUID(incident_id),
-            expected_revision=revision,
-            to_state=target,
-            actor="incident-workflow",
-            commit=True,
-        )
+        if revision != expected_revision:
+            _raise_stale(
+                StaleRevisionError(
+                    incident_id=UUID(incident_id),
+                    expected_revision=expected_revision,
+                    actual_revision=revision,
+                )
+            )
+
+        try:
+            result = transition_incident_command(
+                conn,
+                incident_id=UUID(incident_id),
+                expected_revision=expected_revision,
+                to_state=target,
+                actor="incident-workflow",
+                commit=True,
+            )
+        except StaleRevisionError as exc:
+            _raise_stale(exc)
+        except IllegalTransitionError as exc:
+            raise ApplicationError(
+                str(exc),
+                type=ILLEGAL_TRANSITION_ERROR_TYPE,
+                non_retryable=True,
+            ) from exc
+
         return {
             "incident_id": incident_id,
             "from_state": result.from_state.value,
@@ -96,5 +142,4 @@ def advance_incident_state(incident_id: str, to_state: str) -> dict[str, Any]:
         }
 
 
-# Typing alias for callers/tests
 IncidentSnapshot = dict[str, Any]
