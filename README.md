@@ -98,6 +98,7 @@ make format      # auto-fix lint + format (optional)
 | `make temporal-queue-smoke` | Workers subscribe to general / evidence / remediation |
 | `make sim-happy-path` | Curl sim-gateway checkout happy path (`:8100`) |
 | `make sim-contract-scan` | Fail if sim exposes GT / root-cause cheat routes |
+| `make test-sim-contract` | Contract pytest + scan (E6; CI `sim-contract` job) |
 | `make sim-baseline-gate` | All sim `/healthz` + gateway `/readyz` |
 | `make sim-traffic` | Baseline load (`DURATION=60` `RPS=1`) |
 | `make sim-inject` | Fault injectors (`ARGS='activate bad_deploy'`) |

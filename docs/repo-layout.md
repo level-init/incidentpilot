@@ -46,7 +46,7 @@ inventory, notification) from issue #26 (E1). Compose profile `simulation`
 exposes them on ports `8100`–`8105`. Baseline traffic generator lives under
 `simulation/traffic/` (E4); contract: [sim-baseline.md](sim-baseline.md).
 Fault injectors: `simulation/faults/` + `common/faults.py` (E5);
-[sim-faults.md](sim-faults.md).
+[sim-faults.md](sim-faults.md). GT isolation contract: [sim-contract.md](sim-contract.md).
 
 ## Observability (local)
 

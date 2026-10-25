@@ -19,7 +19,7 @@ RPS ?= 1
 .PHONY: bootstrap lint format typecheck test help \
 	compose-core compose-full compose-up compose-down compose-ps compose-config \
 	migrate db-verify-isolation verify-local-infra openapi-export api-run \
-	temporal-queue-smoke sim-happy-path sim-contract-scan obs-smoke \
+	temporal-queue-smoke sim-happy-path sim-contract-scan test-sim-contract obs-smoke \
 	sim-traffic sim-baseline-gate sim-inject
 
 help:
@@ -41,6 +41,7 @@ help:
 	@echo "  make temporal-queue-smoke  - workers subscribe to general/evidence/remediation"
 	@echo "  make sim-happy-path        - curl checkout happy path via sim-gateway :8100"
 	@echo "  make sim-contract-scan     - fail if sim exposes GT / root-cause cheat routes"
+	@echo "  make test-sim-contract     - pytest contract suite + sim_contract_scan (E6/CI)"
 	@echo "  make sim-baseline-gate     - curl all /healthz + gateway /readyz (E4)"
 	@echo "  make sim-traffic           - baseline load (DURATION=60 RPS=1)"
 	@echo "  make sim-inject ARGS='…'   - fault injectors (list|activate|reset|status)"
@@ -108,6 +109,10 @@ sim-happy-path:
 	./scripts/sim_happy_path.sh
 
 sim-contract-scan: $(VENV)
+	$(BIN)/python scripts/sim_contract_scan.py
+
+test-sim-contract: $(VENV)
+	$(PYTEST) tests/test_sim_contract.py tests/test_sim_services.py -k "contract or forbidden" -q
 	$(BIN)/python scripts/sim_contract_scan.py
 
 sim-baseline-gate: $(VENV)

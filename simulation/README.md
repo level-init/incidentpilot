@@ -59,5 +59,5 @@ make obs-smoke
 ## Isolation
 
 These services **must not** expose GroundTruth or root-cause oracle routes
-(`actual-root-cause`, `ground_truth`, etc.). Enforced by `make sim-contract-scan`
-and `tests/test_sim_services.py`.
+(`actual-root-cause`, `ground_truth`, etc.) or answer-key fields. Enforced by
+`make test-sim-contract` (CI) — see [docs/sim-contract.md](../docs/sim-contract.md).
