@@ -9,7 +9,10 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from common.observability import instrument_app
+
 app = FastAPI(title="sim-gateway", version="0.1.0")
+instrument_app(app, "gateway")
 
 # Unit price for demo SKUs (cents).
 _PRICES = {

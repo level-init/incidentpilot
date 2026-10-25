@@ -44,7 +44,7 @@ help:
 bootstrap:
 	$(PYTHON) -m venv $(VENV)
 	$(PIP) install --upgrade pip
-	$(PIP) install -r requirements.txt -r requirements-dev.txt
+	$(PIP) install -r requirements.txt -r requirements-dev.txt -r simulation/requirements.txt
 
 lint: $(VENV)
 	$(RUFF) check $(PY_SRC) tests

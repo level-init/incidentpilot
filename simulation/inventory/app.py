@@ -7,7 +7,10 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from common.observability import instrument_app
+
 app = FastAPI(title="sim-inventory", version="0.1.0")
+instrument_app(app, "inventory")
 
 _STOCK: dict[str, int] = {
     "SKU-WIDGET": 100,

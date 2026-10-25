@@ -5,7 +5,10 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from common.observability import instrument_app
+
 app = FastAPI(title="sim-auth", version="0.1.0")
+instrument_app(app, "auth")
 
 # In-memory demo users — not GroundTruth / not an oracle.
 _USERS = {
