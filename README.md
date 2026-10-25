@@ -96,6 +96,8 @@ make format      # auto-fix lint + format (optional)
 | `make db-verify-isolation` | Prove GroundTruth denied for `ip_app` / `ip_runner` |
 | `make verify-local-infra` | Temporal UI + local S3 put/get smoke |
 | `make temporal-queue-smoke` | Workers subscribe to general / evidence / remediation |
+| `make sim-happy-path` | Curl sim-gateway checkout happy path (`:8100`) |
+| `make sim-contract-scan` | Fail if sim exposes GT / root-cause cheat routes |
 | `make openapi-export` | Write `openapi/openapi.json` from FastAPI app |
 | `make api-run` | Run local API on :8000 (`Bearer local-dev`) |
 

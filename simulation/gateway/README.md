@@ -1,3 +1,7 @@
 # gateway
 
-Placeholder for the simulated `gateway` service. Implementation lands in #26 (E1).
+Simulated API gateway. Orchestrates checkout across auth → inventory → payment →
+checkout → notification.
+
+- Health: `GET /healthz`
+- Checkout: `POST /v1/checkout`

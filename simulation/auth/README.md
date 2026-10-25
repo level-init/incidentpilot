@@ -1,3 +1,3 @@
 # auth
 
-Placeholder for the simulated `auth` service. Implementation lands in #26 (E1).
+Simulated auth service. Validates demo sessions (`user_demo` / `tok_demo_user`).

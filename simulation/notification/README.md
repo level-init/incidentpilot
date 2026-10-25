@@ -1,3 +1,3 @@
 # notification
 
-Placeholder for the simulated `notification` service. Implementation lands in #26 (E1).
+Simulated notification service. `POST /v1/messages` queues a confirmation.

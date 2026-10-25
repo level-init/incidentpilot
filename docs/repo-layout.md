@@ -41,8 +41,9 @@ this folder is reserved so deployable layout is stable from day one.
 
 ## Simulation
 
-`simulation/` will hold the demo services (gateway, auth, checkout, payment,
-inventory, notification) under issue #26 (E1). Subdirectories are placeholders only.
+`simulation/` holds the demo services (gateway, auth, checkout, payment,
+inventory, notification) from issue #26 (E1). Compose profile `simulation`
+exposes them on ports `8100`–`8105`.
 
 ## Isolation rules (layout reminder)
 

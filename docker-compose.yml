@@ -4,7 +4,7 @@
 #   core        — postgres, temporal (+ UI), local S3 (Silo/MinIO-API) + bucket init
 #   redis       — optional cache-only Redis (not required for core)
 #   evidence    — placeholder for Prom/Loki/Tempo/AM (Epic E/G)
-#   simulation  — placeholder for demo microservices (Epic E)
+#   simulation  — demo microservices gateway/auth/checkout/payment/inventory/notification (E1)
 #   full        — core + redis + evidence + simulation
 #
 # Examples:
@@ -149,7 +149,7 @@ services:
       timeout: 3s
       retries: 10
 
-  # --- Placeholders: keep profiles valid until Epic E/G wires real services ---
+  # --- Placeholders / Epic E simulation world ---
 
   evidence-stack-placeholder:
     image: alpine:3.20
@@ -161,15 +161,101 @@ services:
         "echo 'evidence profile: Prometheus/Loki/Tempo/Alertmanager land in Epic E/G'; sleep infinity",
       ]
 
-  simulation-stack-placeholder:
-    image: alpine:3.20
+  # Simulation microservices (E1). Happy path: POST http://localhost:8100/v1/checkout
+  sim-auth:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile
+      args: { SERVICE: auth }
     profiles: ["simulation", "full"]
-    command:
-      [
-        "sh",
-        "-c",
-        "echo 'simulation profile: gateway/auth/checkout/… land in Epic E'; sleep infinity",
-      ]
+    ports: ["8101:8080"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sim-checkout:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile
+      args: { SERVICE: checkout }
+    profiles: ["simulation", "full"]
+    ports: ["8102:8080"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sim-payment:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile
+      args: { SERVICE: payment }
+    profiles: ["simulation", "full"]
+    ports: ["8103:8080"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sim-inventory:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile
+      args: { SERVICE: inventory }
+    profiles: ["simulation", "full"]
+    ports: ["8104:8080"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sim-notification:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile
+      args: { SERVICE: notification }
+    profiles: ["simulation", "full"]
+    ports: ["8105:8080"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sim-gateway:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile
+      args: { SERVICE: gateway }
+    profiles: ["simulation", "full"]
+    ports: ["8100:8080"]
+    environment:
+      SIM_AUTH_URL: http://sim-auth:8080
+      SIM_CHECKOUT_URL: http://sim-checkout:8080
+      SIM_PAYMENT_URL: http://sim-payment:8080
+      SIM_INVENTORY_URL: http://sim-inventory:8080
+      SIM_NOTIFICATION_URL: http://sim-notification:8080
+    depends_on:
+      sim-auth:
+        condition: service_healthy
+      sim-checkout:
+        condition: service_healthy
+      sim-payment:
+        condition: service_healthy
+      sim-inventory:
+        condition: service_healthy
+      sim-notification:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   postgres_data:
