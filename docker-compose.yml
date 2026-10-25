@@ -169,6 +169,8 @@ services:
       args: { SERVICE: auth }
     profiles: ["simulation", "full"]
     ports: ["8101:8080"]
+    environment:
+      OTEL_SERVICE_NAME: sim-auth
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
       interval: 5s
@@ -182,6 +184,8 @@ services:
       args: { SERVICE: checkout }
     profiles: ["simulation", "full"]
     ports: ["8102:8080"]
+    environment:
+      OTEL_SERVICE_NAME: sim-checkout
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
       interval: 5s
@@ -195,6 +199,8 @@ services:
       args: { SERVICE: payment }
     profiles: ["simulation", "full"]
     ports: ["8103:8080"]
+    environment:
+      OTEL_SERVICE_NAME: sim-payment
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
       interval: 5s
@@ -208,6 +214,8 @@ services:
       args: { SERVICE: inventory }
     profiles: ["simulation", "full"]
     ports: ["8104:8080"]
+    environment:
+      OTEL_SERVICE_NAME: sim-inventory
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
       interval: 5s
@@ -221,6 +229,8 @@ services:
       args: { SERVICE: notification }
     profiles: ["simulation", "full"]
     ports: ["8105:8080"]
+    environment:
+      OTEL_SERVICE_NAME: sim-notification
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
       interval: 5s
@@ -235,6 +245,7 @@ services:
     profiles: ["simulation", "full"]
     ports: ["8100:8080"]
     environment:
+      OTEL_SERVICE_NAME: sim-gateway
       SIM_AUTH_URL: http://sim-auth:8080
       SIM_CHECKOUT_URL: http://sim-checkout:8080
       SIM_PAYMENT_URL: http://sim-payment:8080
