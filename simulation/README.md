@@ -23,6 +23,13 @@ make sim-contract-scan
 
 Baseline health/traffic contract for scenario runners: [docs/sim-baseline.md](../docs/sim-baseline.md).
 
+Fault injectors (eight scenario classes): [docs/sim-faults.md](../docs/sim-faults.md).
+
+```bash
+make sim-inject ARGS='activate bad_deploy'
+make sim-inject ARGS='reset'
+```
+
 Happy path:
 
 ```bash

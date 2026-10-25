@@ -13,6 +13,8 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY common /app/common
+COPY faults /app/faults
+COPY traffic /app/traffic
 COPY ${SERVICE}/app.py /app/app.py
 
 EXPOSE 8080

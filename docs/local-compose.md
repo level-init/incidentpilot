@@ -46,6 +46,7 @@ make compose-full
 ```
 
 Baseline contract (scenario gate): [sim-baseline.md](sim-baseline.md).
+Fault injectors: [sim-faults.md](sim-faults.md) (`make sim-inject ARGS='…'`).
 
 Validate without starting containers:
 
