@@ -382,6 +382,24 @@ services:
       timeout: 3s
       retries: 10
 
+  # Baseline traffic generator (E4). duration=0 runs until stopped.
+  sim-traffic:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile.traffic
+    profiles: ["simulation", "full"]
+    environment:
+      SIM_GATEWAY_URL: http://sim-gateway:8080
+      SIM_AUTH_URL: http://sim-auth:8080
+      SIM_CHECKOUT_URL: http://sim-checkout:8080
+      SIM_PAYMENT_URL: http://sim-payment:8080
+      SIM_INVENTORY_URL: http://sim-inventory:8080
+      SIM_NOTIFICATION_URL: http://sim-notification:8080
+    depends_on:
+      sim-gateway:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   minio_data:

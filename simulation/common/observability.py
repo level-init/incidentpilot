@@ -176,7 +176,7 @@ def instrument_app(
 
     # Avoid double-instrumenting the same app object in tests.
     if not getattr(app.state, "_sim_otel_instrumented", False):
-        FastAPIInstrumentor.instrument_app(app, excluded_urls="healthz,metrics")
+        FastAPIInstrumentor.instrument_app(app, excluded_urls="healthz,readyz,metrics")
         app.state._sim_otel_instrumented = True
 
     if not getattr(app.state, "_sim_metrics_middleware", False):

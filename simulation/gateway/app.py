@@ -9,6 +9,7 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from common.health import health_payload
 from common.observability import instrument_app
 
 app = FastAPI(title="sim-gateway", version="0.1.0")
@@ -64,8 +65,51 @@ class CheckoutOut(BaseModel):
 
 
 @app.get("/healthz")
-def healthz() -> dict[str, str]:
-    return {"status": "ok", "service": "gateway"}
+def healthz() -> dict[str, object]:
+    return health_payload("gateway")
+
+
+@app.get("/readyz")
+def readyz() -> dict[str, object]:
+    """Readiness for scenario baseline gate — probes upstream /healthz."""
+    upstreams = {
+        "auth": auth_url(),
+        "checkout": checkout_url(),
+        "payment": payment_url(),
+        "inventory": inventory_url(),
+        "notification": notification_url(),
+    }
+    checks: dict[str, object] = {}
+    all_ok = True
+    try:
+        with httpx.Client(timeout=3.0) as client:
+            for name, base in upstreams.items():
+                try:
+                    res = client.get(f"{base}/healthz")
+                    body = (
+                        res.json()
+                        if res.headers.get("content-type", "").startswith("application/json")
+                        else {}
+                    )
+                    ok = res.status_code == 200 and body.get("status") == "ok"
+                    checks[name] = {
+                        "ok": ok,
+                        "status_code": res.status_code,
+                        "body_status": body.get("status"),
+                    }
+                    if not ok:
+                        all_ok = False
+                except httpx.HTTPError as exc:
+                    checks[name] = {"ok": False, "error": str(exc)}
+                    all_ok = False
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=503, detail=f"readyz probe failed: {exc}") from exc
+
+    status = "ok" if all_ok else "error"
+    payload = health_payload("gateway", status=status, checks=checks)
+    if not all_ok:
+        raise HTTPException(status_code=503, detail=payload)
+    return payload
 
 
 @app.post("/v1/checkout", response_model=CheckoutOut)

@@ -38,10 +38,14 @@ make compose-up PROFILE=simulation   # sim microservices on :8100–:8105
 # Prefer both together so Prom scrapes sim /metrics and Tempo gets OTLP:
 docker compose --profile evidence --profile simulation up -d
 make sim-happy-path
+make sim-baseline-gate
+make sim-traffic DURATION=60
 make obs-smoke
 make sim-contract-scan
 make compose-full
 ```
+
+Baseline contract (scenario gate): [sim-baseline.md](sim-baseline.md).
 
 Validate without starting containers:
 
