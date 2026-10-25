@@ -1,3 +1,3 @@
 # inventory
 
-Placeholder for the simulated `inventory` service. Implementation lands in #26 (E1).
+Simulated inventory. `POST /v1/reservations` decrements in-memory stock.

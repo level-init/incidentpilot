@@ -7,7 +7,7 @@ Profiles match the product overview environments for shared local DX.
 | `core` | Postgres, Temporal (+ UI), Silo/S3 (+ bucket bootstrap) |
 | `redis` | Optional cache-only Redis (never authoritative) |
 | `evidence` | Placeholder until Epic E/G (Prom / Loki / Tempo / AM) |
-| `simulation` | Placeholder until Epic E (demo microservices) |
+| `simulation` | Demo microservices (gateway/auth/checkout/payment/inventory/notification) |
 | `full` | core + redis + evidence + simulation |
 
 ## Quick start
@@ -34,7 +34,9 @@ Other profiles:
 
 ```bash
 make compose-up PROFILE=evidence
-make compose-up PROFILE=simulation
+make compose-up PROFILE=simulation   # sim microservices on :8100–:8105
+make sim-happy-path
+make sim-contract-scan
 make compose-full
 ```
 
@@ -54,6 +56,8 @@ docker compose --profile core config
 | S3 API (Silo) | http://localhost:9000 | `minioadmin` / `minioadmin` (override via env) |
 | S3 console | http://localhost:9001 | same as API |
 | Redis (optional) | `localhost:6379` | no auth; enable with `--profile redis` |
+| Sim gateway | http://localhost:8100 | `POST /v1/checkout` happy path |
+| Sim auth…notification | `8101`–`8105` | see [../simulation/README.md](../simulation/README.md) |
 
 ### Local S3 buckets (created by `minio-init`)
 

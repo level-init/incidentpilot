@@ -9,7 +9,7 @@ RUFF := $(BIN)/ruff
 MYPY := $(BIN)/mypy
 PYTEST := $(BIN)/pytest
 
-PY_SRC := api worker remediation_worker shared adapters scenario_runner evaluator
+PY_SRC := api worker remediation_worker shared adapters scenario_runner evaluator simulation
 
 COMPOSE ?= docker compose
 PROFILE ?= core
@@ -17,7 +17,7 @@ PROFILE ?= core
 .PHONY: bootstrap lint format typecheck test help \
 	compose-core compose-full compose-up compose-down compose-ps compose-config \
 	migrate db-verify-isolation verify-local-infra openapi-export api-run \
-	temporal-queue-smoke
+	temporal-queue-smoke sim-happy-path sim-contract-scan
 
 help:
 	@echo "Targets:"
@@ -36,6 +36,8 @@ help:
 	@echo "  make db-verify-isolation   - prove GT denied for ip_app/ip_runner; no app DDL"
 	@echo "  make verify-local-infra    - Temporal UI + local S3 put/get smoke"
 	@echo "  make temporal-queue-smoke  - workers subscribe to general/evidence/remediation"
+	@echo "  make sim-happy-path        - curl checkout happy path via sim-gateway :8100"
+	@echo "  make sim-contract-scan     - fail if sim exposes GT / root-cause cheat routes"
 	@echo "  make openapi-export        - write openapi/openapi.json"
 	@echo "  make api-run               - run FastAPI on :8000"
 
@@ -94,6 +96,12 @@ temporal-queue-smoke: $(VENV)
 		$(BIN)/python -m incidentpilot_worker evidence smoke
 	PYTHONPATH="$(CURDIR)/remediation_worker:$(CURDIR)/shared:$$PYTHONPATH" \
 		$(BIN)/python -m incidentpilot_remediation smoke
+
+sim-happy-path:
+	./scripts/sim_happy_path.sh
+
+sim-contract-scan: $(VENV)
+	$(BIN)/python scripts/sim_contract_scan.py
 
 openapi-export: $(VENV)
 	$(BIN)/python scripts/export_openapi.py

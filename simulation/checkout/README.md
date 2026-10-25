@@ -1,3 +1,3 @@
 # checkout
 
-Placeholder for the simulated `checkout` service. Implementation lands in #26 (E1).
+Simulated order service. `POST /v1/orders` creates a confirmed order.

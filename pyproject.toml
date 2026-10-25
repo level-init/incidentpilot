@@ -25,6 +25,7 @@ src = [
     "adapters",
     "scenario_runner",
     "evaluator",
+    "simulation",
 ]
 
 [tool.ruff.lint]
