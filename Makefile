@@ -20,7 +20,7 @@ RPS ?= 1
 	compose-core compose-full compose-up compose-down compose-ps compose-config \
 	migrate db-verify-isolation verify-local-infra openapi-export api-run \
 	temporal-queue-smoke sim-happy-path sim-contract-scan obs-smoke \
-	sim-traffic sim-baseline-gate
+	sim-traffic sim-baseline-gate sim-inject
 
 help:
 	@echo "Targets:"
@@ -43,6 +43,7 @@ help:
 	@echo "  make sim-contract-scan     - fail if sim exposes GT / root-cause cheat routes"
 	@echo "  make sim-baseline-gate     - curl all /healthz + gateway /readyz (E4)"
 	@echo "  make sim-traffic           - baseline load (DURATION=60 RPS=1)"
+	@echo "  make sim-inject ARGS='…'   - fault injectors (list|activate|reset|status)"
 	@echo "  make obs-smoke             - Prom/Loki/Tempo/Grafana/AM health (evidence profile)"
 	@echo "  make openapi-export        - write openapi/openapi.json"
 	@echo "  make api-run               - run FastAPI on :8000"
@@ -114,6 +115,9 @@ sim-baseline-gate: $(VENV)
 
 sim-traffic: $(VENV)
 	DURATION=$(DURATION) RPS=$(RPS) ./scripts/sim_traffic.sh
+
+sim-inject: $(VENV)
+	./scripts/sim_inject.sh $(ARGS)
 
 obs-smoke:
 	./scripts/verify_obs_stack.sh

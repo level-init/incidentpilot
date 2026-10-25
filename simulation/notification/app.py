@@ -7,11 +7,13 @@ from uuid import uuid4
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from common.faults import install_faults
 from common.health import health_payload
 from common.observability import instrument_app
 
 app = FastAPI(title="sim-notification", version="0.1.0")
 instrument_app(app, "notification")
+install_faults(app, "notification")
 
 _MESSAGES: list[dict[str, object]] = []
 
