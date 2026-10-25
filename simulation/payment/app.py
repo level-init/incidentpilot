@@ -7,6 +7,7 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from common.health import health_payload
 from common.observability import instrument_app
 
 app = FastAPI(title="sim-payment", version="0.1.0")
@@ -28,8 +29,8 @@ class ChargeOut(BaseModel):
 
 
 @app.get("/healthz")
-def healthz() -> dict[str, str]:
-    return {"status": "ok", "service": "payment"}
+def healthz() -> dict[str, object]:
+    return health_payload("payment")
 
 
 @app.post("/v1/charges", response_model=ChargeOut)

@@ -43,7 +43,8 @@ this folder is reserved so deployable layout is stable from day one.
 
 `simulation/` holds the demo services (gateway, auth, checkout, payment,
 inventory, notification) from issue #26 (E1). Compose profile `simulation`
-exposes them on ports `8100`–`8105`.
+exposes them on ports `8100`–`8105`. Baseline traffic generator lives under
+`simulation/traffic/` (E4); contract: [sim-baseline.md](sim-baseline.md).
 
 ## Observability (local)
 

@@ -98,6 +98,8 @@ make format      # auto-fix lint + format (optional)
 | `make temporal-queue-smoke` | Workers subscribe to general / evidence / remediation |
 | `make sim-happy-path` | Curl sim-gateway checkout happy path (`:8100`) |
 | `make sim-contract-scan` | Fail if sim exposes GT / root-cause cheat routes |
+| `make sim-baseline-gate` | All sim `/healthz` + gateway `/readyz` |
+| `make sim-traffic` | Baseline load (`DURATION=60` `RPS=1`) |
 | `make obs-smoke` | Prom / Loki / Tempo / Grafana / Alertmanager health |
 | `make openapi-export` | Write `openapi/openapi.json` from FastAPI app |
 | `make api-run` | Run local API on :8000 (`Bearer local-dev`) |

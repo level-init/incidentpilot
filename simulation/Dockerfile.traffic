@@ -1,0 +1,16 @@
+# Continuous / one-shot baseline traffic generator (E4).
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+WORKDIR /app
+
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+COPY common /app/common
+COPY traffic /app/traffic
+
+# duration=0 → run until stopped (Compose). Override via command for finite runs.
+CMD ["python", "-m", "traffic", "--duration", "0", "--rps", "1"]

@@ -7,6 +7,7 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from common.health import health_payload
 from common.observability import instrument_app
 
 app = FastAPI(title="sim-inventory", version="0.1.0")
@@ -32,8 +33,11 @@ class ReserveOut(BaseModel):
 
 
 @app.get("/healthz")
-def healthz() -> dict[str, str]:
-    return {"status": "ok", "service": "inventory"}
+def healthz() -> dict[str, object]:
+    stock_total = sum(_STOCK.values())
+    # Degraded (still 200) when stock is exhausted — baseline gate checks status==ok.
+    status = "ok" if stock_total > 0 else "degraded"
+    return health_payload("inventory", status=status, stock_total=stock_total)
 
 
 @app.get("/v1/stock/{sku}")

@@ -16,8 +16,12 @@ Demo distributed system used as IncidentPilot’s production-like world (Epic E)
 ```bash
 make compose-up PROFILE=simulation
 make sim-happy-path
+make sim-baseline-gate
+make sim-traffic DURATION=60 RPS=1
 make sim-contract-scan
 ```
+
+Baseline health/traffic contract for scenario runners: [docs/sim-baseline.md](../docs/sim-baseline.md).
 
 Happy path:
 

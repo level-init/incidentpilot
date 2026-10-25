@@ -7,6 +7,7 @@ from uuid import uuid4
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from common.health import health_payload
 from common.observability import instrument_app
 
 app = FastAPI(title="sim-notification", version="0.1.0")
@@ -28,8 +29,8 @@ class NotifyOut(BaseModel):
 
 
 @app.get("/healthz")
-def healthz() -> dict[str, str]:
-    return {"status": "ok", "service": "notification"}
+def healthz() -> dict[str, object]:
+    return health_payload("notification")
 
 
 @app.post("/v1/messages", response_model=NotifyOut)
