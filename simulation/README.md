@@ -35,8 +35,15 @@ JSON logs with `timestamp`, `level`, `service`, `message`, and `trace_id` /
 `span_id` when a span is active. OpenTelemetry FastAPI + httpx instrumentation
 propagates W3C `traceparent` across gateway → upstreams (checkout/payment/…).
 
-OTLP export is optional until E3; set `OTEL_EXPORTER_OTLP_ENDPOINT` (e.g. Tempo
-`http://tempo:4318`) when the obs stack is up.
+Compose wires `OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4318` so traces land in
+Tempo when the `evidence` profile is up:
+
+```bash
+docker compose --profile evidence --profile simulation up -d
+make sim-happy-path
+make obs-smoke
+# Grafana http://localhost:3000  →  folder IncidentPilot / Simulation traffic
+```
 
 ## Isolation
 

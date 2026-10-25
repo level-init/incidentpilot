@@ -17,7 +17,7 @@ PROFILE ?= core
 .PHONY: bootstrap lint format typecheck test help \
 	compose-core compose-full compose-up compose-down compose-ps compose-config \
 	migrate db-verify-isolation verify-local-infra openapi-export api-run \
-	temporal-queue-smoke sim-happy-path sim-contract-scan
+	temporal-queue-smoke sim-happy-path sim-contract-scan obs-smoke
 
 help:
 	@echo "Targets:"
@@ -38,6 +38,7 @@ help:
 	@echo "  make temporal-queue-smoke  - workers subscribe to general/evidence/remediation"
 	@echo "  make sim-happy-path        - curl checkout happy path via sim-gateway :8100"
 	@echo "  make sim-contract-scan     - fail if sim exposes GT / root-cause cheat routes"
+	@echo "  make obs-smoke             - Prom/Loki/Tempo/Grafana/AM health (evidence profile)"
 	@echo "  make openapi-export        - write openapi/openapi.json"
 	@echo "  make api-run               - run FastAPI on :8000"
 
@@ -102,6 +103,9 @@ sim-happy-path:
 
 sim-contract-scan: $(VENV)
 	$(BIN)/python scripts/sim_contract_scan.py
+
+obs-smoke:
+	./scripts/verify_obs_stack.sh
 
 openapi-export: $(VENV)
 	$(BIN)/python scripts/export_openapi.py
