@@ -45,6 +45,11 @@ this folder is reserved so deployable layout is stable from day one.
 inventory, notification) from issue #26 (E1). Compose profile `simulation`
 exposes them on ports `8100`–`8105`.
 
+## Observability (local)
+
+`deploy/compose/observability/` holds Prometheus / Loki / Tempo / Grafana /
+Alertmanager / Promtail configs for compose profile `evidence` (E3 / #28).
+
 ## Isolation rules (layout reminder)
 
 - `evaluator/` must not be imported by `api/`, `worker/`, or `remediation_worker/`.

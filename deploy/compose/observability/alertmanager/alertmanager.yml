@@ -1,0 +1,14 @@
+# Local Alertmanager — webhook receivers land in Epic F.
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: default
+  group_by: ["alertname", "service"]
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 1h
+
+receivers:
+  - name: default
+    # No-op local sink; F2 wires Alertmanager → IncidentPilot webhook.

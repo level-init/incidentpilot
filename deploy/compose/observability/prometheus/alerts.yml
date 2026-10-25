@@ -1,0 +1,15 @@
+groups:
+  - name: sim-http
+    rules:
+      - alert: SimHighErrorRate
+        expr: |
+          sum by (service) (rate(sim_http_request_errors_total[2m]))
+            /
+          clamp_min(sum by (service) (rate(sim_http_requests_total[2m])), 0.001)
+            > 0.25
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP error rate on {{ $labels.service }}"
+          description: "sim service {{ $labels.service }} error ratio > 25% for 2m"
