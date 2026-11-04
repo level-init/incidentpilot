@@ -11,8 +11,10 @@ from incidentpilot_shared.ai_tools import (
 )
 from incidentpilot_shared.alerts import (
     NormalizedAlert,
+    cloudwatch_fingerprint,
     incidentpilot_fingerprint,
     normalize_alertmanager_webhook,
+    normalize_cloudwatch_payload,
 )
 from incidentpilot_shared.domain import (
     AppendEvidenceResult,
@@ -94,10 +96,12 @@ __all__ = [
     "enforce_tool_scope",
     "enqueue_outbox",
     "fetch_pending_outbox",
+    "cloudwatch_fingerprint",
     "incidentpilot_fingerprint",
     "mark_outbox_published",
     "mark_outbox_retry",
     "normalize_alertmanager_webhook",
+    "normalize_cloudwatch_payload",
     "project_evidence_for_llm",
     "queues_for_process",
     "release_outbox_lease",

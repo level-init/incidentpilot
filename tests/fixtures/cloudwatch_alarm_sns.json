@@ -1,0 +1,8 @@
+{
+  "Type": "Notification",
+  "MessageId": "11111111-2222-3333-4444-555555555555",
+  "TopicArn": "arn:aws:sns:us-east-1:123456789012:incidentpilot-alarms",
+  "Subject": "ALARM: \"SimHighErrorRate\" in US East (N. Virginia)",
+  "Message": "{\"AlarmName\":\"SimHighErrorRate\",\"AlarmDescription\":\"Simulated payment error rate\",\"AWSAccountId\":\"123456789012\",\"NewStateValue\":\"ALARM\",\"NewStateReason\":\"Threshold Crossed: 1 datapoint [12.0 (01/01/24 12:00:00)] was greater than the threshold (5.0).\",\"StateChangeTime\":\"2024-01-01T12:00:00.000+0000\",\"Region\":\"US East (N. Virginia)\",\"AlarmArn\":\"arn:aws:cloudwatch:us-east-1:123456789012:alarm:SimHighErrorRate\",\"OldStateValue\":\"OK\",\"Trigger\":{\"MetricName\":\"ErrorRate\",\"Namespace\":\"IncidentPilot/Sim\",\"StatisticType\":\"Statistic\",\"Statistic\":\"Average\",\"Unit\":null,\"Dimensions\":[{\"name\":\"service\",\"value\":\"payment\"}],\"Period\":60,\"EvaluationPeriods\":1,\"ComparisonOperator\":\"GreaterThanThreshold\",\"Threshold\":5.0}}",
+  "Timestamp": "2024-01-01T12:00:05.000Z"
+}
