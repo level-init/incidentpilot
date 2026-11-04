@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-import json
 from typing import Annotated
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from psycopg import Connection
 from psycopg.rows import dict_row
 
 from incidentpilot_api.auth import Principal, get_principal
-from incidentpilot_api.commands import transition_incident_command
+from incidentpilot_api.commands import create_incident_command, transition_incident_command
 from incidentpilot_api.db import get_conn, get_conn_with_permission
 from incidentpilot_api.rbac import Permission, require_permission
 from incidentpilot_api.schemas import (
@@ -70,44 +69,25 @@ def create_incident(
     principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn_with_permission(Permission.INCIDENT_WRITE))],
 ) -> IncidentOut:
-    incident_id = uuid4()
-    public_id = f"INC-{incident_id.hex[:8].upper()}"
+    created = create_incident_command(
+        conn,
+        title=body.title,
+        severity=body.severity,
+        summary=body.summary,
+        actor=principal.actor_id,
+        commit=True,
+    )
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
-            INSERT INTO domain.incident (
-                id, public_id, state, title, severity, summary, incident_revision
-            ) VALUES (%s, %s, 'DETECTED', %s, %s, %s, 1)
-            RETURNING id, public_id, state, title, severity, incident_revision,
-                      summary, opened_at, resolved_at, closed_at
+            SELECT id, public_id, state, title, severity, incident_revision,
+                   summary, opened_at, resolved_at, closed_at
+            FROM domain.incident WHERE id = %s
             """,
-            (
-                str(incident_id),
-                public_id,
-                body.title,
-                body.severity,
-                body.summary,
-            ),
+            (str(created.incident_id),),
         )
         row = cur.fetchone()
         assert row is not None
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO domain.audit_event (
-                incident_id, action, actor, resource_type, resource_id, details
-            ) VALUES (
-                %s, 'incident.create', %s, 'incident', %s, %s::jsonb
-            )
-            """,
-            (
-                str(incident_id),
-                principal.actor_id,
-                str(incident_id),
-                json.dumps({"auth_mode": principal.auth_mode, "title": body.title}),
-            ),
-        )
-    conn.commit()
     return _row_to_incident(row)
 
 

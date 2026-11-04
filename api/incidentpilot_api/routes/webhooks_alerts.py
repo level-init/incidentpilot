@@ -1,6 +1,6 @@
-"""Alert webhook ingress — Alertmanager auth, replay, normalize + persist (F1/F2).
+"""Alert webhook ingress — Alertmanager auth, replay, normalize, correlate (F1–F4).
 
-Correlation / IncidentWorkflow signaling land in F4/F5.
+IncidentWorkflow signaling lands in F5.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from psycopg import Connection
 from pydantic import BaseModel, Field
 
-from incidentpilot_api.commands import upsert_alert_command
+from incidentpilot_api.commands import correlate_alert_command, upsert_alert_command
 from incidentpilot_api.db import database_url
 from incidentpilot_api.webhook_auth import new_ingress_id, require_alertmanager_auth
 from incidentpilot_shared import normalize_alertmanager_webhook, try_begin_idempotent
@@ -41,6 +41,7 @@ class AlertIngressAccepted(BaseModel):
     idempotent: bool = False
     alert_ids: list[UUID] = Field(default_factory=list)
     fingerprints: list[str] = Field(default_factory=list)
+    incident_ids: list[UUID] = Field(default_factory=list)
 
 
 def _replay_key(
@@ -76,7 +77,7 @@ async def alertmanager_webhook(
     Auth: Bearer / Basic / custom header (see docs/alert-webhooks.md).
     Replay: ``Idempotency-Key`` or ``X-Request-Id``, else SHA-256 of body.
     Duplicate keys return **200** with ``status=duplicate`` (success/no-op).
-    F2: normalize each alert, upsert ``domain.alert`` by IncidentPilot fingerprint.
+    F2/F4: normalize, upsert alert, correlate to incident by fingerprint/time/service.
     """
     try:
         payload = await request.json()
@@ -114,11 +115,13 @@ async def alertmanager_webhook(
                 "idempotent": True,
                 "alert_ids": [],
                 "fingerprints": [],
+                "incident_ids": [],
             },
         )
 
     alert_ids: list[UUID] = []
     fingerprints: list[str] = []
+    incident_ids: list[UUID] = []
     for normalized in normalize_alertmanager_webhook(payload):
         result = upsert_alert_command(
             conn,
@@ -132,8 +135,18 @@ async def alertmanager_webhook(
             ends_at=normalized.ends_at,
             commit=False,
         )
+        correlated = correlate_alert_command(
+            conn,
+            alert_id=result.alert_id,
+            fingerprint=result.fingerprint,
+            labels=normalized.labels,
+            annotations=normalized.annotations,
+            actor="alertmanager",
+            commit=False,
+        )
         alert_ids.append(result.alert_id)
         fingerprints.append(result.fingerprint)
+        incident_ids.append(correlated.incident_id)
 
     conn.commit()
     return AlertIngressAccepted(
@@ -142,4 +155,5 @@ async def alertmanager_webhook(
         idempotent=False,
         alert_ids=alert_ids,
         fingerprints=fingerprints,
+        incident_ids=incident_ids,
     )
