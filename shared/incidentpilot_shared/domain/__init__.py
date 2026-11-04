@@ -1,13 +1,21 @@
 """Shared domain command types and services."""
 
 from incidentpilot_shared.domain.commands import (
+    CORRELATION_WINDOW_MINUTES,
     AppendEvidenceResult,
     ApprovalDecisionResult,
+    CorrelateAlertResult,
+    CreateIncidentResult,
     ReserveAttemptResult,
+    UpsertAlertResult,
     append_evidence_command,
+    attach_alert_command,
+    correlate_alert_command,
+    create_incident_command,
     decide_approval_command,
     reserve_execution_attempt_command,
     transition_incident_command,
+    upsert_alert_command,
 )
 from incidentpilot_shared.domain.outbox import (
     OutboxMessage,
@@ -30,8 +38,11 @@ from incidentpilot_shared.domain.transitions import (
 )
 
 __all__ = [
+    "CORRELATION_WINDOW_MINUTES",
     "AppendEvidenceResult",
     "ApprovalDecisionResult",
+    "CorrelateAlertResult",
+    "CreateIncidentResult",
     "IllegalTransitionError",
     "IncidentState",
     "OutboxMessage",
@@ -40,8 +51,12 @@ __all__ = [
     "StaleRevisionError",
     "TransitionResult",
     "UnitOfWork",
+    "UpsertAlertResult",
     "append_evidence_command",
     "apply_transition",
+    "attach_alert_command",
+    "correlate_alert_command",
+    "create_incident_command",
     "decide_approval_command",
     "enqueue_outbox",
     "fetch_pending_outbox",
@@ -52,4 +67,5 @@ __all__ = [
     "transition_incident",
     "transition_incident_command",
     "try_begin_idempotent",
+    "upsert_alert_command",
 ]

@@ -8,7 +8,6 @@ D5: investigation / approval / validation durable timers (handlers stubbed).
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, cast
 
@@ -17,6 +16,7 @@ from temporalio.common import RetryPolicy
 from temporalio.exceptions import ActivityError, ApplicationError
 
 with workflow.unsafe.imports_passed_through():
+    from incidentpilot_shared.incident_workflow import IncidentWorkflowInput
     from incidentpilot_worker.activities.incident_transitions import (
         STALE_REVISION_ERROR_TYPE,
     )
@@ -26,16 +26,8 @@ with workflow.unsafe.imports_passed_through():
         WorkflowTimerConfig,
     )
 
-
-@dataclass
-class IncidentWorkflowInput:
-    incident_id: str
-    wait_after_triaging: bool = False
-    wait_for_domain_event: bool = False
-    # D5: when set, arm durable timers after INVESTIGATING (stub handlers).
-    timers: WorkflowTimerConfig | None = None
-    # When set, block until that named timer has fired (tests / kill-resume).
-    wait_for_timer: str | None = None
+# Re-export for existing ``from ...incident_workflow import IncidentWorkflowInput``.
+__all__ = ["IncidentWorkflow", "IncidentWorkflowInput"]
 
 
 _EARLY_PATH = ("DETECTED", "TRIAGING", "INVESTIGATING")
