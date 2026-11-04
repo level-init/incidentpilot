@@ -127,7 +127,3 @@ make db-verify-isolation
 make verify-local-infra
 ```
 
-## Status
-
-Foundation (Epic A) done. Epic B (Domain SoR) completes with OpenAPI (B8).
-Next epic after B ships to `main`: Epic C (Auth & security).
