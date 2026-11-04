@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "IncidentPilot API",
-    "description": "Evidence-driven incident-response control plane HTTP surface. Session identity: Bearer stub tokens (see docs/auth.md); client-supplied actor_id is rejected. GroundTruth requires eval entitlement (C3), separate from ops RBAC.",
+    "description": "Evidence-driven incident-response control plane HTTP surface. Session identity: Bearer stub tokens (see docs/auth.md); client-supplied actor_id is rejected. GroundTruth requires eval entitlement (C3), separate from ops RBAC. Alertmanager webhooks: /webhooks/alerts/alertmanager (F1).",
     "version": "0.1.0"
   },
   "paths": {
@@ -929,6 +929,88 @@
           }
         }
       }
+    },
+    "/webhooks/alerts/alertmanager": {
+      "post": {
+        "tags": [
+          "webhooks"
+        ],
+        "summary": "Alertmanager webhook ingress",
+        "description": "Accept an Alertmanager webhook payload.\n\nAuth: Bearer / Basic / custom header (see docs/alert-webhooks.md).\nReplay: ``Idempotency-Key`` or ``X-Request-Id``, else SHA-256 of body.\nDuplicate keys return **200** with ``status=duplicate`` (success/no-op).",
+        "operationId": "alertmanager_webhook_webhooks_alerts_alertmanager_post",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertIngressAccepted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -972,6 +1054,30 @@
           "is_reversible"
         ],
         "title": "ActionOut"
+      },
+      "AlertIngressAccepted": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "accepted | duplicate"
+          },
+          "ingress_id": {
+            "type": "string",
+            "title": "Ingress Id"
+          },
+          "idempotent": {
+            "type": "boolean",
+            "title": "Idempotent",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "ingress_id"
+        ],
+        "title": "AlertIngressAccepted"
       },
       "AlertOut": {
         "properties": {

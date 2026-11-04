@@ -32,3 +32,9 @@ curl -s -X POST -H 'Authorization: Bearer local-dev' \
 ```
 
 Published contract: [openapi/openapi.json](../openapi/openapi.json) (`make openapi-export`).
+
+## Alertmanager webhook (F1)
+
+Separate ingress (not Slack HMAC): `POST /webhooks/alerts/alertmanager`.
+
+See [alert-webhooks.md](alert-webhooks.md) for bearer/basic/header secrets and idempotency.

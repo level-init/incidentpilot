@@ -23,7 +23,7 @@ incidentpilot/
 
 | Directory | Import package | Role |
 | --- | --- | --- |
-| `api/` | `incidentpilot_api` | Short-lived HTTP / webhooks |
+| `api/` | `incidentpilot_api` | Short-lived HTTP / webhooks (incl. AM `/webhooks/alerts`) |
 | `worker/` | `incidentpilot_worker` | Temporal activities + reasoning (no rollback keys, no GT) |
 | `remediation_worker/` | `incidentpilot_remediation` | Privileged remediation execute / reconcile |
 | `shared/` | `incidentpilot_shared` | Domain types, commands, shared utilities |
