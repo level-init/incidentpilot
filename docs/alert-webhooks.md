@@ -18,7 +18,8 @@ Success: **202 Accepted** with:
   "ingress_id": "...",
   "idempotent": false,
   "alert_ids": ["..."],
-  "fingerprints": ["am:..."]
+  "fingerprints": ["am:..."],
+  "incident_ids": ["..."]
 }
 ```
 
@@ -26,7 +27,18 @@ F2 normalizes each entry in `alerts[]` into `domain.alert` with a stable
 IncidentPilot fingerprint (`am:<sha256>`). Vendor AM `fingerprint` is an
 input to the hash only. Raw alert JSON is stored in `raw_payload`.
 
-Correlation / workflow signaling is **F4 / F5**.
+## Correlation (F4)
+
+After upsert, each alert is attached via `correlate_alert_command`:
+
+1. Already linked → keep  
+2. Else open incident for same fingerprint  
+3. Else open incident with a recent alert on the same `labels.service` (default **30 minutes**)  
+4. Else create a new DETECTED incident  
+
+Topology/change data is **not** required. Response includes `incident_ids`.
+
+Workflow start/signal is **F5**.
 
 ## CloudWatch (F3)
 

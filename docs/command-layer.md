@@ -20,6 +20,12 @@ transitions, and outbox rules cannot be bypassed.
 | `decide_approval_command` | PENDING → APPROVED/REJECTED |
 | `reserve_execution_attempt_command` | Reserve attempt before MITIGATING |
 | `upsert_alert_command` | Insert/update `domain.alert` by fingerprint (F2) |
+| `create_incident_command` | Create DETECTED incident (+ optional service link) |
+| `attach_alert_command` | Set `alert.incident_id` |
+| `correlate_alert_command` | Fingerprint/time/service match or create (F4) |
+| `create_incident_command` | Create DETECTED incident (+ optional service link) |
+| `attach_alert_command` | Set `alert.incident_id` |
+| `correlate_alert_command` | Fingerprint/time/service match or create (F4) |
 
 ## Adapter boundary
 

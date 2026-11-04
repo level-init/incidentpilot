@@ -33,9 +33,10 @@ curl -s -X POST -H 'Authorization: Bearer local-dev' \
 
 Published contract: [openapi/openapi.json](../openapi/openapi.json) (`make openapi-export`).
 
-## Alertmanager webhook (F1 / F2)
+## Alertmanager webhook (F1–F4)
 
 Separate ingress (not Slack HMAC): `POST /webhooks/alerts/alertmanager`.
 
-Normalizes to `domain.alert` with a stable IncidentPilot fingerprint.
-See [alert-webhooks.md](alert-webhooks.md) for auth, replay, and verify curls.
+Normalizes to `domain.alert`, then correlates by fingerprint / time / `labels.service`
+into an incident (`incident_ids` in the response).
+See [alert-webhooks.md](alert-webhooks.md) for auth, replay, correlation, and verify curls.
