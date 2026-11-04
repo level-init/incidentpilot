@@ -61,6 +61,19 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _skip_temporal_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    """F1/F2 tests do not require Temporal (covered in F5)."""
+
+    async def _noop(incident_ids: list) -> None:  # noqa: ARG001
+        return None
+
+    monkeypatch.setattr(
+        "incidentpilot_api.routes.webhooks_alerts.start_incident_workflows",
+        _noop,
+    )
+
+
 @pytest.fixture()
 def am_token(monkeypatch: pytest.MonkeyPatch) -> str:
     token = "test-am-webhook-token"

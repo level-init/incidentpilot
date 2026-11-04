@@ -48,6 +48,15 @@ from incidentpilot_shared.domain import (
     try_begin_idempotent,
     upsert_alert_command,
 )
+from incidentpilot_shared.incident_workflow import (
+    WORKFLOW_NAME as INCIDENT_WORKFLOW_NAME,
+)
+from incidentpilot_shared.incident_workflow import (
+    IncidentWorkflowInput,
+    ensure_incident_workflow_started,
+    incident_workflow_id,
+    incident_workflow_task_queue,
+)
 from incidentpilot_shared.redaction import (
     EvidenceProjection,
     RedactionError,
@@ -73,6 +82,7 @@ __all__ = [
     "ALL_TASK_QUEUES",
     "CORRELATION_WINDOW_MINUTES",
     "DENIED_TOOL_NAMES",
+    "INCIDENT_WORKFLOW_NAME",
     "QUEUE_CONSUMER_CONTRACTS",
     "AiToolRegistry",
     "AppendEvidenceResult",
@@ -82,6 +92,7 @@ __all__ = [
     "EvidenceProjection",
     "IllegalTransitionError",
     "IncidentState",
+    "IncidentWorkflowInput",
     "NormalizedAlert",
     "OutboxMessage",
     "OutboxRequiredError",
@@ -108,7 +119,10 @@ __all__ = [
     "default_ai_tool_registry",
     "enforce_tool_scope",
     "enqueue_outbox",
+    "ensure_incident_workflow_started",
     "fetch_pending_outbox",
+    "incident_workflow_id",
+    "incident_workflow_task_queue",
     "incidentpilot_fingerprint",
     "mark_outbox_published",
     "mark_outbox_retry",

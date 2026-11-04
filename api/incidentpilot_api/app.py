@@ -16,7 +16,7 @@ app = FastAPI(
         "Session identity: Bearer stub tokens (see docs/auth.md); "
         "client-supplied actor_id is rejected. "
         "GroundTruth requires eval entitlement (C3), separate from ops RBAC. "
-        "Alertmanager webhooks: /webhooks/alerts/alertmanager (F1)."
+        "Alertmanager webhooks: /webhooks/alerts/alertmanager (F1–F5)."
     ),
     dependencies=[Depends(reject_spoofed_identity)],
 )
