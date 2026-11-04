@@ -9,14 +9,18 @@ RUFF := $(BIN)/ruff
 MYPY := $(BIN)/mypy
 PYTEST := $(BIN)/pytest
 
-PY_SRC := api worker remediation_worker shared adapters scenario_runner evaluator
+PY_SRC := api worker remediation_worker shared adapters scenario_runner evaluator simulation
 
 COMPOSE ?= docker compose
 PROFILE ?= core
+DURATION ?= 60
+RPS ?= 1
 
 .PHONY: bootstrap lint format typecheck test help \
 	compose-core compose-full compose-up compose-down compose-ps compose-config \
-	migrate db-verify-isolation verify-local-infra openapi-export api-run
+	migrate db-verify-isolation verify-local-infra openapi-export api-run \
+	temporal-queue-smoke sim-happy-path sim-contract-scan test-sim-contract obs-smoke \
+	sim-traffic sim-baseline-gate sim-inject
 
 help:
 	@echo "Targets:"
@@ -34,13 +38,21 @@ help:
 	@echo "  make migrate               - apply deploy/db/migrations"
 	@echo "  make db-verify-isolation   - prove GT denied for ip_app/ip_runner; no app DDL"
 	@echo "  make verify-local-infra    - Temporal UI + local S3 put/get smoke"
+	@echo "  make temporal-queue-smoke  - workers subscribe to general/evidence/remediation"
+	@echo "  make sim-happy-path        - curl checkout happy path via sim-gateway :8100"
+	@echo "  make sim-contract-scan     - fail if sim exposes GT / root-cause cheat routes"
+	@echo "  make test-sim-contract     - pytest contract suite + sim_contract_scan (E6/CI)"
+	@echo "  make sim-baseline-gate     - curl all /healthz + gateway /readyz (E4)"
+	@echo "  make sim-traffic           - baseline load (DURATION=60 RPS=1)"
+	@echo "  make sim-inject ARGS='…'   - fault injectors (list|activate|reset|status)"
+	@echo "  make obs-smoke             - Prom/Loki/Tempo/Grafana/AM health (evidence profile)"
 	@echo "  make openapi-export        - write openapi/openapi.json"
 	@echo "  make api-run               - run FastAPI on :8000"
 
 bootstrap:
 	$(PYTHON) -m venv $(VENV)
 	$(PIP) install --upgrade pip
-	$(PIP) install -r requirements.txt -r requirements-dev.txt
+	$(PIP) install -r requirements.txt -r requirements-dev.txt -r simulation/requirements.txt
 
 lint: $(VENV)
 	$(RUFF) check $(PY_SRC) tests
@@ -84,6 +96,36 @@ db-verify-isolation:
 
 verify-local-infra:
 	./scripts/verify_local_infra.sh
+
+temporal-queue-smoke: $(VENV)
+	PYTHONPATH="$(CURDIR)/worker:$(CURDIR)/shared:$$PYTHONPATH" \
+		$(BIN)/python -m incidentpilot_worker smoke
+	PYTHONPATH="$(CURDIR)/worker:$(CURDIR)/shared:$$PYTHONPATH" \
+		$(BIN)/python -m incidentpilot_worker evidence smoke
+	PYTHONPATH="$(CURDIR)/remediation_worker:$(CURDIR)/shared:$$PYTHONPATH" \
+		$(BIN)/python -m incidentpilot_remediation smoke
+
+sim-happy-path:
+	./scripts/sim_happy_path.sh
+
+sim-contract-scan: $(VENV)
+	$(BIN)/python scripts/sim_contract_scan.py
+
+test-sim-contract: $(VENV)
+	$(PYTEST) tests/test_sim_contract.py tests/test_sim_services.py -k "contract or forbidden" -q
+	$(BIN)/python scripts/sim_contract_scan.py
+
+sim-baseline-gate: $(VENV)
+	./scripts/sim_baseline_gate.sh
+
+sim-traffic: $(VENV)
+	DURATION=$(DURATION) RPS=$(RPS) ./scripts/sim_traffic.sh
+
+sim-inject: $(VENV)
+	./scripts/sim_inject.sh $(ARGS)
+
+obs-smoke:
+	./scripts/verify_obs_stack.sh
 
 openapi-export: $(VENV)
 	$(BIN)/python scripts/export_openapi.py

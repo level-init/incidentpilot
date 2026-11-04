@@ -1,15 +1,16 @@
-# IncidentPilot local Compose profiles (A4 / A6).
+# IncidentPilot local Compose profiles (A4 / A6 / E3).
 #
 # Profiles:
 #   core        — postgres, temporal (+ UI), local S3 (Silo/MinIO-API) + bucket init
 #   redis       — optional cache-only Redis (not required for core)
-#   evidence    — placeholder for Prom/Loki/Tempo/AM (Epic E/G)
-#   simulation  — placeholder for demo microservices (Epic E)
+#   evidence    — Prometheus, Loki, Tempo, Grafana, Alertmanager, Promtail (E3)
+#   simulation  — demo microservices gateway/auth/checkout/payment/inventory/notification
 #   full        — core + redis + evidence + simulation
 #
 # Examples:
 #   docker compose --profile core up -d
 #   docker compose --profile core --profile redis up -d
+#   docker compose --profile evidence --profile simulation up -d
 #   docker compose --profile full up -d
 #   make compose-core
 
@@ -149,28 +150,261 @@ services:
       timeout: 3s
       retries: 10
 
-  # --- Placeholders: keep profiles valid until Epic E/G wires real services ---
+  # --- Observability stack (E3) — profile: evidence ---
 
-  evidence-stack-placeholder:
-    image: alpine:3.20
+  prometheus:
+    image: prom/prometheus:v2.55.1
     profiles: ["evidence", "full"]
     command:
-      [
-        "sh",
-        "-c",
-        "echo 'evidence profile: Prometheus/Loki/Tempo/Alertmanager land in Epic E/G'; sleep infinity",
-      ]
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports: ["9090:9090"]
+    volumes:
+      - ./deploy/compose/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/compose/observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      alertmanager:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
-  simulation-stack-placeholder:
-    image: alpine:3.20
-    profiles: ["simulation", "full"]
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    profiles: ["evidence", "full"]
     command:
-      [
-        "sh",
-        "-c",
-        "echo 'simulation profile: gateway/auth/checkout/… land in Epic E'; sleep infinity",
-      ]
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports: ["9093:9093"]
+    volumes:
+      - ./deploy/compose/observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9093/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  loki:
+    image: grafana/loki:3.2.1
+    profiles: ["evidence", "full"]
+    command: ["-config.file=/etc/loki/loki-config.yml"]
+    ports: ["3100:3100"]
+    volumes:
+      - ./deploy/compose/observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3100/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    profiles: ["evidence", "full"]
+    command: ["-config.file=/etc/tempo/tempo-config.yml"]
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./deploy/compose/observability/tempo/tempo-config.yml:/etc/tempo/tempo-config.yml:ro
+      - tempo_data:/var/tempo
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3200/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  promtail:
+    image: grafana/promtail:3.2.1
+    profiles: ["evidence", "full"]
+    command: ["-config.file=/etc/promtail/promtail-config.yml"]
+    volumes:
+      - ./deploy/compose/observability/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      loki:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    profiles: ["evidence", "full"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    ports: ["3000:3000"]
+    volumes:
+      - ./deploy/compose/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/compose/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health | grep -q ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # Simulation microservices (E1/E2). Happy path: POST http://localhost:8100/v1/checkout
+  # OTEL_* points at Tempo when the evidence profile is also running.
+  sim-auth:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile
+      args: { SERVICE: auth }
+    profiles: ["simulation", "full"]
+    ports: ["8101:8080"]
+    environment:
+      OTEL_SERVICE_NAME: sim-auth
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sim-checkout:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile
+      args: { SERVICE: checkout }
+    profiles: ["simulation", "full"]
+    ports: ["8102:8080"]
+    environment:
+      OTEL_SERVICE_NAME: sim-checkout
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sim-payment:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile
+      args: { SERVICE: payment }
+    profiles: ["simulation", "full"]
+    ports: ["8103:8080"]
+    environment:
+      OTEL_SERVICE_NAME: sim-payment
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sim-inventory:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile
+      args: { SERVICE: inventory }
+    profiles: ["simulation", "full"]
+    ports: ["8104:8080"]
+    environment:
+      OTEL_SERVICE_NAME: sim-inventory
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sim-notification:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile
+      args: { SERVICE: notification }
+    profiles: ["simulation", "full"]
+    ports: ["8105:8080"]
+    environment:
+      OTEL_SERVICE_NAME: sim-notification
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sim-gateway:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile
+      args: { SERVICE: gateway }
+    profiles: ["simulation", "full"]
+    ports: ["8100:8080"]
+    environment:
+      OTEL_SERVICE_NAME: sim-gateway
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      SIM_AUTH_URL: http://sim-auth:8080
+      SIM_CHECKOUT_URL: http://sim-checkout:8080
+      SIM_PAYMENT_URL: http://sim-payment:8080
+      SIM_INVENTORY_URL: http://sim-inventory:8080
+      SIM_NOTIFICATION_URL: http://sim-notification:8080
+    depends_on:
+      sim-auth:
+        condition: service_healthy
+      sim-checkout:
+        condition: service_healthy
+      sim-payment:
+        condition: service_healthy
+      sim-inventory:
+        condition: service_healthy
+      sim-notification:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Baseline traffic generator (E4). duration=0 runs until stopped.
+  sim-traffic:
+    build:
+      context: ./simulation
+      dockerfile: Dockerfile.traffic
+    profiles: ["simulation", "full"]
+    environment:
+      SIM_GATEWAY_URL: http://sim-gateway:8080
+      SIM_AUTH_URL: http://sim-auth:8080
+      SIM_CHECKOUT_URL: http://sim-checkout:8080
+      SIM_PAYMENT_URL: http://sim-payment:8080
+      SIM_INVENTORY_URL: http://sim-inventory:8080
+      SIM_NOTIFICATION_URL: http://sim-notification:8080
+    depends_on:
+      sim-gateway:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   minio_data:
+  prometheus_data:
+  alertmanager_data:
+  loki_data:
+  tempo_data:
+  grafana_data:

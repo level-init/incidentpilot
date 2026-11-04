@@ -15,7 +15,7 @@ from incidentpilot_api.commands import (
     append_evidence_command,
     decide_approval_command,
 )
-from incidentpilot_api.db import get_conn
+from incidentpilot_api.db import get_conn, get_conn_with_permission
 from incidentpilot_api.rbac import (
     Permission,
     assert_approval_allowed_by_policy,
@@ -82,10 +82,9 @@ def decide_approval(
     approval_id: UUID,
     body: ApprovalDecideBody,
     principal: Annotated[Principal, Depends(get_principal)],
-    conn: Annotated[Connection, Depends(get_conn)],
+    conn: Annotated[Connection, Depends(get_conn_with_permission(Permission.APPROVAL_DECIDE))],
 ) -> ApprovalOut:
     """Approval decision — session actor; gated by RBAC + PolicyDecision."""
-    require_permission(principal, Permission.APPROVAL_DECIDE)
     if body.status not in {"APPROVED", "REJECTED"}:
         raise HTTPException(status_code=400, detail="status must be APPROVED or REJECTED")
 

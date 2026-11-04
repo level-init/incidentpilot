@@ -25,6 +25,7 @@ src = [
     "adapters",
     "scenario_runner",
     "evaluator",
+    "simulation",
 ]
 
 [tool.ruff.lint]
@@ -76,3 +77,5 @@ pythonpath = [
     "evaluator",
 ]
 addopts = "-q"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

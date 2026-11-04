@@ -10,7 +10,7 @@ from psycopg.rows import dict_row
 
 from incidentpilot_api.auth import Principal, get_principal
 from incidentpilot_api.commands import transition_incident_command
-from incidentpilot_api.db import get_conn
+from incidentpilot_api.db import get_conn, get_conn_with_permission
 from incidentpilot_api.rbac import Permission, require_permission
 from incidentpilot_api.schemas import (
     IncidentCreate,
@@ -68,9 +68,8 @@ def list_incidents(
 def create_incident(
     body: IncidentCreate,
     principal: Annotated[Principal, Depends(get_principal)],
-    conn: Annotated[Connection, Depends(get_conn)],
+    conn: Annotated[Connection, Depends(get_conn_with_permission(Permission.INCIDENT_WRITE))],
 ) -> IncidentOut:
-    require_permission(principal, Permission.INCIDENT_WRITE)
     incident_id = uuid4()
     public_id = f"INC-{incident_id.hex[:8].upper()}"
     with conn.cursor(row_factory=dict_row) as cur:

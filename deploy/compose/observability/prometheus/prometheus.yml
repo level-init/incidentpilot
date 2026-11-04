@@ -1,0 +1,34 @@
+# Prometheus scrape config for local simulation + self-scrape (E3).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: incidentpilot-local
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: sim-services
+    metrics_path: /metrics
+    scrape_interval: 10s
+    static_configs:
+      - targets:
+          - sim-gateway:8080
+          - sim-auth:8080
+          - sim-checkout:8080
+          - sim-payment:8080
+          - sim-inventory:8080
+          - sim-notification:8080
+        labels:
+          env: local
+          stack: simulation

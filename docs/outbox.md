@@ -6,9 +6,11 @@ async intents (Temporal signals, Slack notifications, etc.).
 ## At-least-once semantics
 
 1. Domain write + `outbox_message` insert happen in the **same Postgres TX**.
-2. A dispatcher (Epic D / K later) polls `status = 'pending'`, delivers, then
-   marks `published` (or `failed` with retry via `attempts` / `available_at`).
-3. Delivery is **at-least-once**. Consumers must dedupe.
+2. The **outbox dispatcher** (D4) polls `status = 'pending'`, signals Temporal
+   workflows, then marks `published` (or schedules retry via `available_at` /
+   `attempts` / `last_error`).
+3. Delivery is **at-least-once**. Consumers must dedupe (workflow tracks
+   `message_id`; never re-apply domain transitions from signals).
 
 ## Idempotency
 
@@ -40,6 +42,24 @@ uow.enqueue_outbox(
 )
 uow.commit()
 ```
+
+## Dispatcher → Temporal signals (D4)
+
+Process placement is flexible (local: `incidentpilot-worker`). Mapping:
+
+| `event_type` | Workflow id | Signal |
+| --- | --- | --- |
+| `incident.transitioned` | `incident-{aggregate_id}` | `domain_event` |
+| `incident.created` | `incident-{aggregate_id}` | `domain_event` |
+
+```bash
+python -m incidentpilot_worker dispatch once   # one poll batch
+python -m incidentpilot_worker dispatch        # loop
+```
+
+Crash mid-flight: row stays `pending` under a visibility lease; a later poll
+re-signals. `IncidentWorkflow.domain_event` ignores duplicate `message_id`s and
+**does not** call TransitionIncident (no double-transition).
 
 ## Tables
 

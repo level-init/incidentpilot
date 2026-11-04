@@ -23,6 +23,7 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/command-layer.md](docs/command-layer.md) | Shared domain commands (API + workers) |
 | [docs/api.md](docs/api.md) | HTTP API local curl examples |
 | [docs/auth.md](docs/auth.md) | Session identity (stub → OIDC contract) |
+| [docs/temporal-queues.md](docs/temporal-queues.md) | Temporal task queues + Freeze-9 consumers |
 | [openapi/openapi.json](openapi/openapi.json) | Published HTTP OpenAPI contract |
 
 ## Repository layout
@@ -94,6 +95,14 @@ make format      # auto-fix lint + format (optional)
 | `make migrate` | Apply SQL migrations (`domain` / `scenarios` / `eval` + roles) |
 | `make db-verify-isolation` | Prove GroundTruth denied for `ip_app` / `ip_runner` |
 | `make verify-local-infra` | Temporal UI + local S3 put/get smoke |
+| `make temporal-queue-smoke` | Workers subscribe to general / evidence / remediation |
+| `make sim-happy-path` | Curl sim-gateway checkout happy path (`:8100`) |
+| `make sim-contract-scan` | Fail if sim exposes GT / root-cause cheat routes |
+| `make test-sim-contract` | Contract pytest + scan (E6; CI `sim-contract` job) |
+| `make sim-baseline-gate` | All sim `/healthz` + gateway `/readyz` |
+| `make sim-traffic` | Baseline load (`DURATION=60` `RPS=1`) |
+| `make sim-inject` | Fault injectors (`ARGS='activate bad_deploy'`) |
+| `make obs-smoke` | Prom / Loki / Tempo / Grafana / Alertmanager health |
 | `make openapi-export` | Write `openapi/openapi.json` from FastAPI app |
 | `make api-run` | Run local API on :8000 (`Bearer local-dev`) |
 

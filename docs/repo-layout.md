@@ -41,8 +41,17 @@ this folder is reserved so deployable layout is stable from day one.
 
 ## Simulation
 
-`simulation/` will hold the demo services (gateway, auth, checkout, payment,
-inventory, notification) under issue #26 (E1). Subdirectories are placeholders only.
+`simulation/` holds the demo services (gateway, auth, checkout, payment,
+inventory, notification) from issue #26 (E1). Compose profile `simulation`
+exposes them on ports `8100`–`8105`. Baseline traffic generator lives under
+`simulation/traffic/` (E4); contract: [sim-baseline.md](sim-baseline.md).
+Fault injectors: `simulation/faults/` + `common/faults.py` (E5);
+[sim-faults.md](sim-faults.md). GT isolation contract: [sim-contract.md](sim-contract.md).
+
+## Observability (local)
+
+`deploy/compose/observability/` holds Prometheus / Loki / Tempo / Grafana /
+Alertmanager / Promtail configs for compose profile `evidence` (E3 / #28).
 
 ## Isolation rules (layout reminder)
 

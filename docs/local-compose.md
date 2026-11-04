@@ -6,8 +6,8 @@ Profiles match the product overview environments for shared local DX.
 | --- | --- |
 | `core` | Postgres, Temporal (+ UI), Silo/S3 (+ bucket bootstrap) |
 | `redis` | Optional cache-only Redis (never authoritative) |
-| `evidence` | Placeholder until Epic E/G (Prom / Loki / Tempo / AM) |
-| `simulation` | Placeholder until Epic E (demo microservices) |
+| `evidence` | Prometheus, Loki, Tempo, Grafana, Alertmanager, Promtail (E3) |
+| `simulation` | Demo microservices (gateway/auth/checkout/payment/inventory/notification) |
 | `full` | core + redis + evidence + simulation |
 
 ## Quick start
@@ -33,10 +33,20 @@ make compose-up PROFILE=redis   # redis alone; usually pair with core
 Other profiles:
 
 ```bash
-make compose-up PROFILE=evidence
-make compose-up PROFILE=simulation
+make compose-up PROFILE=evidence     # Prom/Loki/Tempo/Grafana/AM
+make compose-up PROFILE=simulation   # sim microservices on :8100–:8105
+# Prefer both together so Prom scrapes sim /metrics and Tempo gets OTLP:
+docker compose --profile evidence --profile simulation up -d
+make sim-happy-path
+make sim-baseline-gate
+make sim-traffic DURATION=60
+make obs-smoke
+make sim-contract-scan
 make compose-full
 ```
+
+Baseline contract (scenario gate): [sim-baseline.md](sim-baseline.md).
+Fault injectors: [sim-faults.md](sim-faults.md) (`make sim-inject ARGS='…'`).
 
 Validate without starting containers:
 
@@ -54,6 +64,13 @@ docker compose --profile core config
 | S3 API (Silo) | http://localhost:9000 | `minioadmin` / `minioadmin` (override via env) |
 | S3 console | http://localhost:9001 | same as API |
 | Redis (optional) | `localhost:6379` | no auth; enable with `--profile redis` |
+| Sim gateway | http://localhost:8100 | `POST /v1/checkout` happy path |
+| Sim auth…notification | `8101`–`8105` | see [../simulation/README.md](../simulation/README.md) |
+| Grafana | http://localhost:3000 | `admin` / `admin` (override via env) |
+| Prometheus | http://localhost:9090 | — |
+| Alertmanager | http://localhost:9093 | `GET /-/healthy`, `GET /api/v2/status` |
+| Loki | http://localhost:3100 | — |
+| Tempo | http://localhost:3200 | OTLP `:4317` gRPC / `:4318` HTTP |
 
 ### Local S3 buckets (created by `minio-init`)
 
@@ -72,15 +89,26 @@ production-demo still targets real S3.
 
 ## Health / smoke checks
 
-Containers expose Docker healthchecks for Postgres, Temporal, Temporal UI, Silo, and Redis.
-App-level smoke:
+Containers expose Docker healthchecks for Postgres, Temporal, Temporal UI, Silo, Redis,
+and the evidence-profile obs services. App-level smoke:
 
 ```bash
 make verify-local-infra
 # Temporal UI HTTP 200
 # Silo /minio/health/live
 # aws-cli put/get on incidentpilot-evidence
+
+make temporal-queue-smoke
+# workers subscribe to incidentpilot-general / -evidence / -remediation
+
+make obs-smoke
+# Alertmanager + Prometheus + Loki + Tempo + Grafana (+ sim-traffic dashboard)
 ```
+
+Configs live under `deploy/compose/observability/`. Grafana ships a provisioned
+**Simulation traffic** dashboard (`uid=sim-traffic`) for request/error/latency rates.
+
+Task queue names and Freeze-9 consumer mapping: [temporal-queues.md](temporal-queues.md).
 
 ## Secrets
 

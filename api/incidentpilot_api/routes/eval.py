@@ -11,9 +11,7 @@ from psycopg import Connection
 from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
-from incidentpilot_api.auth import Principal, get_principal
-from incidentpilot_api.db import get_eval_conn
-from incidentpilot_api.rbac import require_eval_entitlement
+from incidentpilot_api.db import get_eval_conn_with_entitlement
 
 router = APIRouter(prefix="/eval", tags=["eval"])
 
@@ -27,12 +25,10 @@ class GroundTruthOut(BaseModel):
 
 @router.get("/ground-truth", response_model=list[GroundTruthOut])
 def list_ground_truth(
-    principal: Annotated[Principal, Depends(get_principal)],
-    conn: Annotated[Connection, Depends(get_eval_conn)],
+    conn: Annotated[Connection, Depends(get_eval_conn_with_entitlement)],
     scenario_key: str | None = Query(default=None),
 ) -> list[GroundTruthOut]:
     """Read GroundTruth — requires eval entitlement (not ops Admin/Responder)."""
-    require_eval_entitlement(principal)
     sql = """
         SELECT id, scenario_key, answer_payload, created_at
         FROM eval.ground_truth
