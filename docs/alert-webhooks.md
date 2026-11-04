@@ -38,7 +38,12 @@ After upsert, each alert is attached via `correlate_alert_command`:
 
 Topology/change data is **not** required. Response includes `incident_ids`.
 
-Workflow start/signal is **F5**.
+## Workflow start (F5)
+
+After Postgres commit, the API idempotently starts Temporal
+``IncidentWorkflow`` (`id=incident-<uuid>`, queue `incidentpilot-general`).
+Already-running workflows are a no-op (`WorkflowAlreadyStartedError`).
+The workflow advances **DETECTED → TRIAGING → INVESTIGATING**.
 
 ## CloudWatch (F3)
 

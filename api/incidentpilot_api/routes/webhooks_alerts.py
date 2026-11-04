@@ -1,7 +1,4 @@
-"""Alert webhook ingress — Alertmanager auth, replay, normalize, correlate (F1–F4).
-
-IncidentWorkflow signaling lands in F5.
-"""
+"""Alert webhook ingress — Alertmanager auth, replay, normalize, correlate, workflow (F1–F5)."""
 
 from __future__ import annotations
 
@@ -19,6 +16,7 @@ from pydantic import BaseModel, Field
 
 from incidentpilot_api.commands import correlate_alert_command, upsert_alert_command
 from incidentpilot_api.db import database_url
+from incidentpilot_api.temporal import start_incident_workflows
 from incidentpilot_api.webhook_auth import new_ingress_id, require_alertmanager_auth
 from incidentpilot_shared import normalize_alertmanager_webhook, try_begin_idempotent
 
@@ -77,7 +75,8 @@ async def alertmanager_webhook(
     Auth: Bearer / Basic / custom header (see docs/alert-webhooks.md).
     Replay: ``Idempotency-Key`` or ``X-Request-Id``, else SHA-256 of body.
     Duplicate keys return **200** with ``status=duplicate`` (success/no-op).
-    F2/F4: normalize, upsert alert, correlate to incident by fingerprint/time/service.
+    F2/F4: normalize, upsert alert, correlate by fingerprint/time/service.
+    F5: after commit, idempotently start IncidentWorkflow → INVESTIGATING.
     """
     try:
         payload = await request.json()
@@ -149,6 +148,7 @@ async def alertmanager_webhook(
         incident_ids.append(correlated.incident_id)
 
     conn.commit()
+    await start_incident_workflows(incident_ids)
     return AlertIngressAccepted(
         status="accepted",
         ingress_id=ingress_id,

@@ -20,6 +20,7 @@ from incidentpilot_shared.domain.outbox import (
     mark_outbox_published,
     mark_outbox_retry,
 )
+from incidentpilot_shared.incident_workflow import incident_workflow_id
 from incidentpilot_shared.temporal_queues import TaskQueue
 from incidentpilot_worker.db import connect
 from incidentpilot_worker.domain_events import DomainEventEnvelope
@@ -35,7 +36,7 @@ SIGNAL_MAP: Final[dict[str, str]] = {
 
 def workflow_id_for(message: OutboxMessage) -> str:
     if message.aggregate_type == "incident":
-        return f"incident-{message.aggregate_id}"
+        return incident_workflow_id(message.aggregate_id)
     return f"{message.aggregate_type}-{message.aggregate_id}"
 
 

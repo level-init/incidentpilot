@@ -64,6 +64,19 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _skip_temporal_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    """F4 correlation tests stop at DETECTED; F5 covers workflow start."""
+
+    async def _noop(incident_ids: list) -> None:  # noqa: ARG001
+        return None
+
+    monkeypatch.setattr(
+        "incidentpilot_api.routes.webhooks_alerts.start_incident_workflows",
+        _noop,
+    )
+
+
 def _am_alert(*, alertname: str, service: str, summary: str = "demo") -> dict:
     return {
         "status": "firing",
