@@ -46,6 +46,13 @@ class ReserveAttemptResult:
     state: str
 
 
+@dataclass(frozen=True, slots=True)
+class UpsertAlertResult:
+    alert_id: UUID
+    fingerprint: str
+    inserted: bool
+
+
 def transition_incident_command(
     conn: Connection,
     *,
@@ -223,4 +230,66 @@ def reserve_execution_attempt_command(
         action_version=action_version,
         attempt_number=attempt_number,
         state="RESERVED",
+    )
+
+
+def upsert_alert_command(
+    conn: Connection,
+    *,
+    fingerprint: str,
+    source: str,
+    status: str,
+    labels: dict[str, Any] | None = None,
+    annotations: dict[str, Any] | None = None,
+    raw_payload: dict[str, Any] | None = None,
+    starts_at: datetime | None = None,
+    ends_at: datetime | None = None,
+    commit: bool = True,
+) -> UpsertAlertResult:
+    """Insert or update ``domain.alert`` by IncidentPilot fingerprint (F2).
+
+    ``incident_id`` stays NULL until correlation (F4). On conflict, update
+    status / labels / annotations / timestamps / raw_payload; keep first
+    ``received_at`` and ``id``.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.alert (
+                fingerprint, source, status, labels, annotations,
+                raw_payload, starts_at, ends_at
+            ) VALUES (
+                %s, %s, %s, %s::jsonb, %s::jsonb,
+                %s::jsonb, %s, %s
+            )
+            ON CONFLICT (fingerprint) DO UPDATE SET
+                status = EXCLUDED.status,
+                labels = EXCLUDED.labels,
+                annotations = EXCLUDED.annotations,
+                raw_payload = EXCLUDED.raw_payload,
+                starts_at = COALESCE(EXCLUDED.starts_at, domain.alert.starts_at),
+                ends_at = EXCLUDED.ends_at
+            RETURNING id, (xmax = 0) AS inserted
+            """,
+            (
+                fingerprint,
+                source,
+                status,
+                json.dumps(labels or {}),
+                json.dumps(annotations or {}),
+                json.dumps(raw_payload or {}),
+                starts_at,
+                ends_at,
+            ),
+        )
+        row = cur.fetchone()
+        assert row is not None
+        alert_id = UUID(str(row[0]))
+        inserted = bool(row[1])
+    if commit:
+        conn.commit()
+    return UpsertAlertResult(
+        alert_id=alert_id,
+        fingerprint=fingerprint,
+        inserted=inserted,
     )

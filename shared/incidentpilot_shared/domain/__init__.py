@@ -4,10 +4,12 @@ from incidentpilot_shared.domain.commands import (
     AppendEvidenceResult,
     ApprovalDecisionResult,
     ReserveAttemptResult,
+    UpsertAlertResult,
     append_evidence_command,
     decide_approval_command,
     reserve_execution_attempt_command,
     transition_incident_command,
+    upsert_alert_command,
 )
 from incidentpilot_shared.domain.outbox import (
     OutboxMessage,
@@ -40,6 +42,7 @@ __all__ = [
     "StaleRevisionError",
     "TransitionResult",
     "UnitOfWork",
+    "UpsertAlertResult",
     "append_evidence_command",
     "apply_transition",
     "decide_approval_command",
@@ -52,4 +55,5 @@ __all__ = [
     "transition_incident",
     "transition_incident_command",
     "try_begin_idempotent",
+    "upsert_alert_command",
 ]

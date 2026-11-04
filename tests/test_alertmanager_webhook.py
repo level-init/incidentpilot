@@ -1,4 +1,4 @@
-"""F1: Alertmanager webhook auth + replay defenses."""
+"""F1/F2: Alertmanager webhook auth, replay, normalize + fingerprint persist."""
 
 from __future__ import annotations
 
@@ -152,6 +152,8 @@ def test_accepted_with_bearer(client: TestClient, am_token: str) -> None:
     assert body["status"] == "accepted"
     assert body["idempotent"] is False
     assert body["ingress_id"]
+    assert len(body["alert_ids"]) == 1
+    assert body["fingerprints"][0].startswith("am:")
 
 
 @pytest.mark.skipif(not _db_available(), reason="Postgres not reachable")
@@ -167,6 +169,117 @@ def test_replay_returns_duplicate(client: TestClient, am_token: str) -> None:
     assert second.status_code == 200
     assert second.json()["status"] == "duplicate"
     assert second.json()["idempotent"] is True
+
+
+@pytest.mark.skipif(not _db_available(), reason="Postgres not reachable")
+def test_same_payload_different_keys_one_alert_row(client: TestClient, am_token: str) -> None:
+    """AC: duplicate webhook delivery must not duplicate domain.alert."""
+    payload = {
+        "receiver": "incidentpilot",
+        "status": "firing",
+        "alerts": [
+            {
+                "status": "firing",
+                "fingerprint": f"vendor-{os.getpid()}",
+                "labels": {
+                    "alertname": "F2Dedupe",
+                    "service": "payment",
+                    "pid": str(os.getpid()),
+                },
+                "annotations": {"summary": "dedupe"},
+            }
+        ],
+    }
+    headers_a = {
+        "Authorization": f"Bearer {am_token}",
+        "Idempotency-Key": f"f2-a-{os.getpid()}",
+    }
+    headers_b = {
+        "Authorization": f"Bearer {am_token}",
+        "Idempotency-Key": f"f2-b-{os.getpid()}",
+    }
+    first = client.post(PATH, json=payload, headers=headers_a)
+    second = client.post(PATH, json=payload, headers=headers_b)
+    assert first.status_code == 202, first.text
+    assert second.status_code == 202, second.text
+    assert first.json()["fingerprints"] == second.json()["fingerprints"]
+    assert first.json()["alert_ids"] == second.json()["alert_ids"]
+
+    fp = first.json()["fingerprints"][0]
+    url = os.environ.get(
+        "DATABASE_URL",
+        "postgresql://ip_app:incidentpilot_app@localhost:5432/incidentpilot",
+    )
+    with psycopg.connect(url) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT count(*) FROM domain.alert WHERE fingerprint = %s",
+                (fp,),
+            )
+            assert cur.fetchone()[0] == 1
+
+
+@pytest.mark.skipif(not _db_available(), reason="Postgres not reachable")
+def test_resolve_updates_same_fingerprint(client: TestClient, am_token: str) -> None:
+    labels = {
+        "alertname": "F2Resolve",
+        "service": "payment",
+        "pid": str(os.getpid()),
+    }
+    firing = {
+        "receiver": "incidentpilot",
+        "status": "firing",
+        "alerts": [
+            {
+                "status": "firing",
+                "labels": labels,
+                "annotations": {"summary": "up"},
+            }
+        ],
+    }
+    resolved = {
+        "receiver": "incidentpilot",
+        "status": "resolved",
+        "alerts": [
+            {
+                "status": "resolved",
+                "labels": labels,
+                "annotations": {"summary": "down"},
+                "endsAt": "2024-06-01T12:00:00Z",
+            }
+        ],
+    }
+    first = client.post(
+        PATH,
+        json=firing,
+        headers={
+            "Authorization": f"Bearer {am_token}",
+            "Idempotency-Key": f"f2-fire-{os.getpid()}",
+        },
+    )
+    second = client.post(
+        PATH,
+        json=resolved,
+        headers={
+            "Authorization": f"Bearer {am_token}",
+            "Idempotency-Key": f"f2-resolve-{os.getpid()}",
+        },
+    )
+    assert first.status_code == 202
+    assert second.status_code == 202
+    assert first.json()["fingerprints"] == second.json()["fingerprints"]
+    fp = first.json()["fingerprints"][0]
+    url = os.environ.get(
+        "DATABASE_URL",
+        "postgresql://ip_app:incidentpilot_app@localhost:5432/incidentpilot",
+    )
+    with psycopg.connect(url) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT status FROM domain.alert WHERE fingerprint = %s",
+                (fp,),
+            )
+            assert cur.fetchone()[0] == "resolved"
 
 
 def test_openapi_includes_webhook_path(client: TestClient) -> None:

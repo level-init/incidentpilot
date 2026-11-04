@@ -19,6 +19,7 @@ transitions, and outbox rules cannot be bypassed.
 | `append_evidence_command` | Append-only Evidence insert |
 | `decide_approval_command` | PENDING → APPROVED/REJECTED |
 | `reserve_execution_attempt_command` | Reserve attempt before MITIGATING |
+| `upsert_alert_command` | Insert/update `domain.alert` by fingerprint (F2) |
 
 ## Adapter boundary
 
