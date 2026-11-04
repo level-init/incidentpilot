@@ -28,6 +28,13 @@ input to the hash only. Raw alert JSON is stored in `raw_payload`.
 
 Correlation / workflow signaling is **F4 / F5**.
 
+## CloudWatch (F3)
+
+`CloudWatchAdapter` normalizes CW alarm / SNS notification fixtures to the
+**same** `NormalizedAlert` shape (`source=cloudwatch`, fingerprint `cw:<sha256>`).
+HTTP ingress for CW is optional later — F3 is the adapter + unit fixtures.
+See `tests/fixtures/cloudwatch_alarm_*.json` and `tests/test_cloudwatch_normalize.py`.
+
 ## Secret configuration
 
 Set at least one mechanism (env / `.env`):

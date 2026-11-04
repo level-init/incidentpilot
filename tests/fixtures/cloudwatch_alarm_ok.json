@@ -1,0 +1,19 @@
+{
+  "AlarmName": "SimHighErrorRate",
+  "AlarmDescription": "Simulated payment error rate",
+  "AWSAccountId": "123456789012",
+  "NewStateValue": "OK",
+  "NewStateReason": "Threshold Crossed: 1 datapoint [1.0] was not greater than the threshold (5.0).",
+  "StateChangeTime": "2024-01-01T12:30:00.000+0000",
+  "Region": "US East (N. Virginia)",
+  "AlarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:SimHighErrorRate",
+  "OldStateValue": "ALARM",
+  "Trigger": {
+    "MetricName": "ErrorRate",
+    "Namespace": "IncidentPilot/Sim",
+    "Dimensions": [{"name": "service", "value": "payment"}],
+    "Period": 60,
+    "EvaluationPeriods": 1,
+    "Threshold": 5.0
+  }
+}

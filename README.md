@@ -22,7 +22,7 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/outbox.md](docs/outbox.md) | Transactional outbox + idempotency semantics |
 | [docs/command-layer.md](docs/command-layer.md) | Shared domain commands (API + workers) |
 | [docs/api.md](docs/api.md) | HTTP API local curl examples |
-| [docs/alert-webhooks.md](docs/alert-webhooks.md) | Alertmanager webhook auth + replay (F1) |
+| [docs/alert-webhooks.md](docs/alert-webhooks.md) | Alert ingest: AM webhook (F1/F2) + CW adapter (F3) |
 | [docs/auth.md](docs/auth.md) | Session identity (stub → OIDC contract) |
 | [docs/temporal-queues.md](docs/temporal-queues.md) | Temporal task queues + Freeze-9 consumers |
 | [openapi/openapi.json](openapi/openapi.json) | Published HTTP OpenAPI contract |
