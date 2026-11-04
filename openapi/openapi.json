@@ -936,7 +936,7 @@
           "webhooks"
         ],
         "summary": "Alertmanager webhook ingress",
-        "description": "Accept an Alertmanager webhook payload.\n\nAuth: Bearer / Basic / custom header (see docs/alert-webhooks.md).\nReplay: ``Idempotency-Key`` or ``X-Request-Id``, else SHA-256 of body.\nDuplicate keys return **200** with ``status=duplicate`` (success/no-op).",
+        "description": "Accept an Alertmanager webhook payload.\n\nAuth: Bearer / Basic / custom header (see docs/alert-webhooks.md).\nReplay: ``Idempotency-Key`` or ``X-Request-Id``, else SHA-256 of body.\nDuplicate keys return **200** with ``status=duplicate`` (success/no-op).\nF2: normalize each alert, upsert ``domain.alert`` by IncidentPilot fingerprint.",
         "operationId": "alertmanager_webhook_webhooks_alerts_alertmanager_post",
         "parameters": [
           {
@@ -1070,6 +1070,21 @@
             "type": "boolean",
             "title": "Idempotent",
             "default": false
+          },
+          "alert_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Alert Ids"
+          },
+          "fingerprints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Fingerprints"
           }
         },
         "type": "object",

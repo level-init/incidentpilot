@@ -9,6 +9,11 @@ from incidentpilot_shared.ai_tools import (
     ToolSchemaError,
     default_ai_tool_registry,
 )
+from incidentpilot_shared.alerts import (
+    NormalizedAlert,
+    incidentpilot_fingerprint,
+    normalize_alertmanager_webhook,
+)
 from incidentpilot_shared.domain import (
     AppendEvidenceResult,
     ApprovalDecisionResult,
@@ -20,6 +25,7 @@ from incidentpilot_shared.domain import (
     StaleRevisionError,
     TransitionResult,
     UnitOfWork,
+    UpsertAlertResult,
     append_evidence_command,
     apply_transition,
     decide_approval_command,
@@ -32,6 +38,7 @@ from incidentpilot_shared.domain import (
     transition_incident,
     transition_incident_command,
     try_begin_idempotent,
+    upsert_alert_command,
 )
 from incidentpilot_shared.redaction import (
     EvidenceProjection,
@@ -64,6 +71,7 @@ __all__ = [
     "EvidenceProjection",
     "IllegalTransitionError",
     "IncidentState",
+    "NormalizedAlert",
     "OutboxMessage",
     "OutboxRequiredError",
     "RedactionError",
@@ -77,6 +85,7 @@ __all__ = [
     "ToolScope",
     "TransitionResult",
     "UnitOfWork",
+    "UpsertAlertResult",
     "__version__",
     "append_evidence_command",
     "apply_transition",
@@ -85,8 +94,10 @@ __all__ = [
     "enforce_tool_scope",
     "enqueue_outbox",
     "fetch_pending_outbox",
+    "incidentpilot_fingerprint",
     "mark_outbox_published",
     "mark_outbox_retry",
+    "normalize_alertmanager_webhook",
     "project_evidence_for_llm",
     "queues_for_process",
     "release_outbox_lease",
@@ -95,4 +106,5 @@ __all__ = [
     "transition_incident",
     "transition_incident_command",
     "try_begin_idempotent",
+    "upsert_alert_command",
 ]

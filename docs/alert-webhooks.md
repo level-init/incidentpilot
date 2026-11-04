@@ -1,4 +1,4 @@
-# Alertmanager webhook ingress (F1)
+# Alertmanager webhook ingress (F1 / F2)
 
 Separate ingress for Alertmanager. **Not** Slack HMAC — AM uses bearer,
 basic, or a shared custom header.
@@ -10,9 +10,23 @@ POST /webhooks/alerts/alertmanager
 Content-Type: application/json
 ```
 
-Success: **202 Accepted** with `{ "status": "accepted", "ingress_id": "...", "idempotent": false }`.
+Success: **202 Accepted** with:
 
-Normalization into domain `Alert` + fingerprint is **F2**.
+```json
+{
+  "status": "accepted",
+  "ingress_id": "...",
+  "idempotent": false,
+  "alert_ids": ["..."],
+  "fingerprints": ["am:..."]
+}
+```
+
+F2 normalizes each entry in `alerts[]` into `domain.alert` with a stable
+IncidentPilot fingerprint (`am:<sha256>`). Vendor AM `fingerprint` is an
+input to the hash only. Raw alert JSON is stored in `raw_payload`.
+
+Correlation / workflow signaling is **F4 / F5**.
 
 ## Secret configuration
 
@@ -45,6 +59,9 @@ Key preference:
 
 Duplicates return **200** `{ "status": "duplicate", "idempotent": true }` (success / no-op).
 
+Domain uniqueness is separate: `UNIQUE (fingerprint)` on `domain.alert`. The
+same alert delivered under different webhook keys upserts one row.
+
 ## Verify
 
 ```bash
@@ -53,12 +70,12 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8000/webhooks/
   -H 'content-type: application/json' \
   -d '{"receiver":"x","status":"firing","alerts":[]}'
 
-# with token → 202 (Postgres required for idempotency write)
+# with token → 202 (Postgres required)
 curl -s -X POST http://localhost:8000/webhooks/alerts/alertmanager \
   -H 'authorization: Bearer dev-am-webhook-token' \
   -H 'content-type: application/json' \
   -H 'idempotency-key: demo-1' \
-  -d '{"receiver":"incidentpilot","status":"firing","alerts":[]}'
+  -d '{"receiver":"incidentpilot","status":"firing","alerts":[{"status":"firing","labels":{"alertname":"SimHighErrorRate","service":"payment"},"annotations":{"summary":"demo"}}]}'
 ```
 
 Alertmanager receiver example:

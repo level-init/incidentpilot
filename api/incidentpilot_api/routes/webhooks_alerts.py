@@ -1,6 +1,6 @@
-"""Alert webhook ingress (F1) — Alertmanager auth + replay defenses.
+"""Alert webhook ingress — Alertmanager auth, replay, normalize + persist (F1/F2).
 
-Normalization / IncidentWorkflow signaling land in F2+.
+Correlation / IncidentWorkflow signaling land in F4/F5.
 """
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ import hashlib
 import json
 from collections.abc import Iterator
 from typing import Annotated, Any
+from uuid import UUID
 
 import psycopg
 from fastapi import APIRouter, Depends, Header, Request, status
@@ -16,9 +17,10 @@ from fastapi.responses import JSONResponse
 from psycopg import Connection
 from pydantic import BaseModel, Field
 
+from incidentpilot_api.commands import upsert_alert_command
 from incidentpilot_api.db import database_url
 from incidentpilot_api.webhook_auth import new_ingress_id, require_alertmanager_auth
-from incidentpilot_shared import try_begin_idempotent
+from incidentpilot_shared import normalize_alertmanager_webhook, try_begin_idempotent
 
 router = APIRouter(prefix="/webhooks/alerts", tags=["webhooks"])
 
@@ -37,6 +39,8 @@ class AlertIngressAccepted(BaseModel):
     status: str = Field(description="accepted | duplicate")
     ingress_id: str
     idempotent: bool = False
+    alert_ids: list[UUID] = Field(default_factory=list)
+    fingerprints: list[str] = Field(default_factory=list)
 
 
 def _replay_key(
@@ -72,6 +76,7 @@ async def alertmanager_webhook(
     Auth: Bearer / Basic / custom header (see docs/alert-webhooks.md).
     Replay: ``Idempotency-Key`` or ``X-Request-Id``, else SHA-256 of body.
     Duplicate keys return **200** with ``status=duplicate`` (success/no-op).
+    F2: normalize each alert, upsert ``domain.alert`` by IncidentPilot fingerprint.
     """
     try:
         payload = await request.json()
@@ -99,21 +104,42 @@ async def alertmanager_webhook(
         request_hash=request_hash,
         response_ref={"ingress_id": ingress_id, "path": "/webhooks/alerts/alertmanager"},
     )
-    conn.commit()
-
     if not first:
+        conn.commit()
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={
                 "status": "duplicate",
                 "ingress_id": ingress_id,
                 "idempotent": True,
+                "alert_ids": [],
+                "fingerprints": [],
             },
         )
 
-    # F1: ingress only. F2 persists normalized Alert + fingerprint.
+    alert_ids: list[UUID] = []
+    fingerprints: list[str] = []
+    for normalized in normalize_alertmanager_webhook(payload):
+        result = upsert_alert_command(
+            conn,
+            fingerprint=normalized.fingerprint,
+            source=normalized.source,
+            status=normalized.status,
+            labels=normalized.labels,
+            annotations=normalized.annotations,
+            raw_payload=normalized.raw_payload,
+            starts_at=normalized.starts_at,
+            ends_at=normalized.ends_at,
+            commit=False,
+        )
+        alert_ids.append(result.alert_id)
+        fingerprints.append(result.fingerprint)
+
+    conn.commit()
     return AlertIngressAccepted(
         status="accepted",
         ingress_id=ingress_id,
         idempotent=False,
+        alert_ids=alert_ids,
+        fingerprints=fingerprints,
     )
