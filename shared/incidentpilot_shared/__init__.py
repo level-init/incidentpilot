@@ -48,6 +48,12 @@ from incidentpilot_shared.domain import (
     try_begin_idempotent,
     upsert_alert_command,
 )
+from incidentpilot_shared.evidence_producers import (
+    REGISTERED_EVIDENCE_PRODUCERS,
+    EvidenceProducerDenied,
+    assert_registered_evidence_producer,
+    is_registered_evidence_producer,
+)
 from incidentpilot_shared.incident_workflow import (
     WORKFLOW_NAME as INCIDENT_WORKFLOW_NAME,
 )
@@ -84,11 +90,13 @@ __all__ = [
     "DENIED_TOOL_NAMES",
     "INCIDENT_WORKFLOW_NAME",
     "QUEUE_CONSUMER_CONTRACTS",
+    "REGISTERED_EVIDENCE_PRODUCERS",
     "AiToolRegistry",
     "AppendEvidenceResult",
     "ApprovalDecisionResult",
     "CorrelateAlertResult",
     "CreateIncidentResult",
+    "EvidenceProducerDenied",
     "EvidenceProjection",
     "IllegalTransitionError",
     "IncidentState",
@@ -111,6 +119,7 @@ __all__ = [
     "__version__",
     "append_evidence_command",
     "apply_transition",
+    "assert_registered_evidence_producer",
     "attach_alert_command",
     "cloudwatch_fingerprint",
     "correlate_alert_command",
@@ -124,6 +133,7 @@ __all__ = [
     "incident_workflow_id",
     "incident_workflow_task_queue",
     "incidentpilot_fingerprint",
+    "is_registered_evidence_producer",
     "mark_outbox_published",
     "mark_outbox_retry",
     "normalize_alertmanager_webhook",

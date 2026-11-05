@@ -130,7 +130,7 @@ def test_append_evidence_command(conn: object) -> None:
         kind="LOG",
         fingerprint=f"fp-{uuid.uuid4().hex}",
         summary="error spike",
-        producer="test",
+        producer="test_producer",
         commit=False,
     )
     assert result.evidence_key.startswith("EV-")
