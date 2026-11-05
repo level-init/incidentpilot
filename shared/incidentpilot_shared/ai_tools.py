@@ -56,6 +56,11 @@ DENIED_TOOL_NAMES: Final[frozenset[str]] = frozenset(
         "secrets",
         "secrets_read",
         "secret_read",
+        # G1: AI must never write Evidence (producers only).
+        "evidence_write",
+        "evidence_append",
+        "append_evidence",
+        "produce_evidence",
     }
 )
 

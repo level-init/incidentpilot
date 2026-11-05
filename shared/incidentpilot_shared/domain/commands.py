@@ -18,6 +18,7 @@ from incidentpilot_shared.domain.transitions import (
     TransitionResult,
     apply_transition,
 )
+from incidentpilot_shared.evidence_producers import assert_registered_evidence_producer
 
 if TYPE_CHECKING:
     from psycopg import Connection
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
 class AppendEvidenceResult:
     evidence_id: UUID
     evidence_key: str
+    inserted: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,7 +146,14 @@ def append_evidence_command(
     evidence_key: str | None = None,
     commit: bool = True,
 ) -> AppendEvidenceResult:
-    """Append factual Evidence (insert-only; DB forbids UPDATE/DELETE)."""
+    """Append factual Evidence (G1).
+
+    - Only registered producers (never AI sandbox)
+    - Server-generated immutable ``evidence_id``
+    - Idempotent on ``(incident_id, fingerprint)`` — duplicate scrape returns
+      the existing row (``inserted=False``); no UPDATE of factual columns
+    """
+    producer_name = assert_registered_evidence_producer(producer)
     evidence_id = uuid4()
     key = evidence_key or f"EV-{evidence_id.hex[:12]}"
     with conn.cursor() as cur:
@@ -159,6 +168,8 @@ def append_evidence_command(
                 %s, %s::jsonb, %s::jsonb, %s, %s,
                 COALESCE(%s, now()), %s
             )
+            ON CONFLICT (incident_id, fingerprint) DO NOTHING
+            RETURNING id, evidence_key
             """,
             (
                 str(evidence_id),
@@ -172,12 +183,34 @@ def append_evidence_command(
                 blob_uri,
                 str(service_id) if service_id else None,
                 observed_at,
-                producer,
+                producer_name,
             ),
         )
+        row = cur.fetchone()
+        if row is None:
+            cur.execute(
+                """
+                SELECT id, evidence_key FROM domain.evidence
+                WHERE incident_id = %s AND fingerprint = %s
+                """,
+                (str(incident_id), fingerprint),
+            )
+            row = cur.fetchone()
+            assert row is not None
+            if commit:
+                conn.commit()
+            return AppendEvidenceResult(
+                evidence_id=UUID(str(row[0])),
+                evidence_key=str(row[1]),
+                inserted=False,
+            )
     if commit:
         conn.commit()
-    return AppendEvidenceResult(evidence_id=evidence_id, evidence_key=key)
+    return AppendEvidenceResult(
+        evidence_id=UUID(str(row[0])),
+        evidence_key=str(row[1]),
+        inserted=True,
+    )
 
 
 def decide_approval_command(

@@ -79,7 +79,16 @@ _STUB_SESSIONS: dict[str, Principal] = {
 }
 
 
-FORBIDDEN_CLIENT_IDENTITY_FIELDS = frozenset({"actor_id", "actor", "decided_by", "observed_by"})
+FORBIDDEN_CLIENT_IDENTITY_FIELDS = frozenset(
+    {
+        "actor_id",
+        "actor",
+        "decided_by",
+        "observed_by",
+        "producer",  # G1: Evidence producer bound from Bearer producer:<name>
+        "evidence_id",
+    }
+)
 
 
 def auth_mode() -> AuthMode:

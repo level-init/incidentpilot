@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "IncidentPilot API",
-    "description": "Evidence-driven incident-response control plane HTTP surface. Session identity: Bearer stub tokens (see docs/auth.md); client-supplied actor_id is rejected. GroundTruth requires eval entitlement (C3), separate from ops RBAC. Alertmanager webhooks: /webhooks/alerts/alertmanager (F1).",
+    "description": "Evidence-driven incident-response control plane HTTP surface. Session identity: Bearer stub tokens (see docs/auth.md); client-supplied actor_id is rejected. GroundTruth requires eval entitlement (C3), separate from ops RBAC. Alertmanager webhooks: /webhooks/alerts/alertmanager (F1\u2013F5).",
     "version": "0.1.0"
   },
   "paths": {
@@ -720,6 +720,76 @@
         }
       }
     },
+    "/incidents/{incident_id}/evidence": {
+      "post": {
+        "tags": [
+          "evidence"
+        ],
+        "summary": "Produce Evidence (registered producers)",
+        "description": "Idempotent Evidence write by registered producer.\n\nDuplicate ``(incident_id, fingerprint)`` returns the existing row with **200**.",
+        "operationId": "produce_evidence_incidents__incident_id__evidence_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceProduceBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/incidents/{incident_id}/observations": {
       "post": {
         "tags": [
@@ -936,7 +1006,7 @@
           "webhooks"
         ],
         "summary": "Alertmanager webhook ingress",
-        "description": "Accept an Alertmanager webhook payload.\n\nAuth: Bearer / Basic / custom header (see docs/alert-webhooks.md).\nReplay: ``Idempotency-Key`` or ``X-Request-Id``, else SHA-256 of body.\nDuplicate keys return **200** with ``status=duplicate`` (success/no-op).\nF2/F4: normalize, upsert alert, correlate to incident by fingerprint/time/service.",
+        "description": "Accept an Alertmanager webhook payload.\n\nAuth: Bearer / Basic / custom header (see docs/alert-webhooks.md).\nReplay: ``Idempotency-Key`` or ``X-Request-Id``, else SHA-256 of body.\nDuplicate keys return **200** with ``status=duplicate`` (success/no-op).\nF2/F4: normalize, upsert alert, correlate by fingerprint/time/service.\nF5: after commit, idempotently start IncidentWorkflow \u2192 INVESTIGATING.",
         "operationId": "alertmanager_webhook_webhooks_alerts_alertmanager_post",
         "parameters": [
           {
@@ -1255,6 +1325,43 @@
           "producer"
         ],
         "title": "EvidenceOut"
+      },
+      "EvidenceProduceBody": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "fingerprint": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Fingerprint"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Summary"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          },
+          "provenance": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Provenance"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "fingerprint",
+          "summary"
+        ],
+        "title": "EvidenceProduceBody"
       },
       "GroundTruthOut": {
         "properties": {

@@ -6,7 +6,14 @@ from fastapi import Depends, FastAPI
 
 from incidentpilot_api.auth import reject_spoofed_identity
 from incidentpilot_api.routes import eval as eval_routes
-from incidentpilot_api.routes import health, human, incidents, resources, webhooks_alerts
+from incidentpilot_api.routes import (
+    evidence,
+    health,
+    human,
+    incidents,
+    resources,
+    webhooks_alerts,
+)
 
 app = FastAPI(
     title="IncidentPilot API",
@@ -24,6 +31,7 @@ app = FastAPI(
 app.include_router(health.router)
 app.include_router(incidents.router)
 app.include_router(resources.router)
+app.include_router(evidence.router)
 app.include_router(human.router)
 app.include_router(eval_routes.router)
 app.include_router(webhooks_alerts.router)
