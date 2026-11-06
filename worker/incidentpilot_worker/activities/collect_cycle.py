@@ -20,6 +20,7 @@ from incidentpilot_shared.tool_scope import (
     normalize_environment,
 )
 from incidentpilot_worker.collectors import (
+    collect_changes_for_incident,
     collect_logs_for_incident,
     collect_metrics_for_incident,
     collect_traces_for_incident,
@@ -141,6 +142,10 @@ def run_collect_cycle(payload: CollectJob | dict[str, Any]) -> dict[str, Any]:
             if job.query:
                 kwargs["query"] = job.query
             results.append(collect_traces_for_incident(**kwargs))
+        elif name == "changes":
+            results.extend(
+                collect_changes_for_incident(incident_id=iid, start=start, end=end)
+            )
 
     evidence_ids = [str(r.evidence_id) for r in results if r.evidence_id]
     kinds = [r.kind for r in results]

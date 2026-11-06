@@ -20,8 +20,10 @@ from temporalio.exceptions import WorkflowAlreadyStartedError
 
 from incidentpilot_shared.temporal_queues import TaskQueue
 
-ALLOWED_COLLECTORS: Final[frozenset[str]] = frozenset({"metrics", "logs", "traces"})
-DEFAULT_COLLECTORS: Final[tuple[str, ...]] = ("metrics", "logs", "traces")
+ALLOWED_COLLECTORS: Final[frozenset[str]] = frozenset(
+    {"metrics", "logs", "traces", "changes"}
+)
+DEFAULT_COLLECTORS: Final[tuple[str, ...]] = ("metrics", "logs", "traces", "changes")
 COLLECT_CYCLE_WORKFLOW_NAME: Final[str] = "CollectCycleWorkflow"
 
 

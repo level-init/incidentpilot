@@ -17,7 +17,7 @@ from incidentpilot_adapters.blob import (
     S3BlobStore,
     resolve_evidence_blob_store,
 )
-from incidentpilot_adapters.changes import ChangeSource, MemoryChangeSource
+from incidentpilot_adapters.changes import ChangeSource, MemoryChangeSource, SimChangeSource
 from incidentpilot_adapters.telemetry import (
     LokiClient,
     PrometheusClient,
@@ -38,6 +38,7 @@ __all__ = [
     "MemoryBlobStore",
     "MemoryChangeSource",
     "PrometheusClient",
+    "SimChangeSource",
     "S3BlobStore",
     "TempoClient",
     "resolve_evidence_blob_store",

@@ -72,6 +72,8 @@ parent until the first collect cycle completes.
 General worker imports collector code only via lazy evidence-branch in
 `worker_factory` — never at module load for the orchestration process.
 
+CollectJob collectors: `metrics` | `logs` | `traces` | `changes` (G9).
+
 ## IncidentWorkflow (D2)
 
 `incidentpilot-general` runs `IncidentWorkflow`:
