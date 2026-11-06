@@ -65,6 +65,13 @@ class UpsertChangeResult:
 
 
 @dataclass(frozen=True, slots=True)
+class RecordAiInvocationResult:
+    invocation_id: UUID
+    incident_id: UUID | None
+    status: str
+
+
+@dataclass(frozen=True, slots=True)
 class CreateIncidentResult:
     incident_id: UUID
     public_id: str
@@ -538,6 +545,90 @@ def upsert_change_command(
         change_key=str(row[1]),
         fingerprint=fingerprint,
         inserted=True,
+    )
+
+
+_AI_INVOCATION_STATUSES = frozenset({"succeeded", "failed", "timeout", "cancelled"})
+
+
+def record_ai_invocation_command(
+    conn: Connection,
+    *,
+    purpose: str,
+    provider: str,
+    model: str,
+    status: str = "succeeded",
+    incident_id: UUID | str | None = None,
+    prompt_hash: str | None = None,
+    response_hash: str | None = None,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+    latency_ms: int | None = None,
+    error_summary: str | None = None,
+    prompt_version: str | None = None,
+    input_evidence_ids: list[str] | tuple[str, ...] | None = None,
+    request_metadata: dict[str, Any] | None = None,
+    response_metadata: dict[str, Any] | None = None,
+    artifact_uri: str | None = None,
+    commit: bool = True,
+) -> RecordAiInvocationResult:
+    """Insert minimum ``domain.ai_invocation`` provenance (H2).
+
+    Required AC fields: model, prompt_version + input evidence ids (in
+    ``request_metadata``), status, timestamps (``created_at`` default), incident link.
+    Full S3 prompt packages are L3 (``artifact_uri`` left null for now).
+    """
+    if status not in _AI_INVOCATION_STATUSES:
+        raise ValueError(f"unsupported ai_invocation status: {status!r}")
+    meta = dict(request_metadata or {})
+    if prompt_version is not None:
+        meta.setdefault("prompt_version", prompt_version)
+    if input_evidence_ids is not None:
+        meta.setdefault("input_evidence_ids", list(input_evidence_ids))
+    invocation_id = uuid4()
+    iid = str(incident_id) if incident_id is not None else None
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.ai_invocation (
+                id, incident_id, purpose, provider, model,
+                prompt_hash, response_hash, input_tokens, output_tokens, latency_ms,
+                status, error_summary, artifact_uri,
+                request_metadata, response_metadata
+            ) VALUES (
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
+                %s, %s, %s,
+                %s::jsonb, %s::jsonb
+            )
+            RETURNING id
+            """,
+            (
+                str(invocation_id),
+                iid,
+                purpose,
+                provider,
+                model,
+                prompt_hash,
+                response_hash,
+                input_tokens,
+                output_tokens,
+                latency_ms,
+                status,
+                error_summary,
+                artifact_uri,
+                json.dumps(meta),
+                json.dumps(response_metadata or {}),
+            ),
+        )
+        row = cur.fetchone()
+        assert row is not None
+    if commit:
+        conn.commit()
+    return RecordAiInvocationResult(
+        invocation_id=UUID(str(row[0])),
+        incident_id=UUID(iid) if iid else None,
+        status=status,
     )
 
 

@@ -57,6 +57,12 @@ def test_api_and_worker_share_same_command_callables() -> None:
     assert worker_commands.reserve_execution_attempt_command is (
         shared_commands.reserve_execution_attempt_command
     )
+    assert api_commands.record_ai_invocation_command is (
+        shared_commands.record_ai_invocation_command
+    )
+    assert worker_commands.record_ai_invocation_command is (
+        shared_commands.record_ai_invocation_command
+    )
 
 
 def test_adapters_have_no_domain_sql() -> None:

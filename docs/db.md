@@ -91,7 +91,7 @@ Migrations are recorded in `public.schema_migrations`.
 | `domain.slo_burn` | SLO burn / error-budget observations |
 | `domain.timeline_event` | Append-only process chronicle |
 | `domain.audit_event` | Append-only privileged ops audit |
-| `domain.ai_invocation` | Minimum AI provenance (artifacts URI later) |
+| `domain.ai_invocation` | Minimum AI provenance (H2; S3 packages L3) |
 | `domain.postmortem` | DRAFT/FINAL; `corrective_actions` JSON array |
 
 ## Incident transitions (B5)
