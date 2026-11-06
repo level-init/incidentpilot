@@ -62,6 +62,16 @@ tq-evidence-collect — same queue; do not add a fourth queue).
 `IncidentWorkflowInput.wait_for_evidence_updated` (default `false`) parks the
 parent until the first collect cycle completes.
 
+## COLLECTOR_TRIGGER (G7)
+
+| Process | May start collect? | Holds Prom/Loki/Tempo? |
+| --- | --- | --- |
+| `incidentpilot-worker` (general) | Yes — `trigger_collect_cycle` | **No** (`GENERAL_FORBIDDEN_ENV`) |
+| `evidence-worker` | Runs `CollectCycleWorkflow` | Yes |
+
+General worker imports collector code only via lazy evidence-branch in
+`worker_factory` — never at module load for the orchestration process.
+
 ## IncidentWorkflow (D2)
 
 `incidentpilot-general` runs `IncidentWorkflow`:

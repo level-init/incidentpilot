@@ -1,6 +1,10 @@
-"""Temporal workflows for incidentpilot-worker."""
+"""Temporal workflows for incidentpilot-worker.
 
-from incidentpilot_worker.workflows.collect_cycle import CollectCycleWorkflow
+CollectCycleWorkflow lives on the evidence queue — import it from
+``incidentpilot_worker.workflows.collect_cycle`` (not here) so the general
+worker package init never pulls collector dependencies (G7).
+"""
+
 from incidentpilot_worker.workflows.incident_workflow import (
     IncidentWorkflow,
     IncidentWorkflowInput,
@@ -18,7 +22,6 @@ __all__ = [
     "TIMER_APPROVAL_TIMEOUT",
     "TIMER_INVESTIGATION_DEADLINE",
     "TIMER_VALIDATION_WINDOW",
-    "CollectCycleWorkflow",
     "IncidentWorkflow",
     "IncidentWorkflowInput",
     "WorkflowTimerConfig",

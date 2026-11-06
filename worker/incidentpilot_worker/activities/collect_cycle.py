@@ -41,6 +41,7 @@ def _job_from_payload(payload: CollectJob | dict[str, Any]) -> CollectJob:
         window_start=payload.get("window_start"),
         window_end=payload.get("window_end"),
         collectors=tuple(collectors),
+        query=payload.get("query"),
     )
 
 
@@ -111,17 +112,35 @@ def run_collect_cycle(payload: CollectJob | dict[str, Any]) -> dict[str, Any]:
     results = []
     for name in job.collectors:
         if name == "metrics":
-            results.append(
-                collect_metrics_for_incident(incident_id=iid, start=start, end=end, blob_store=None)
-            )
+            kwargs: dict[str, Any] = {
+                "incident_id": iid,
+                "start": start,
+                "end": end,
+                "blob_store": None,
+            }
+            if job.query:
+                kwargs["query"] = job.query
+            results.append(collect_metrics_for_incident(**kwargs))
         elif name == "logs":
-            results.append(
-                collect_logs_for_incident(incident_id=iid, start=start, end=end, blob_store=None)
-            )
+            kwargs = {
+                "incident_id": iid,
+                "start": start,
+                "end": end,
+                "blob_store": None,
+            }
+            if job.query:
+                kwargs["query"] = job.query
+            results.append(collect_logs_for_incident(**kwargs))
         elif name == "traces":
-            results.append(
-                collect_traces_for_incident(incident_id=iid, start=start, end=end, blob_store=None)
-            )
+            kwargs = {
+                "incident_id": iid,
+                "start": start,
+                "end": end,
+                "blob_store": None,
+            }
+            if job.query:
+                kwargs["query"] = job.query
+            results.append(collect_traces_for_incident(**kwargs))
 
     evidence_ids = [str(r.evidence_id) for r in results if r.evidence_id]
     kinds = [r.kind for r in results]

@@ -1,5 +1,13 @@
-"""Temporal activities for incidentpilot-worker."""
+"""Temporal activities for incidentpilot-worker.
 
+Collector / collect-cycle activities are imported only by the evidence-worker
+path in ``worker_factory`` (G7 — no Prom/Loki/Tempo on general).
+"""
+
+from incidentpilot_worker.activities.collector_trigger import (
+    TriggerCollectCycleInput,
+    trigger_collect_cycle,
+)
 from incidentpilot_worker.activities.incident_transitions import (
     STALE_REVISION_ERROR_TYPE,
     IncidentSnapshot,
@@ -10,6 +18,8 @@ from incidentpilot_worker.activities.incident_transitions import (
 __all__ = [
     "STALE_REVISION_ERROR_TYPE",
     "IncidentSnapshot",
+    "TriggerCollectCycleInput",
     "advance_incident_state",
     "load_incident_snapshot",
+    "trigger_collect_cycle",
 ]
