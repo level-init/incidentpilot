@@ -66,7 +66,8 @@ Evidence. Bad-deploy → payment `DEPLOYMENT` in the collect window.
 | `FakeLLMProvider` | Canned JSON for tests | `incidentpilot_adapters.llm` |
 | `complete_structured` | Call + pydantic schema + EV-id allow-list | `incidentpilot_adapters.llm` |
 
-**Must not** write `domain.*` (H2 persists `ai_invocation`). Invalid JSON / extra
+**Must not** write `domain.*` (H2: shared `complete_structured_recorded` /
+`record_ai_invocation_command` persist `ai_invocation`). Invalid JSON / extra
 fields / invented Evidence ids are rejected — prose cannot mutate domain.
 
 Env (general `incidentpilot-worker` only): `LLM_PROVIDER` (default `fake`),

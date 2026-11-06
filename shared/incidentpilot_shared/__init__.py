@@ -1,5 +1,9 @@
 """Shared domain library for IncidentPilot deployables."""
 
+from incidentpilot_shared.ai_invocation import (
+    complete_structured_recorded,
+    record_from_llm_result,
+)
 from incidentpilot_shared.ai_tools import (
     AI_SANDBOX_IDENTITY,
     DENIED_TOOL_NAMES,
@@ -39,6 +43,7 @@ from incidentpilot_shared.domain import (
     IncidentState,
     OutboxMessage,
     OutboxRequiredError,
+    RecordAiInvocationResult,
     ReserveAttemptResult,
     StaleRevisionError,
     TransitionResult,
@@ -55,6 +60,7 @@ from incidentpilot_shared.domain import (
     fetch_pending_outbox,
     mark_outbox_published,
     mark_outbox_retry,
+    record_ai_invocation_command,
     release_outbox_lease,
     reserve_execution_attempt_command,
     transition_incident,
@@ -132,6 +138,7 @@ __all__ = [
     "NormalizedChange",
     "OutboxMessage",
     "OutboxRequiredError",
+    "RecordAiInvocationResult",
     "RedactionError",
     "ReserveAttemptResult",
     "ScopeViolationError",
@@ -154,6 +161,7 @@ __all__ = [
     "cloudwatch_fingerprint",
     "collect_cycle_task_queue",
     "collect_cycle_workflow_id",
+    "complete_structured_recorded",
     "correlate_alert_command",
     "create_incident_command",
     "decide_approval_command",
@@ -175,6 +183,8 @@ __all__ = [
     "normalize_cloudwatch_payload",
     "project_evidence_for_llm",
     "queues_for_process",
+    "record_ai_invocation_command",
+    "record_from_llm_result",
     "release_outbox_lease",
     "reserve_execution_attempt_command",
     "supply_projection_to_llm",
