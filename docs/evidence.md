@@ -70,8 +70,20 @@ the general `incidentpilot-worker`. Windows are capped at 1 hour.
 2. Collect selected collectors for the window
 3. Signal `IncidentWorkflow.evidence_updated` with `EvidenceUpdated`
 
-Queue membership is privilege isolation only — not authorization. Triggering
-collect from the general worker / AI tool is G7 (`COLLECTOR_TRIGGER`).
+Queue membership is privilege isolation only — not authorization.
+
+## COLLECTOR_TRIGGER (G7)
+
+The general worker schedules collect **without** Prom/Loki/Tempo credentials:
+
+1. Activity `trigger_collect_cycle` on `incidentpilot-general`
+2. Starts `CollectCycleWorkflow` by name on `incidentpilot-evidence`
+   (`ensure_collect_cycle_started`)
+3. Evidence-worker still owns `PROMETHEUS_URL` / `LOKI_URL` / `TEMPO_URL`
+
+AI tool schema: `collector_trigger` (`metrics`|`logs`|`traces` + query). H3 will
+broker it; G7 only provides the Temporal command. Config audit:
+`tests/test_collector_trigger.py`.
 
 ## Raw blob upload (G5)
 

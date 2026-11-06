@@ -173,11 +173,15 @@ def test_collect_job_schema_rejects_unknown_collector() -> None:
 def test_evidence_queue_owns_collect_cycle() -> None:
     assert contract_for(TaskQueue.EVIDENCE).privilege_class == "collector"
     assert contract_for(TaskQueue.GENERAL).privilege_class != "collector"
-    from incidentpilot_worker import worker_factory as wf
+    # Evidence symbols are lazy-imported inside build_worker (G7); load them here.
+    from incidentpilot_worker.activities.collect_cycle import (
+        run_collect_cycle,
+        validate_collect_job_scope,
+    )
 
-    assert wf.CollectCycleWorkflow is CollectCycleWorkflow
-    assert callable(wf.validate_collect_job_scope)
-    assert callable(wf.run_collect_cycle)
+    assert CollectCycleWorkflow is not None
+    assert callable(validate_collect_job_scope)
+    assert callable(run_collect_cycle)
 
 
 @pytest.mark.skipif(not _db_available(), reason="Postgres not reachable")
