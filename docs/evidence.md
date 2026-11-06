@@ -7,7 +7,7 @@ it via `append_evidence_command` / `POST /incidents/{id}/evidence`.
 
 | Identity | How |
 | --- | --- |
-| `prometheus_collector`, `loki_collector`, `tempo_collector`, `change_collector`, `alert_context`, `test_producer` | Exact name |
+| `prometheus_collector`, `loki_collector`, `tempo_collector`, `change_collector`, `alert_context`, `deterministic_processor`, `test_producer` | Exact name |
 | `session:<actor_id>` | Human observations (`POST …/observations`) |
 | `ai_sandbox` / `ai_*` | **Denied** |
 
@@ -61,3 +61,17 @@ Or call `collect_incident_window(...)` from `incidentpilot_worker.collectors`.
 
 **Privilege:** put Prom/Loki/Tempo URLs only on the evidence-worker process — not
 the general `incidentpilot-worker`. Windows are capped at 1 hour.
+
+## Deterministic processors (G4)
+
+Rule-id processors write **DETERMINISTIC_DERIVED** Evidence (never RAW) and
+`DERIVED_FROM` edges to parent collector rows:
+
+| Rule id | Input | Module |
+| --- | --- | --- |
+| `baseline_compare.v1` | METRIC payload | `processors.baseline` |
+| `top_errors.v1` | LOG payload | `processors.top_errors` |
+
+Provenance includes `layer=DETERMINISTIC_DERIVED` and `quality_rule_id`.
+Persist via `append_derived_evidence_command` / `process_metric_baseline` /
+`process_log_top_errors`.

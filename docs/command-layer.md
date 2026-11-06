@@ -17,6 +17,8 @@ transitions, and outbox rules cannot be bypassed.
 | --- | --- |
 | `transition_incident_command` | State machine + revision + timeline + outbox |
 | `append_evidence_command` | Producer-gated Evidence insert; fingerprint dedup (G1) |
+| `append_derived_evidence_command` | DETERMINISTIC_DERIVED + DERIVED_FROM parents (G4) |
+| `link_evidence_relation_command` | Evidence graph edges |
 | `decide_approval_command` | PENDING → APPROVED/REJECTED |
 | `reserve_execution_attempt_command` | Reserve attempt before MITIGATING |
 | `upsert_alert_command` | Insert/update `domain.alert` by fingerprint (F2) |
