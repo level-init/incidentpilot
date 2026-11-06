@@ -62,6 +62,17 @@ Or call `collect_incident_window(...)` from `incidentpilot_worker.collectors`.
 **Privilege:** put Prom/Loki/Tempo URLs only on the evidence-worker process — not
 the general `incidentpilot-worker`. Windows are capped at 1 hour.
 
+## Collect cycle + EvidenceUpdated (G6)
+
+`CollectCycleWorkflow` on `incidentpilot-evidence` consumes a `CollectJob`:
+
+1. Server-side scope check (`validate_collect_job_scope` + `ToolScope`)
+2. Collect selected collectors for the window
+3. Signal `IncidentWorkflow.evidence_updated` with `EvidenceUpdated`
+
+Queue membership is privilege isolation only — not authorization. Triggering
+collect from the general worker / AI tool is G7 (`COLLECTOR_TRIGGER`).
+
 ## Raw blob upload (G5)
 
 Collectors write RAW Evidence via `append_raw_evidence_with_blob`

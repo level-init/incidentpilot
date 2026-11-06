@@ -16,6 +16,11 @@ from incidentpilot_shared.alerts import (
     normalize_alertmanager_webhook,
     normalize_cloudwatch_payload,
 )
+from incidentpilot_shared.collect_job import (
+    CollectJob,
+    EvidenceUpdated,
+    collect_cycle_workflow_id,
+)
 from incidentpilot_shared.domain import (
     CORRELATION_WINDOW_MINUTES,
     AppendEvidenceResult,
@@ -99,10 +104,12 @@ __all__ = [
     "AiToolRegistry",
     "AppendEvidenceResult",
     "ApprovalDecisionResult",
+    "CollectJob",
     "CorrelateAlertResult",
     "CreateIncidentResult",
     "EvidenceProducerDenied",
     "EvidenceProjection",
+    "EvidenceUpdated",
     "IllegalTransitionError",
     "StoredProjectionRef",
     "IncidentState",
@@ -128,6 +135,7 @@ __all__ = [
     "assert_registered_evidence_producer",
     "attach_alert_command",
     "cloudwatch_fingerprint",
+    "collect_cycle_workflow_id",
     "correlate_alert_command",
     "create_incident_command",
     "decide_approval_command",

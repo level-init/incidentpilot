@@ -26,6 +26,8 @@ class IncidentWorkflowInput:
     incident_id: str
     wait_after_triaging: bool = False
     wait_for_domain_event: bool = False
+    # G6: wait for CollectCycleWorkflow EvidenceUpdated (default off — D2/F5 unchanged).
+    wait_for_evidence_updated: bool = False
     # Worker types this as WorkflowTimerConfig; kept as Any for shared package.
     timers: Any | None = None
     wait_for_timer: str | None = None

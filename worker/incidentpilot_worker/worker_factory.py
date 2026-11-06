@@ -9,6 +9,10 @@ from temporalio.worker import Worker
 
 from incidentpilot_shared.temporal_queues import TaskQueue
 from incidentpilot_shared.temporal_runtime import queue_subscribe_ping
+from incidentpilot_worker.activities.collect_cycle import (
+    run_collect_cycle,
+    validate_collect_job_scope,
+)
 from incidentpilot_worker.activities.collectors import (
     collect_loki_logs,
     collect_prometheus_metrics,
@@ -18,6 +22,7 @@ from incidentpilot_worker.activities.incident_transitions import (
     advance_incident_state,
     load_incident_snapshot,
 )
+from incidentpilot_worker.workflows.collect_cycle import CollectCycleWorkflow
 from incidentpilot_worker.workflows.incident_workflow import IncidentWorkflow
 
 # Sync (psycopg) activities require a thread pool executor.
@@ -41,16 +46,18 @@ def build_worker(client: Client, task_queue: TaskQueue | str) -> Worker:
         )
 
     if queue is TaskQueue.EVIDENCE:
-        # G3: collectors hold PROMETHEUS_URL / LOKI_URL / TEMPO_URL — not general worker.
+        # G3/G6: collectors + CollectCycleWorkflow; Prom/Loki/Tempo stay off general.
         return Worker(
             client,
             task_queue=str(queue),
-            workflows=[],
+            workflows=[CollectCycleWorkflow],
             activities=[
                 queue_subscribe_ping,
                 collect_prometheus_metrics,
                 collect_loki_logs,
                 collect_tempo_traces,
+                validate_collect_job_scope,
+                run_collect_cycle,
             ],
             activity_executor=_ACTIVITY_EXECUTOR,
         )
