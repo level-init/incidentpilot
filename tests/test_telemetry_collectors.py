@@ -144,13 +144,28 @@ def test_collect_window_writes_metric_log_trace_kinds() -> None:
     iid = _incident()
     start, end = 1_700_000_000.0, 1_700_000_900.0
     metric = collect_metrics_for_incident(
-        incident_id=iid, start=start, end=end, query="up", client=_FakeProm()  # type: ignore[arg-type]
+        incident_id=iid,
+        start=start,
+        end=end,
+        query="up",
+        client=_FakeProm(),  # type: ignore[arg-type]
+        blob_store=None,
     )
     log = collect_logs_for_incident(
-        incident_id=iid, start=start, end=end, query='{job="sim"}', client=_FakeLoki()  # type: ignore[arg-type]
+        incident_id=iid,
+        start=start,
+        end=end,
+        query='{job="sim"}',
+        client=_FakeLoki(),  # type: ignore[arg-type]
+        blob_store=None,
     )
     trace = collect_traces_for_incident(
-        incident_id=iid, start=start, end=end, query="{}", client=_FakeTempo()  # type: ignore[arg-type]
+        incident_id=iid,
+        start=start,
+        end=end,
+        query="{}",
+        client=_FakeTempo(),  # type: ignore[arg-type]
+        blob_store=None,
     )
     assert metric.kind == "METRIC" and metric.producer == "prometheus_collector"
     assert log.kind == "LOG" and log.producer == "loki_collector"
@@ -171,10 +186,20 @@ def test_collect_dedup_same_window() -> None:
     iid = _incident()
     start, end = 1_700_100_000.0, 1_700_100_600.0
     first = collect_metrics_for_incident(
-        incident_id=iid, start=start, end=end, query="up", client=_FakeProm()  # type: ignore[arg-type]
+        incident_id=iid,
+        start=start,
+        end=end,
+        query="up",
+        client=_FakeProm(),  # type: ignore[arg-type]
+        blob_store=None,
     )
     second = collect_metrics_for_incident(
-        incident_id=iid, start=start, end=end, query="up", client=_FakeProm()  # type: ignore[arg-type]
+        incident_id=iid,
+        start=start,
+        end=end,
+        query="up",
+        client=_FakeProm(),  # type: ignore[arg-type]
+        blob_store=None,
     )
     assert first.evidence_id == second.evidence_id
     assert first.inserted is True

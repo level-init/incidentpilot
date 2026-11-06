@@ -1,7 +1,10 @@
-"""Bounded telemetry collect → Evidence via registered producers (G3).
+"""Bounded telemetry collect → Evidence via registered producers (G3 + G5).
 
 Runs only in evidence-worker privilege class. Source URLs come from
 PROMETHEUS_URL / LOKI_URL / TEMPO_URL — never from the general worker.
+
+RAW rows upload to MinIO/S3 when configured; object-store failure falls back
+to MEDIUM quality + content hash / external_ref (never fake HIGH).
 """
 
 from __future__ import annotations
@@ -13,15 +16,16 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+from incidentpilot_adapters.blob import BlobStore, resolve_evidence_blob_store
 from incidentpilot_adapters.telemetry import LokiClient, PrometheusClient, TempoClient
-from incidentpilot_worker.commands import append_evidence_command
+from incidentpilot_shared.evidence_raw import append_raw_evidence_with_blob
 from incidentpilot_worker.db import connect
 
 # Hard caps for G3 demo collects
 _MAX_WINDOW_SECONDS = 3600
-_DEFAULT_PROM_QUERY = 'up'
+_DEFAULT_PROM_QUERY = "up"
 _DEFAULT_LOKI_QUERY = '{job=~".+"}'
-_DEFAULT_TEMPO_QUERY = '{}'
+_DEFAULT_TEMPO_QUERY = "{}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +53,13 @@ def _clamp_window(start: float, end: float) -> tuple[float, float]:
     return start, end
 
 
+def _blob_store(blob_store: BlobStore | None | object) -> BlobStore | None:
+    """``None`` means no store; omit arg (Ellipsis) to resolve from env."""
+    if blob_store is ...:
+        return resolve_evidence_blob_store()
+    return blob_store  # type: ignore[return-value]
+
+
 def collect_metrics_for_incident(
     *,
     incident_id: UUID,
@@ -56,6 +67,7 @@ def collect_metrics_for_incident(
     end: float,
     query: str = _DEFAULT_PROM_QUERY,
     client: PrometheusClient | None = None,
+    blob_store: BlobStore | None | object = ...,
 ) -> CollectResult:
     start, end = _clamp_window(start, end)
     prom = client or PrometheusClient()
@@ -72,7 +84,7 @@ def collect_metrics_for_incident(
         "series": result.series,
     }
     with connect() as conn:
-        out = append_evidence_command(
+        out = append_raw_evidence_with_blob(
             conn,
             incident_id=incident_id,
             kind="METRIC",
@@ -80,7 +92,9 @@ def collect_metrics_for_incident(
             summary=summary,
             producer=producer,
             payload=payload,
-            provenance={"source": "prometheus", "window": {"start": start, "end": end}},
+            source="prometheus",
+            external_ref={"window": {"start": start, "end": end}, "query": query},
+            blob_store=_blob_store(blob_store),
             observed_at=datetime.fromtimestamp(end, tz=UTC),
             commit=True,
         )
@@ -101,6 +115,7 @@ def collect_logs_for_incident(
     end: float,
     query: str = _DEFAULT_LOKI_QUERY,
     client: LokiClient | None = None,
+    blob_store: BlobStore | None | object = ...,
 ) -> CollectResult:
     start, end = _clamp_window(start, end)
     loki = client or LokiClient()
@@ -116,7 +131,7 @@ def collect_logs_for_incident(
         "streams": result.streams,
     }
     with connect() as conn:
-        out = append_evidence_command(
+        out = append_raw_evidence_with_blob(
             conn,
             incident_id=incident_id,
             kind="LOG",
@@ -124,7 +139,9 @@ def collect_logs_for_incident(
             summary=summary,
             producer=producer,
             payload=payload,
-            provenance={"source": "loki", "window": {"start": start, "end": end}},
+            source="loki",
+            external_ref={"window": {"start": start, "end": end}, "query": query},
+            blob_store=_blob_store(blob_store),
             observed_at=datetime.fromtimestamp(end, tz=UTC),
             commit=True,
         )
@@ -145,6 +162,7 @@ def collect_traces_for_incident(
     end: float,
     query: str = _DEFAULT_TEMPO_QUERY,
     client: TempoClient | None = None,
+    blob_store: BlobStore | None | object = ...,
 ) -> CollectResult:
     start, end = _clamp_window(start, end)
     tempo = client or TempoClient()
@@ -159,7 +177,7 @@ def collect_traces_for_incident(
         "traces": result.traces,
     }
     with connect() as conn:
-        out = append_evidence_command(
+        out = append_raw_evidence_with_blob(
             conn,
             incident_id=incident_id,
             kind="TRACE",
@@ -167,7 +185,9 @@ def collect_traces_for_incident(
             summary=summary,
             producer=producer,
             payload=payload,
-            provenance={"source": "tempo", "window": {"start": start, "end": end}},
+            source="tempo",
+            external_ref={"window": {"start": start, "end": end}, "query": query},
+            blob_store=_blob_store(blob_store),
             observed_at=datetime.fromtimestamp(end, tz=UTC),
             commit=True,
         )
@@ -189,21 +209,35 @@ def collect_incident_window(
     metrics_query: str = _DEFAULT_PROM_QUERY,
     logs_query: str = _DEFAULT_LOKI_QUERY,
     traces_query: str = _DEFAULT_TEMPO_QUERY,
+    blob_store: BlobStore | None | object = ...,
 ) -> list[CollectResult]:
     """Collect METRIC + LOG + TRACE for an incident time window."""
     now = datetime.now(tz=UTC).timestamp()
     end_ts = end if end is not None else now
     start_ts = start if start is not None else end_ts - 900
     start_ts, end_ts = _clamp_window(start_ts, end_ts)
+    store = _blob_store(blob_store)
     return [
         collect_metrics_for_incident(
-            incident_id=incident_id, start=start_ts, end=end_ts, query=metrics_query
+            incident_id=incident_id,
+            start=start_ts,
+            end=end_ts,
+            query=metrics_query,
+            blob_store=store,
         ),
         collect_logs_for_incident(
-            incident_id=incident_id, start=start_ts, end=end_ts, query=logs_query
+            incident_id=incident_id,
+            start=start_ts,
+            end=end_ts,
+            query=logs_query,
+            blob_store=store,
         ),
         collect_traces_for_incident(
-            incident_id=incident_id, start=start_ts, end=end_ts, query=traces_query
+            incident_id=incident_id,
+            start=start_ts,
+            end=end_ts,
+            query=traces_query,
+            blob_store=store,
         ),
     ]
 

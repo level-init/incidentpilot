@@ -62,6 +62,23 @@ Or call `collect_incident_window(...)` from `incidentpilot_worker.collectors`.
 **Privilege:** put Prom/Loki/Tempo URLs only on the evidence-worker process — not
 the general `incidentpilot-worker`. Windows are capped at 1 hour.
 
+## Raw blob upload (G5)
+
+Collectors write RAW Evidence via `append_raw_evidence_with_blob`
+(`incidentpilot_shared.evidence_raw`) and `incidentpilot_adapters.blob`:
+
+| Object store | `blob_uri` | Provenance |
+| --- | --- | --- |
+| Upload OK | `s3://…` | `layer=RAW`, `quality=HIGH`, `content_hash`, `blob_status=UPLOADED` |
+| Upload fail / MinIO down | `null` | `layer=RAW`, `quality=MEDIUM`, `content_hash`, `external_ref`, `blob_status=UPLOAD_FAILED` |
+| Not configured | `null` | same as fail with `blob_status=STORE_UNAVAILABLE` |
+
+**Rule:** RAW `quality=HIGH` is rejected unless `blob_uri` is set — no fake HIGH.
+`append_evidence_command` enforces the same guard for all producers.
+
+Env: `S3_ENDPOINT`, `S3_BUCKET_EVIDENCE`, `MINIO_ROOT_USER` /
+`MINIO_ROOT_PASSWORD` (or `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`).
+
 ## Deterministic processors (G4)
 
 Rule-id processors write **DETERMINISTIC_DERIVED** Evidence (never RAW) and
