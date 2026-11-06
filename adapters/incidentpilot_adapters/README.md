@@ -49,5 +49,11 @@ Uploads only — no domain SQL. Collectors claim RAW `quality=HIGH` only when
 | `MemoryChangeSource` | In-memory stub for tests | `incidentpilot_adapters.changes` |
 
 **No mutate / deploy / rollback methods** on ChangeSource. Persist via
-`upsert_change_command` (`source_ref` → `domain.change.external_ref`). Real
-GitHub/K8s/flag collectors land in G9.
+`upsert_change_command` (`source_ref` → `domain.change.external_ref`).
+
+| Adapter | Role |
+| --- | --- |
+| `SimChangeSource` | Scenario catalog (deploy/commit/PR/flag/config/scale) for G9 |
+
+Evidence-worker `change_collector` upserts Change then emits `kind=CHANGE`
+Evidence. Bad-deploy → payment `DEPLOYMENT` in the collect window.

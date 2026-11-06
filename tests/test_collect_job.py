@@ -166,8 +166,17 @@ def test_collect_job_schema_rejects_unknown_collector() -> None:
         CollectJob(
             incident_id=str(uuid.uuid4()),
             environment="local",
-            collectors=("metrics", "changes"),
+            collectors=("metrics", "github"),
         )
+
+
+def test_collect_job_allows_changes_collector() -> None:
+    job = CollectJob(
+        incident_id=str(uuid.uuid4()),
+        environment="local",
+        collectors=("changes",),
+    )
+    assert job.collectors == ("changes",)
 
 
 def test_evidence_queue_owns_collect_cycle() -> None:

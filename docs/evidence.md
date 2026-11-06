@@ -76,7 +76,18 @@ Queue membership is privilege isolation only — not authorization.
 
 Read-only `ChangeSource` adapters return `NormalizedChange`. Persist with
 `upsert_change_command` (type / service / time / `source_ref`→`external_ref`).
-No mutate methods on the port — collectors that emit CHANGE Evidence are G9.
+No mutate methods on the port.
+
+## Change collectors (G9)
+
+`SimChangeSource` + `collect_changes_for_incident` (producer `change_collector`):
+
+1. List scenario changes in the window (deploy / commit / PR / flag / config / scale)
+2. `upsert_change_command`
+3. `append_evidence_command` with `kind=CHANGE`
+
+CollectJob may include `changes` (also in `DEFAULT_COLLECTORS`). AC: bad deploy
+→ payment `DEPLOYMENT` Change + CHANGE Evidence in window.
 
 ## COLLECTOR_TRIGGER (G7)
 

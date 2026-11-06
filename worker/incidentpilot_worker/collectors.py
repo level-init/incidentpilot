@@ -1,10 +1,12 @@
-"""Bounded telemetry collect → Evidence via registered producers (G3 + G5).
+"""Bounded telemetry + change collect → Evidence (G3/G5/G9).
 
 Runs only in evidence-worker privilege class. Source URLs come from
 PROMETHEUS_URL / LOKI_URL / TEMPO_URL — never from the general worker.
 
 RAW rows upload to MinIO/S3 when configured; object-store failure falls back
 to MEDIUM quality + content hash / external_ref (never fake HIGH).
+
+Change collect (G9) upserts ``domain.change`` then emits ``kind=CHANGE`` Evidence.
 """
 
 from __future__ import annotations
@@ -17,8 +19,10 @@ from typing import Any
 from uuid import UUID
 
 from incidentpilot_adapters.blob import BlobStore, resolve_evidence_blob_store
+from incidentpilot_adapters.changes import ChangeSource, SimChangeSource
 from incidentpilot_adapters.telemetry import LokiClient, PrometheusClient, TempoClient
 from incidentpilot_shared.evidence_raw import append_raw_evidence_with_blob
+from incidentpilot_worker.commands import append_evidence_command, upsert_change_command
 from incidentpilot_worker.db import connect
 
 # Hard caps for G3 demo collects
@@ -201,6 +205,80 @@ def collect_traces_for_incident(
     )
 
 
+def collect_changes_for_incident(
+    *,
+    incident_id: UUID,
+    start: float,
+    end: float,
+    source: ChangeSource | None = None,
+    service: str | None = None,
+) -> list[CollectResult]:
+    """Upsert Change rows then emit CHANGE Evidence via ``change_collector`` (G9)."""
+    start, end = _clamp_window(start, end)
+    since = datetime.fromtimestamp(start, tz=UTC)
+    until = datetime.fromtimestamp(end, tz=UTC)
+    change_source = source or SimChangeSource()
+    changes = change_source.list_changes(service=service, since=since, until=until)
+    producer = "change_collector"
+    results: list[CollectResult] = []
+    with connect() as conn:
+        for ch in changes:
+            upsert = upsert_change_command(
+                conn,
+                change_type=ch.change_type,
+                service_key=ch.service_key,
+                observed_at=ch.observed_at,
+                source_ref=ch.source_ref,
+                source=ch.source,
+                fingerprint=ch.fingerprint,
+                summary=ch.summary,
+                payload=ch.payload,
+                provenance=ch.provenance,
+                commit=False,
+            )
+            fp = f"{producer}:{ch.fingerprint}"
+            summary = f"{ch.change_type} {ch.service_key} {ch.source_ref}"
+            out = append_evidence_command(
+                conn,
+                incident_id=incident_id,
+                kind="CHANGE",
+                fingerprint=fp,
+                summary=summary,
+                producer=producer,
+                payload={
+                    "change_id": str(upsert.change_id),
+                    "change_key": upsert.change_key,
+                    "change_type": ch.change_type,
+                    "service_key": ch.service_key,
+                    "source_ref": ch.source_ref,
+                    "source": ch.source,
+                    "change_fingerprint": ch.fingerprint,
+                    **(ch.payload or {}),
+                },
+                provenance={
+                    "layer": "RAW",
+                    "quality": "MEDIUM",
+                    "source": ch.source,
+                    "change_id": str(upsert.change_id),
+                    "external_ref": ch.source_ref,
+                },
+                observed_at=ch.observed_at,
+                commit=False,
+            )
+            results.append(
+                CollectResult(
+                    kind="CHANGE",
+                    producer=producer,
+                    evidence_id=out.evidence_id,
+                    fingerprint=fp,
+                    inserted=out.inserted,
+                    summary=summary,
+                )
+            )
+        conn.commit()
+    return results
+
+
 def collect_incident_window(
     *,
     incident_id: UUID,
@@ -210,8 +288,9 @@ def collect_incident_window(
     logs_query: str = _DEFAULT_LOKI_QUERY,
     traces_query: str = _DEFAULT_TEMPO_QUERY,
     blob_store: BlobStore | None | object = ...,
+    change_source: ChangeSource | None = None,
 ) -> list[CollectResult]:
-    """Collect METRIC + LOG + TRACE for an incident time window."""
+    """Collect METRIC + LOG + TRACE + CHANGE for an incident time window."""
     now = datetime.now(tz=UTC).timestamp()
     end_ts = end if end is not None else now
     start_ts = start if start is not None else end_ts - 900
@@ -238,6 +317,12 @@ def collect_incident_window(
             end=end_ts,
             query=traces_query,
             blob_store=store,
+        ),
+        *collect_changes_for_incident(
+            incident_id=incident_id,
+            start=start_ts,
+            end=end_ts,
+            source=change_source,
         ),
     ]
 
