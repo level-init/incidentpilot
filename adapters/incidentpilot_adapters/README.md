@@ -40,3 +40,14 @@ put these URLs on the general worker.
 
 Uploads only — no domain SQL. Collectors claim RAW `quality=HIGH` only when
 `put` succeeds and `blob_uri` is set; on failure use MEDIUM + hash/external_ref.
+
+## Change sources (G8)
+
+| Adapter | Role | Module |
+| --- | --- | --- |
+| `ChangeSource` (Protocol) | Read-only `list_changes` / `fetch_change` | `incidentpilot_adapters.changes` |
+| `MemoryChangeSource` | In-memory stub for tests | `incidentpilot_adapters.changes` |
+
+**No mutate / deploy / rollback methods** on ChangeSource. Persist via
+`upsert_change_command` (`source_ref` → `domain.change.external_ref`). Real
+GitHub/K8s/flag collectors land in G9.

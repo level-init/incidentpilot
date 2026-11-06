@@ -72,6 +72,12 @@ the general `incidentpilot-worker`. Windows are capped at 1 hour.
 
 Queue membership is privilege isolation only — not authorization.
 
+## ChangeSource + Change persistence (G8)
+
+Read-only `ChangeSource` adapters return `NormalizedChange`. Persist with
+`upsert_change_command` (type / service / time / `source_ref`→`external_ref`).
+No mutate methods on the port — collectors that emit CHANGE Evidence are G9.
+
 ## COLLECTOR_TRIGGER (G7)
 
 The general worker schedules collect **without** Prom/Loki/Tempo credentials:

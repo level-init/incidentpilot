@@ -8,6 +8,7 @@ from incidentpilot_shared.domain.commands import (
     CreateIncidentResult,
     ReserveAttemptResult,
     UpsertAlertResult,
+    UpsertChangeResult,
     append_derived_evidence_command,
     append_evidence_command,
     attach_alert_command,
@@ -18,6 +19,7 @@ from incidentpilot_shared.domain.commands import (
     reserve_execution_attempt_command,
     transition_incident_command,
     upsert_alert_command,
+    upsert_change_command,
 )
 from incidentpilot_shared.domain.outbox import (
     OutboxMessage,
@@ -54,6 +56,7 @@ __all__ = [
     "TransitionResult",
     "UnitOfWork",
     "UpsertAlertResult",
+    "UpsertChangeResult",
     "append_derived_evidence_command",
     "append_evidence_command",
     "apply_transition",
@@ -72,4 +75,5 @@ __all__ = [
     "transition_incident_command",
     "try_begin_idempotent",
     "upsert_alert_command",
+    "upsert_change_command",
 ]

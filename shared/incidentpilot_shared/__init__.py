@@ -16,6 +16,11 @@ from incidentpilot_shared.alerts import (
     normalize_alertmanager_webhook,
     normalize_cloudwatch_payload,
 )
+from incidentpilot_shared.changes import (
+    ALLOWED_CHANGE_TYPES,
+    NormalizedChange,
+    change_fingerprint,
+)
 from incidentpilot_shared.collect_job import (
     COLLECT_CYCLE_WORKFLOW_NAME,
     CollectJob,
@@ -39,6 +44,7 @@ from incidentpilot_shared.domain import (
     TransitionResult,
     UnitOfWork,
     UpsertAlertResult,
+    UpsertChangeResult,
     append_evidence_command,
     apply_transition,
     attach_alert_command,
@@ -55,6 +61,7 @@ from incidentpilot_shared.domain import (
     transition_incident_command,
     try_begin_idempotent,
     upsert_alert_command,
+    upsert_change_command,
 )
 from incidentpilot_shared.evidence_producers import (
     REGISTERED_EVIDENCE_PRODUCERS,
@@ -100,6 +107,7 @@ __version__ = "0.0.0"
 __all__ = [
     "AI_SANDBOX_IDENTITY",
     "ALL_TASK_QUEUES",
+    "ALLOWED_CHANGE_TYPES",
     "COLLECT_CYCLE_WORKFLOW_NAME",
     "CORRELATION_WINDOW_MINUTES",
     "DENIED_TOOL_NAMES",
@@ -121,6 +129,7 @@ __all__ = [
     "IncidentState",
     "IncidentWorkflowInput",
     "NormalizedAlert",
+    "NormalizedChange",
     "OutboxMessage",
     "OutboxRequiredError",
     "RedactionError",
@@ -135,11 +144,13 @@ __all__ = [
     "TransitionResult",
     "UnitOfWork",
     "UpsertAlertResult",
+    "UpsertChangeResult",
     "__version__",
     "append_evidence_command",
     "apply_transition",
     "assert_registered_evidence_producer",
     "attach_alert_command",
+    "change_fingerprint",
     "cloudwatch_fingerprint",
     "collect_cycle_task_queue",
     "collect_cycle_workflow_id",
@@ -171,4 +182,5 @@ __all__ = [
     "transition_incident_command",
     "try_begin_idempotent",
     "upsert_alert_command",
+    "upsert_change_command",
 ]
