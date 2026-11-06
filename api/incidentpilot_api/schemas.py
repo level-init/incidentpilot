@@ -64,7 +64,10 @@ class HypothesisOut(BaseModel):
     status: str
     statement: str
     proposed_by: str
+    # Column ``confidence`` stores a heuristic score (H4) — not a calibrated probability.
     confidence: float | None = None
+    rank: int | None = None
+    score_kind: str = "heuristic"
 
 
 class ActionOut(BaseModel):

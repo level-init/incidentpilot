@@ -86,3 +86,25 @@ broker.invoke("telemetry_read", {"incident_id": ..., "query": "up", "window_seco
 | Telemetry | exploratory; not Evidence authorship; no source creds on general |
 | Collect | `collector_trigger` schedules evidence-worker job (G7) |
 | Scope | server-bound `ToolScope` (C6); model args cannot widen incident/env |
+
+## Hypothesis propose / rank (H4)
+
+AI may **propose** via the broker / structured LLM output. **SYSTEM** persists rows:
+
+```python
+from incidentpilot_shared import propose_hypothesis_command, rank_hypotheses_command
+
+propose_hypothesis_command(
+    conn,
+    incident_id=incident_id,
+    statement="bad deploy on payment",
+    cited_evidence_ids=["EV-…"],  # missing ids rejected
+    heuristic_score=0.7,          # labeled score_kind=heuristic — not a probability
+    proposed_by="AI",
+)
+```
+
+- Multiple `PROPOSED` (OPEN) hypotheses per incident are allowed
+- Missing / cross-incident EV citations → `MissingEvidenceCitationError` (no row)
+- `rank_hypotheses_command` sets ranks only; LEADING / CONFIRM / CAUSED_BY are out of scope (H5/H10)
+- Broker `hypothesis_propose` stays `executed=False` — it does not INSERT

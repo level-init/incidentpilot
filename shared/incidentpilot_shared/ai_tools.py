@@ -87,9 +87,12 @@ class RunbookSearchArgs(_StrictModel):
 
 
 class HypothesisProposeArgs(_StrictModel):
+    """Propose only — SYSTEM persists via ``propose_hypothesis_command`` (H4)."""
+
     incident_id: str
     statement: str = Field(min_length=1, max_length=4000)
     cited_evidence_ids: list[str] = Field(default_factory=list)
+    # Heuristic score hint (not a calibrated probability). Persisted as score_kind=heuristic.
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
 
 

@@ -76,14 +76,15 @@ def list_hypotheses(
 ) -> list[HypothesisOut]:
     require_permission(principal, Permission.INCIDENT_READ)
     sql = """
-        SELECT id, incident_id, status, statement, proposed_by, confidence
+        SELECT id, incident_id, status, statement, proposed_by, confidence, rank,
+               COALESCE(provenance->>'score_kind', 'heuristic') AS score_kind
         FROM domain.hypothesis
     """
     params: list[object] = []
     if incident_id is not None:
         sql += " WHERE incident_id = %s"
         params.append(str(incident_id))
-    sql += " ORDER BY created_at DESC LIMIT 100"
+    sql += " ORDER BY rank NULLS LAST, created_at DESC LIMIT 100"
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(sql, params)
         return [HypothesisOut(**row) for row in cur.fetchall()]
