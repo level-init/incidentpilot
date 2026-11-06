@@ -9,6 +9,11 @@ from temporalio.worker import Worker
 
 from incidentpilot_shared.temporal_queues import TaskQueue
 from incidentpilot_shared.temporal_runtime import queue_subscribe_ping
+from incidentpilot_worker.activities.collectors import (
+    collect_loki_logs,
+    collect_prometheus_metrics,
+    collect_tempo_traces,
+)
 from incidentpilot_worker.activities.incident_transitions import (
     advance_incident_state,
     load_incident_snapshot,
@@ -35,7 +40,22 @@ def build_worker(client: Client, task_queue: TaskQueue | str) -> Worker:
             activity_executor=_ACTIVITY_EXECUTOR,
         )
 
-    # evidence / remediation: subscription only until later epics
+    if queue is TaskQueue.EVIDENCE:
+        # G3: collectors hold PROMETHEUS_URL / LOKI_URL / TEMPO_URL — not general worker.
+        return Worker(
+            client,
+            task_queue=str(queue),
+            workflows=[],
+            activities=[
+                queue_subscribe_ping,
+                collect_prometheus_metrics,
+                collect_loki_logs,
+                collect_tempo_traces,
+            ],
+            activity_executor=_ACTIVITY_EXECUTOR,
+        )
+
+    # remediation: subscription only until later epics
     return Worker(
         client,
         task_queue=str(queue),

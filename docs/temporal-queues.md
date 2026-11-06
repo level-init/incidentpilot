@@ -39,6 +39,13 @@ python -m incidentpilot_remediation smoke
 Workers subscribe briefly with a placeholder `queue_subscribe_ping` activity
 (Temporal requires ≥1 handler) and exit 0 on success.
 
+## Evidence collectors (G3)
+
+`incidentpilot-evidence` registers `collect_prometheus_metrics`,
+`collect_loki_logs`, and `collect_tempo_traces`. Those activities use
+`PROMETHEUS_URL` / `LOKI_URL` / `TEMPO_URL` and write Evidence via
+`append_evidence_command`. Keep those env vars **off** the general worker.
+
 ## IncidentWorkflow (D2)
 
 `incidentpilot-general` runs `IncidentWorkflow`:

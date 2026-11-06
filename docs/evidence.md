@@ -46,3 +46,18 @@ On insert, C4 redaction runs and stores `domain.evidence_projection`:
 
 Read path for AI: `read_evidence_projection_for_llm(conn, incident_id=…, evidence_id=…)`.
 Raises `RedactionError` on missing/BLOCKED — never returns canonical `payload`.
+
+## Collectors (G3)
+
+Evidence-worker activities (queue `incidentpilot-evidence`) scrape observability:
+
+| Activity | Producer | Kind | Env |
+| --- | --- | --- | --- |
+| `collect_prometheus_metrics` | `prometheus_collector` | `METRIC` | `PROMETHEUS_URL` |
+| `collect_loki_logs` | `loki_collector` | `LOG` | `LOKI_URL` |
+| `collect_tempo_traces` | `tempo_collector` | `TRACE` | `TEMPO_URL` |
+
+Or call `collect_incident_window(...)` from `incidentpilot_worker.collectors`.
+
+**Privilege:** put Prom/Loki/Tempo URLs only on the evidence-worker process — not
+the general `incidentpilot-worker`. Windows are capped at 1 hour.

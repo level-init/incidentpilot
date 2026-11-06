@@ -19,3 +19,15 @@ Domain mutations go through the shared command layer used by API + workers.
 
 Both return `list[NormalizedAlert]` (same shape). Persistence is
 `upsert_alert_command` in the API/worker — adapters only normalize.
+
+## Telemetry clients (G3)
+
+| Client | Env | Module |
+| --- | --- | --- |
+| `PrometheusClient` | `PROMETHEUS_URL` | `incidentpilot_adapters.telemetry` |
+| `LokiClient` | `LOKI_URL` | `incidentpilot_adapters.telemetry` |
+| `TempoClient` | `TEMPO_URL` | `incidentpilot_adapters.telemetry` |
+
+HTTP fetch only. Evidence-worker activities call `append_evidence_command`
+with `prometheus_collector` / `loki_collector` / `tempo_collector`. Do **not**
+put these URLs on the general worker.

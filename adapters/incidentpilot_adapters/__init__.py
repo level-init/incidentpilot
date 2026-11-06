@@ -9,6 +9,11 @@ from incidentpilot_adapters.alerts import (
     AlertProvider,
     CloudWatchAdapter,
 )
+from incidentpilot_adapters.telemetry import (
+    LokiClient,
+    PrometheusClient,
+    TempoClient,
+)
 
 __version__ = "0.0.0"
 
@@ -16,5 +21,8 @@ __all__ = [
     "AlertProvider",
     "AlertmanagerAdapter",
     "CloudWatchAdapter",
+    "LokiClient",
+    "PrometheusClient",
+    "TempoClient",
     "__version__",
 ]
