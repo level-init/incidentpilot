@@ -38,6 +38,15 @@ def test_allowed_collectors_include_changes() -> None:
     assert "changes" in DEFAULT_COLLECTORS
 
 
+def test_job_from_payload_defaults_include_changes() -> None:
+    """Dict payloads without collectors must use DEFAULT_COLLECTORS (incl. changes)."""
+    from incidentpilot_worker.activities.collect_cycle import _job_from_payload
+
+    job = _job_from_payload({"incident_id": "inc-1", "environment": "local"})
+    assert job.collectors == DEFAULT_COLLECTORS
+    assert "changes" in job.collectors
+
+
 def test_sim_catalog_has_payment_deployment() -> None:
     stamp = datetime(2024, 8, 1, 12, 0, tzinfo=UTC)
     changes = scenario_changes_at(stamp)
