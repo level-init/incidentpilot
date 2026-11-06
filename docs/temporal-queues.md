@@ -74,6 +74,13 @@ General worker imports collector code only via lazy evidence-branch in
 
 CollectJob collectors: `metrics` | `logs` | `traces` | `changes` (G9).
 
+## Investigation collect kickoff (G10)
+
+After `INVESTIGATING`, `IncidentWorkflow` calls general activity
+`kickoff_collect_cycle` (by name — no evidence imports on general), then waits for
+`EvidenceUpdated`. Production start enables this by default via
+`ensure_incident_workflow_started`.
+
 ## IncidentWorkflow (D2)
 
 `incidentpilot-general` runs `IncidentWorkflow`:

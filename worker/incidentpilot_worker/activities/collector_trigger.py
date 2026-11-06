@@ -1,4 +1,4 @@
-"""COLLECTOR_TRIGGER activity — general worker only (G7).
+"""COLLECTOR_TRIGGER + investigation kickoff — general worker only (G7/G10).
 
 Starts ``CollectCycleWorkflow`` on the evidence queue. Never imports Prom/Loki/
 Tempo clients or reads their env vars — evidence-worker holds source creds.
@@ -15,10 +15,12 @@ from temporalio.exceptions import ApplicationError
 
 from incidentpilot_shared.collect_job import (
     ALLOWED_COLLECTORS,
+    DEFAULT_COLLECTORS,
     CollectJob,
     ensure_collect_cycle_started,
 )
 from incidentpilot_shared.tool_scope import ScopeViolationError, normalize_environment
+from incidentpilot_worker.db import connect
 
 UNSUPPORTED_COLLECTOR_ERROR_TYPE = "UnsupportedCollector"
 
@@ -90,6 +92,51 @@ async def trigger_collect_cycle(
         "environment": job.environment,
         "cycle_id": job.cycle_id,
         "collector": collector,
+        "started": started,
+        "workflow_id": f"collect-{job.incident_id}-{job.cycle_id}",
+    }
+
+
+def _resolve_incident_environment(incident_id: str) -> str:
+    """Bound env from linked services; default ``local`` (queue ≠ authz)."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT s.environment
+            FROM domain.incident_service isv
+            JOIN domain.service s ON s.id = isv.service_id
+            WHERE isv.incident_id = %s
+            ORDER BY s.environment
+            LIMIT 1
+            """,
+            (incident_id,),
+        )
+        row = cur.fetchone()
+    if row is None:
+        return "local"
+    try:
+        return normalize_environment(str(row[0]))
+    except ScopeViolationError:
+        return "local"
+
+
+@activity.defn(name="kickoff_collect_cycle")
+async def kickoff_collect_cycle(incident_id: str) -> dict[str, Any]:
+    """G10: start one default CollectJob (metrics/logs/traces/changes) for the incident."""
+    env = _resolve_incident_environment(incident_id)
+    job = CollectJob(
+        incident_id=str(incident_id),
+        environment=env,
+        cycle_id=str(uuid4()),
+        collectors=DEFAULT_COLLECTORS,
+    )
+    client = activity.client()
+    started = await ensure_collect_cycle_started(client, job)
+    return {
+        "incident_id": job.incident_id,
+        "environment": job.environment,
+        "cycle_id": job.cycle_id,
+        "collectors": list(job.collectors),
         "started": started,
         "workflow_id": f"collect-{job.incident_id}-{job.cycle_id}",
     }

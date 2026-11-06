@@ -183,6 +183,19 @@ class IncidentWorkflow:
         if input.wait_for_domain_event:
             await workflow.wait_condition(lambda: self._domain_event_count > 0)
 
+        # G10: natural path kicks collect on evidence queue (by activity name — no
+        # CollectCycleWorkflow import on general / no Prom/Loki/Tempo).
+        if input.start_collect_cycle:
+            await workflow.execute_activity(
+                "kickoff_collect_cycle",
+                input.incident_id,
+                start_to_close_timeout=timedelta(seconds=60),
+                retry_policy=RetryPolicy(
+                    initial_interval=timedelta(milliseconds=200),
+                    maximum_attempts=3,
+                ),
+            )
+
         if input.wait_for_evidence_updated:
             await workflow.wait_condition(lambda: self._evidence_updated_count > 0)
 

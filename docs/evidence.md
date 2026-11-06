@@ -78,6 +78,18 @@ Read-only `ChangeSource` adapters return `NormalizedChange`. Persist with
 `upsert_change_command` (type / service / time / `source_ref`→`external_ref`).
 No mutate methods on the port.
 
+## Evidence ↔ investigation loop (G10)
+
+Natural path after alert → INVESTIGATING:
+
+1. `ensure_incident_workflow_started` sets `start_collect_cycle` + `wait_for_evidence_updated`
+2. General activity `kickoff_collect_cycle` starts one `CollectJob` with `DEFAULT_COLLECTORS`
+3. Evidence-worker runs the cycle and signals `EvidenceUpdated`
+4. Workflow exposes EV-ids via `last_evidence_updated` / `domain.evidence.evidence_key`
+
+No planted GroundTruth — telemetry is scraped (or faked in tests); changes come from
+`SimChangeSource`. Hypothesis quality is H4+.
+
 ## Change collectors (G9)
 
 `SimChangeSource` + `collect_changes_for_incident` (producer `change_collector`):
