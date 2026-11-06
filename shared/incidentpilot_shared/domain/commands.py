@@ -226,6 +226,92 @@ def append_evidence_command(
     )
 
 
+def link_evidence_relation_command(
+    conn: Connection,
+    *,
+    from_evidence_id: UUID,
+    to_evidence_id: UUID,
+    relation_type: str,
+    commit: bool = True,
+) -> None:
+    """Insert an evidence graph edge (idempotent on unique triple)."""
+    if relation_type not in {
+        "SUPPORTS",
+        "CONTRADICTS",
+        "DERIVED_FROM",
+        "SAME_SIGNAL",
+        "TEMPORAL_NEAR",
+    }:
+        raise ValueError(f"invalid evidence relation_type: {relation_type!r}")
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.evidence_relation (
+                from_evidence_id, to_evidence_id, relation_type
+            ) VALUES (%s, %s, %s)
+            ON CONFLICT (from_evidence_id, to_evidence_id, relation_type) DO NOTHING
+            """,
+            (str(from_evidence_id), str(to_evidence_id), relation_type),
+        )
+    if commit:
+        conn.commit()
+
+
+def append_derived_evidence_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    kind: str,
+    fingerprint: str,
+    summary: str,
+    quality_rule_id: str,
+    parent_evidence_ids: list[UUID],
+    payload: dict[str, Any] | None = None,
+    observed_at: datetime | None = None,
+    commit: bool = True,
+) -> AppendEvidenceResult:
+    """Write DETERMINISTIC_DERIVED Evidence citing RAW parents via DERIVED_FROM.
+
+    Never marks derived rows as RAW. Producer is ``deterministic_processor``.
+    """
+    if not parent_evidence_ids:
+        raise ValueError("derived evidence requires at least one parent")
+    if not quality_rule_id.strip():
+        raise ValueError("quality_rule_id is required")
+
+    parent_ids = [UUID(str(p)) for p in parent_evidence_ids]
+    provenance = {
+        "layer": "DETERMINISTIC_DERIVED",
+        "quality_rule_id": quality_rule_id.strip(),
+        "parent_evidence_ids": [str(p) for p in parent_ids],
+    }
+    result = append_evidence_command(
+        conn,
+        incident_id=incident_id,
+        kind=kind,
+        fingerprint=fingerprint,
+        summary=summary,
+        producer="deterministic_processor",
+        payload=payload,
+        provenance=provenance,
+        observed_at=observed_at,
+        commit=False,
+    )
+    if result.inserted:
+        for parent_id in parent_ids:
+            # from=derived, to=parent (derived DERIVED_FROM parent)
+            link_evidence_relation_command(
+                conn,
+                from_evidence_id=result.evidence_id,
+                to_evidence_id=parent_id,
+                relation_type="DERIVED_FROM",
+                commit=False,
+            )
+    if commit:
+        conn.commit()
+    return result
+
+
 def decide_approval_command(
     conn: Connection,
     *,
