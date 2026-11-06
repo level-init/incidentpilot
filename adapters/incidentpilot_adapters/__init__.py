@@ -18,6 +18,16 @@ from incidentpilot_adapters.blob import (
     resolve_evidence_blob_store,
 )
 from incidentpilot_adapters.changes import ChangeSource, MemoryChangeSource, SimChangeSource
+from incidentpilot_adapters.llm import (
+    FakeLLMProvider,
+    LLMMessage,
+    LLMProvider,
+    LLMRequest,
+    LLMResult,
+    StructuredOutputError,
+    complete_structured,
+    resolve_llm_provider,
+)
 from incidentpilot_adapters.telemetry import (
     LokiClient,
     PrometheusClient,
@@ -34,13 +44,21 @@ __all__ = [
     "ChangeSource",
     "CloudWatchAdapter",
     "FailingBlobStore",
+    "FakeLLMProvider",
+    "LLMMessage",
+    "LLMProvider",
+    "LLMRequest",
+    "LLMResult",
     "LokiClient",
     "MemoryBlobStore",
     "MemoryChangeSource",
     "PrometheusClient",
     "SimChangeSource",
     "S3BlobStore",
+    "StructuredOutputError",
     "TempoClient",
+    "complete_structured",
     "resolve_evidence_blob_store",
+    "resolve_llm_provider",
     "__version__",
 ]
