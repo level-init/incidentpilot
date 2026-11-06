@@ -44,7 +44,23 @@ Workers subscribe briefly with a placeholder `queue_subscribe_ping` activity
 `incidentpilot-evidence` registers `collect_prometheus_metrics`,
 `collect_loki_logs`, and `collect_tempo_traces`. Those activities use
 `PROMETHEUS_URL` / `LOKI_URL` / `TEMPO_URL` and write Evidence via
-`append_evidence_command`. Keep those env vars **off** the general worker.
+`append_raw_evidence_with_blob`. Keep those env vars **off** the general worker.
+
+## Collect jobs (G6)
+
+`CollectCycleWorkflow` also runs on `incidentpilot-evidence` (issue name:
+tq-evidence-collect — same queue; do not add a fourth queue).
+
+1. Client starts `CollectCycleWorkflow` with a `CollectJob`
+   (`incident_id`, `environment`, `cycle_id`, optional window/collectors).
+2. Activity `validate_collect_job_scope` re-reads Postgres and enforces
+   `ToolScope` — **queue ≠ authz**.
+3. Activity `run_collect_cycle` collects METRIC/LOG/TRACE.
+4. Workflow signals `IncidentWorkflow.evidence_updated` (`EvidenceUpdated`,
+   deduped by `cycle_id`). This is **not** an outbox domain event.
+
+`IncidentWorkflowInput.wait_for_evidence_updated` (default `false`) parks the
+parent until the first collect cycle completes.
 
 ## IncidentWorkflow (D2)
 

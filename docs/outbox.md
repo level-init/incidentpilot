@@ -61,6 +61,10 @@ Crash mid-flight: row stays `pending` under a visibility lease; a later poll
 re-signals. `IncidentWorkflow.domain_event` ignores duplicate `message_id`s and
 **does not** call TransitionIncident (no double-transition).
 
+**Not outbox:** evidence collect-cycle completion (G6) uses a Temporal-native
+`EvidenceUpdated` signal from `CollectCycleWorkflow` — evidence rows are already
+committed; do not enqueue an outbox event for that path.
+
 ## Tables
 
 | Table | Role |
