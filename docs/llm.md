@@ -1,7 +1,7 @@
-# LLM provider + AIInvocation provenance (H1 / H2)
+# LLM provider, provenance, and AI tool broker (H1–H3)
 
 Provider-agnostic structured completions for investigation reasoning, with a
-minimum provenance row on every call.
+minimum provenance row on every call and a capability-scoped tool broker.
 
 ## Interface
 
@@ -60,3 +60,29 @@ Full S3 prompt packages (`artifact_uri`) are L3 / out of scope for H2.
 
 Keep keys **off** evidence-worker and remediation-worker (same privilege split
 as G7 inverted: reasoning on general, telemetry creds on evidence).
+
+## AI tool broker (H3)
+
+```python
+from incidentpilot_shared import AiToolBroker, ToolScope
+
+broker = AiToolBroker(
+    scope=ToolScope(incident_id=str(incident_id), environment="local"),
+    conn=conn,  # evidence_projection_read only
+    collector_trigger=my_starter,  # schedules G7 collect; no Prom/Loki/Tempo
+)
+
+broker.invoke("POLICY_EVAL", {...})   # ToolDeniedError
+broker.invoke("ACTION_EXECUTE", {...})  # ToolDeniedError
+broker.invoke("collector_trigger", {"incident_id": ..., "collector": "logs", "query": "…"})
+broker.invoke("telemetry_read", {"incident_id": ..., "query": "up", "window_seconds": 60})
+```
+
+| Rule | Behavior |
+| --- | --- |
+| Capabilities | `READ` / `PROPOSE` / `COLLECTOR_TRIGGER` only |
+| Deny | `POLICY_EVAL`, `ACTION_EXECUTE`, GT, shell/kubectl/sql/secrets, Evidence writes |
+| Evidence | `evidence_projection_read` → redacted projections only (G2) |
+| Telemetry | exploratory; not Evidence authorship; no source creds on general |
+| Collect | `collector_trigger` schedules evidence-worker job (G7) |
+| Scope | server-bound `ToolScope` (C6); model args cannot widen incident/env |

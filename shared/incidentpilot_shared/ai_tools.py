@@ -5,7 +5,7 @@ trust: the sandbox may only invoke the fixed allow-list (READ / PROPOSE).
 Forbidden capabilities (ACTION_EXECUTE, POLICY_EVAL, GroundTruth, shell /
 kubectl / SQL, secrets) are never registered and are rejected on lookup.
 
-H3 will broker these tools; this module only defines schemas + deny policy.
+H3 brokers these tools via ``ai_tool_broker``; this module defines schemas + deny policy.
 """
 
 from __future__ import annotations

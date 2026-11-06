@@ -4,6 +4,11 @@ from incidentpilot_shared.ai_invocation import (
     complete_structured_recorded,
     record_from_llm_result,
 )
+from incidentpilot_shared.ai_tool_broker import (
+    AiToolBroker,
+    ToolInvocationResult,
+    invoke_ai_tool,
+)
 from incidentpilot_shared.ai_tools import (
     AI_SANDBOX_IDENTITY,
     DENIED_TOOL_NAMES,
@@ -121,6 +126,7 @@ __all__ = [
     "INCIDENT_WORKFLOW_NAME",
     "QUEUE_CONSUMER_CONTRACTS",
     "REGISTERED_EVIDENCE_PRODUCERS",
+    "AiToolBroker",
     "AiToolRegistry",
     "AppendEvidenceResult",
     "ApprovalDecisionResult",
@@ -146,6 +152,7 @@ __all__ = [
     "TaskQueue",
     "ToolCapability",
     "ToolDeniedError",
+    "ToolInvocationResult",
     "ToolSchemaError",
     "ToolScope",
     "TransitionResult",
@@ -174,6 +181,7 @@ __all__ = [
     "incident_workflow_id",
     "incident_workflow_task_queue",
     "incidentpilot_fingerprint",
+    "invoke_ai_tool",
     "is_registered_evidence_producer",
     "persist_evidence_projection",
     "read_evidence_projection_for_llm",
