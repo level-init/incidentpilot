@@ -72,6 +72,23 @@ class RecordAiInvocationResult:
 
 
 @dataclass(frozen=True, slots=True)
+class ProposeHypothesisResult:
+    hypothesis_id: UUID
+    incident_id: UUID
+    status: str
+    proposed_by: str
+    heuristic_score: float | None
+    cited_evidence_ids: tuple[UUID, ...]
+    rank: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class RankHypothesesResult:
+    incident_id: UUID
+    ranked: tuple[ProposeHypothesisResult, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class CreateIncidentResult:
     incident_id: UUID
     public_id: str
@@ -855,3 +872,210 @@ def correlate_alert_command(
         created_incident=True,
         matched_by="new",
     )
+
+
+class MissingEvidenceCitationError(ValueError):
+    """Raised when a hypothesis cites an unknown or cross-incident Evidence id."""
+
+
+def resolve_incident_evidence_refs(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    refs: list[str] | tuple[str, ...],
+) -> list[UUID]:
+    """Resolve ``EV-…`` keys (or uuid strings) to evidence UUIDs on this incident.
+
+    Missing / wrong-incident citations raise ``MissingEvidenceCitationError``.
+    """
+    if not refs:
+        raise MissingEvidenceCitationError("hypothesis requires at least one evidence citation")
+    resolved: list[UUID] = []
+    seen: set[str] = set()
+    with conn.cursor() as cur:
+        for raw in refs:
+            ref = str(raw).strip()
+            if not ref:
+                raise MissingEvidenceCitationError("empty evidence citation")
+            if ref in seen:
+                continue
+            seen.add(ref)
+            cur.execute(
+                """
+                SELECT id FROM domain.evidence
+                WHERE incident_id = %s
+                  AND (evidence_key = %s OR id::text = %s)
+                LIMIT 1
+                """,
+                (str(incident_id), ref, ref),
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise MissingEvidenceCitationError(
+                    f"missing/unknown evidence citation {ref!r} for incident {incident_id}"
+                )
+            resolved.append(UUID(str(row[0])))
+    return resolved
+
+
+def propose_hypothesis_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    statement: str,
+    cited_evidence_ids: list[str] | tuple[str, ...],
+    rationale: str | None = None,
+    hypothesis_class: str | None = None,
+    heuristic_score: float | None = None,
+    proposed_by: str = "AI",
+    ai_invocation_id: UUID | str | None = None,
+    rank: int | None = None,
+    commit: bool = True,
+) -> ProposeHypothesisResult:
+    """SYSTEM write of a PROPOSED hypothesis (H4).
+
+    AI may propose via tools/LLM; only this command inserts ``domain.hypothesis``.
+    ``heuristic_score`` is stored in the ``confidence`` column but labeled
+    ``score_kind=heuristic`` in provenance — not a calibrated probability.
+    Multiple PROPOSED rows per incident are allowed (OPEN ≡ PROPOSED).
+    Does not CONFIRM or set LEADING / CAUSED_BY.
+    """
+    text = statement.strip()
+    if not text:
+        raise ValueError("hypothesis statement is required")
+    if heuristic_score is not None and not (0.0 <= float(heuristic_score) <= 1.0):
+        raise ValueError("heuristic_score must be in [0, 1]")
+
+    cited_uuids = resolve_incident_evidence_refs(
+        conn, incident_id=incident_id, refs=cited_evidence_ids
+    )
+    hypothesis_id = uuid4()
+    provenance: dict[str, Any] = {
+        "writer": "system",
+        "proposed_by": proposed_by,
+        "score_kind": "heuristic",
+        "source": "hypothesis_propose",
+    }
+    if ai_invocation_id is not None:
+        provenance["ai_invocation_id"] = str(ai_invocation_id)
+    if heuristic_score is not None:
+        provenance["heuristic_score"] = float(heuristic_score)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.hypothesis (
+                id, incident_id, status, statement, rationale, hypothesis_class,
+                confidence, rank, proposed_by, provenance, cited_evidence_ids
+            ) VALUES (
+                %s, %s, 'PROPOSED', %s, %s, %s,
+                %s, %s, %s, %s::jsonb, %s::uuid[]
+            )
+            RETURNING id, status, rank, confidence
+            """,
+            (
+                str(hypothesis_id),
+                str(incident_id),
+                text,
+                rationale,
+                hypothesis_class,
+                float(heuristic_score) if heuristic_score is not None else None,
+                rank,
+                proposed_by,
+                json.dumps(provenance),
+                [str(u) for u in cited_uuids],
+            ),
+        )
+        row = cur.fetchone()
+        assert row is not None
+    if commit:
+        conn.commit()
+    return ProposeHypothesisResult(
+        hypothesis_id=UUID(str(row[0])),
+        incident_id=incident_id,
+        status=str(row[1]),
+        proposed_by=proposed_by,
+        heuristic_score=float(row[3]) if row[3] is not None else None,
+        cited_evidence_ids=tuple(cited_uuids),
+        rank=int(row[2]) if row[2] is not None else None,
+    )
+
+
+def rank_hypotheses_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    rankings: list[tuple[UUID, float]] | list[dict[str, Any]],
+    commit: bool = True,
+) -> RankHypothesesResult:
+    """Assign heuristic ranks (1 = best) to PROPOSED hypotheses (H4).
+
+    Does not set LEADING / CONFIRMED. Scores remain labeled heuristic.
+    """
+    normalized: list[tuple[UUID, float]] = []
+    for item in rankings:
+        if isinstance(item, dict):
+            hid = UUID(str(item["hypothesis_id"]))
+            score = float(item["heuristic_score"])
+        else:
+            hid, score = item
+            hid = UUID(str(hid))
+            score = float(score)
+        if not (0.0 <= score <= 1.0):
+            raise ValueError("heuristic_score must be in [0, 1]")
+        normalized.append((hid, score))
+
+    # Stable: higher score first → rank 1..N
+    ordered = sorted(normalized, key=lambda pair: (-pair[1], str(pair[0])))
+    results: list[ProposeHypothesisResult] = []
+    with conn.cursor() as cur:
+        for rank_i, (hid, score) in enumerate(ordered, start=1):
+            cur.execute(
+                """
+                UPDATE domain.hypothesis
+                SET rank = %s,
+                    confidence = %s,
+                    provenance = provenance || %s::jsonb,
+                    updated_at = now()
+                WHERE id = %s
+                  AND incident_id = %s
+                  AND status = 'PROPOSED'
+                RETURNING id, status, rank, confidence, proposed_by, cited_evidence_ids
+                """,
+                (
+                    rank_i,
+                    score,
+                    json.dumps(
+                        {
+                            "score_kind": "heuristic",
+                            "heuristic_score": score,
+                            "source": "hypothesis_rank",
+                            "writer": "system",
+                        }
+                    ),
+                    str(hid),
+                    str(incident_id),
+                ),
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise ValueError(
+                    f"hypothesis {hid} not found as PROPOSED on incident {incident_id}"
+                )
+            cited_raw = row[5] or []
+            cited = tuple(UUID(str(x)) for x in cited_raw)
+            results.append(
+                ProposeHypothesisResult(
+                    hypothesis_id=UUID(str(row[0])),
+                    incident_id=incident_id,
+                    status=str(row[1]),
+                    proposed_by=str(row[4]),
+                    heuristic_score=float(row[3]) if row[3] is not None else None,
+                    cited_evidence_ids=cited,
+                    rank=int(row[2]) if row[2] is not None else None,
+                )
+            )
+    if commit:
+        conn.commit()
+    return RankHypothesesResult(incident_id=incident_id, ranked=tuple(results))
+

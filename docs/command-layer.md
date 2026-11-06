@@ -27,6 +27,9 @@ transitions, and outbox rules cannot be bypassed.
 | `create_incident_command` | Create DETECTED incident (+ optional service link) |
 | `attach_alert_command` | Set `alert.incident_id` |
 | `correlate_alert_command` | Fingerprint/time/service match or create (F4) |
+| `propose_hypothesis_command` | SYSTEM insert PROPOSED hypothesis; resolve EV citations (H4) |
+| `rank_hypotheses_command` | Heuristic rank/score for PROPOSED rows (not LEADING/CONFIRM) |
+| `resolve_incident_evidence_refs` | Map `EV-…` / uuid cites → evidence UUIDs on an incident |
 
 ## Adapter boundary
 

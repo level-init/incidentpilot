@@ -63,6 +63,12 @@ def test_api_and_worker_share_same_command_callables() -> None:
     assert worker_commands.record_ai_invocation_command is (
         shared_commands.record_ai_invocation_command
     )
+    assert api_commands.propose_hypothesis_command is (
+        shared_commands.propose_hypothesis_command
+    )
+    assert worker_commands.rank_hypotheses_command is (
+        shared_commands.rank_hypotheses_command
+    )
 
 
 def test_adapters_have_no_domain_sql() -> None:
