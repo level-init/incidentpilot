@@ -28,6 +28,15 @@ Both return `list[NormalizedAlert]` (same shape). Persistence is
 | `LokiClient` | `LOKI_URL` | `incidentpilot_adapters.telemetry` |
 | `TempoClient` | `TEMPO_URL` | `incidentpilot_adapters.telemetry` |
 
-HTTP fetch only. Evidence-worker activities call `append_evidence_command`
+HTTP fetch only. Evidence-worker activities call `append_raw_evidence_with_blob`
 with `prometheus_collector` / `loki_collector` / `tempo_collector`. Do **not**
 put these URLs on the general worker.
+
+## Blob store (G5)
+
+| Client | Env | Module |
+| --- | --- | --- |
+| `S3BlobStore` / `resolve_evidence_blob_store` | `S3_ENDPOINT`, `S3_BUCKET_EVIDENCE`, MinIO/`AWS_*` keys | `incidentpilot_adapters.blob` |
+
+Uploads only — no domain SQL. Collectors claim RAW `quality=HIGH` only when
+`put` succeeds and `blob_uri` is set; on failure use MEDIUM + hash/external_ref.

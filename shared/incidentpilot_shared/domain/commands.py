@@ -160,6 +160,10 @@ def append_evidence_command(
     evidence_id = uuid4()
     key = evidence_key or f"EV-{evidence_id.hex[:12]}"
     body = payload or {}
+    # G5: never persist fake HIGH RAW without a successful blob upload.
+    from incidentpilot_shared.evidence_raw import assert_raw_high_requires_blob
+
+    assert_raw_high_requires_blob(blob_uri=blob_uri, provenance=provenance)
     with conn.cursor() as cur:
         cur.execute(
             """
