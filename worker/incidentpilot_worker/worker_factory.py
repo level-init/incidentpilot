@@ -13,7 +13,10 @@ from temporalio.worker import Worker
 
 from incidentpilot_shared.temporal_queues import TaskQueue
 from incidentpilot_shared.temporal_runtime import queue_subscribe_ping
-from incidentpilot_worker.activities.collector_trigger import trigger_collect_cycle
+from incidentpilot_worker.activities.collector_trigger import (
+    kickoff_collect_cycle,
+    trigger_collect_cycle,
+)
 from incidentpilot_worker.activities.incident_transitions import (
     advance_incident_state,
     load_incident_snapshot,
@@ -37,6 +40,7 @@ def build_worker(client: Client, task_queue: TaskQueue | str) -> Worker:
                 load_incident_snapshot,
                 advance_incident_state,
                 trigger_collect_cycle,
+                kickoff_collect_cycle,
             ],
             activity_executor=_ACTIVITY_EXECUTOR,
         )

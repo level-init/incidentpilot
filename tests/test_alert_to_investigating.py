@@ -121,8 +121,21 @@ async def test_ensure_start_is_idempotent() -> None:
             activities=[load_incident_snapshot, advance_incident_state],
             activity_executor=_ACTIVITY_EXECUTOR,
         ):
-            first = await ensure_incident_workflow_started(env.client, iid, task_queue=task_queue)
-            second = await ensure_incident_workflow_started(env.client, iid, task_queue=task_queue)
+            # State-machine-only: skip G10 collect wait (no evidence worker here).
+            first = await ensure_incident_workflow_started(
+                env.client,
+                iid,
+                task_queue=task_queue,
+                start_collect_cycle=False,
+                wait_for_evidence_updated=False,
+            )
+            second = await ensure_incident_workflow_started(
+                env.client,
+                iid,
+                task_queue=task_queue,
+                start_collect_cycle=False,
+                wait_for_evidence_updated=False,
+            )
             handle = env.client.get_workflow_handle(incident_workflow_id(iid))
             result = await handle.result()
 

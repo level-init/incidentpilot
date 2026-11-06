@@ -26,7 +26,9 @@ class IncidentWorkflowInput:
     incident_id: str
     wait_after_triaging: bool = False
     wait_for_domain_event: bool = False
-    # G6: wait for CollectCycleWorkflow EvidenceUpdated (default off — D2/F5 unchanged).
+    # G10: after INVESTIGATING, kick off default CollectCycleWorkflow (evidence queue).
+    start_collect_cycle: bool = False
+    # G6/G10: wait for EvidenceUpdated (default off for isolated D2 unit tests).
     wait_for_evidence_updated: bool = False
     # Worker types this as WorkflowTimerConfig; kept as Any for shared package.
     timers: Any | None = None
@@ -50,12 +52,23 @@ async def ensure_incident_workflow_started(
     incident_id: str | UUID,
     *,
     task_queue: str | None = None,
+    start_collect_cycle: bool = True,
+    wait_for_evidence_updated: bool = True,
 ) -> bool:
-    """Idempotent start of IncidentWorkflow. True if newly started."""
+    """Idempotent start of IncidentWorkflow. True if newly started.
+
+    Natural path (G10): kick off collect after INVESTIGATING and wait for
+    EvidenceUpdated so EV-ids exist for reasoning. Unit tests that only need
+    the state machine can pass ``start_collect_cycle=False``.
+    """
     try:
         await client.start_workflow(
             WORKFLOW_NAME,
-            IncidentWorkflowInput(incident_id=str(incident_id)),
+            IncidentWorkflowInput(
+                incident_id=str(incident_id),
+                start_collect_cycle=start_collect_cycle,
+                wait_for_evidence_updated=wait_for_evidence_updated,
+            ),
             id=incident_workflow_id(incident_id),
             task_queue=task_queue or incident_workflow_task_queue(),
         )

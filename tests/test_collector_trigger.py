@@ -180,6 +180,7 @@ def test_general_worker_registers_trigger_not_collectors() -> None:
         "if queue is TaskQueue.EVIDENCE:"
     )[0]
     assert "trigger_collect_cycle" in general_block
+    assert "kickoff_collect_cycle" in general_block
     assert "collect_prometheus_metrics" not in general_block
     assert "run_collect_cycle" not in general_block
     assert "CollectCycleWorkflow" not in general_block
