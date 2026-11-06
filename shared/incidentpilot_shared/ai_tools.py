@@ -103,8 +103,10 @@ class ActionProposeArgs(_StrictModel):
 
 
 class CollectorTriggerArgs(_StrictModel):
+    """G7: schedule collect on evidence-worker — no Prom/Loki/Tempo from AI/general."""
+
     incident_id: str
-    collector: Literal["metrics", "logs", "traces", "changes"]
+    collector: Literal["metrics", "logs", "traces"]
     query: str = Field(min_length=1, max_length=2000)
 
 
