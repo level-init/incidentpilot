@@ -34,3 +34,15 @@ Content-Type: application/json
 
 `UNIQUE (incident_id, fingerprint)` + `ON CONFLICT DO NOTHING` — immutable
 `evidence_id`, no UPDATE of factual columns.
+
+## Projections (G2)
+
+On insert, C4 redaction runs and stores `domain.evidence_projection`:
+
+| Status | Meaning |
+| --- | --- |
+| `READY` | Redacted summary/payload safe for LLM / tool broker |
+| `BLOCKED` | Redaction failed — broker must refuse; canonical row unchanged |
+
+Read path for AI: `read_evidence_projection_for_llm(conn, incident_id=…, evidence_id=…)`.
+Raises `RedactionError` on missing/BLOCKED — never returns canonical `payload`.

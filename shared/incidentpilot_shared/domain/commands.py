@@ -19,6 +19,7 @@ from incidentpilot_shared.domain.transitions import (
     apply_transition,
 )
 from incidentpilot_shared.evidence_producers import assert_registered_evidence_producer
+from incidentpilot_shared.evidence_projections import persist_evidence_projection
 
 if TYPE_CHECKING:
     from psycopg import Connection
@@ -146,16 +147,19 @@ def append_evidence_command(
     evidence_key: str | None = None,
     commit: bool = True,
 ) -> AppendEvidenceResult:
-    """Append factual Evidence (G1).
+    """Append factual Evidence (G1) + redacted LLM projection (G2).
 
     - Only registered producers (never AI sandbox)
     - Server-generated immutable ``evidence_id``
     - Idempotent on ``(incident_id, fingerprint)`` — duplicate scrape returns
       the existing row (``inserted=False``); no UPDATE of factual columns
+    - On insert, persist ``domain.evidence_projection`` (READY or BLOCKED);
+      canonical ``payload`` is never rewritten
     """
     producer_name = assert_registered_evidence_producer(producer)
     evidence_id = uuid4()
     key = evidence_key or f"EV-{evidence_id.hex[:12]}"
+    body = payload or {}
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -178,7 +182,7 @@ def append_evidence_command(
                 kind,
                 fingerprint,
                 summary,
-                json.dumps(payload or {}),
+                json.dumps(body),
                 json.dumps(provenance or {}),
                 blob_uri,
                 str(service_id) if service_id else None,
@@ -204,11 +208,20 @@ def append_evidence_command(
                 evidence_key=str(row[1]),
                 inserted=False,
             )
+
+    stored_id = UUID(str(row[0]))
+    stored_key = str(row[1])
+    persist_evidence_projection(
+        conn,
+        evidence_id=stored_id,
+        summary=summary,
+        payload=body,
+    )
     if commit:
         conn.commit()
     return AppendEvidenceResult(
-        evidence_id=UUID(str(row[0])),
-        evidence_key=str(row[1]),
+        evidence_id=stored_id,
+        evidence_key=stored_key,
         inserted=True,
     )
 
