@@ -25,6 +25,15 @@ ALL_TASK_QUEUES: Final[tuple[TaskQueue, ...]] = (
     TaskQueue.REMEDIATION,
 )
 
+# G7: general / orchestration process must never receive these (evidence-worker only).
+GENERAL_FORBIDDEN_ENV: Final[frozenset[str]] = frozenset(
+    {
+        "PROMETHEUS_URL",
+        "LOKI_URL",
+        "TEMPO_URL",
+    }
+)
+
 
 @dataclass(frozen=True, slots=True)
 class QueueConsumerContract:

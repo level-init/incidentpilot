@@ -56,6 +56,11 @@ DENIED_TOOL_NAMES: Final[frozenset[str]] = frozenset(
         "secrets",
         "secrets_read",
         "secret_read",
+        # G1: AI must never write Evidence (producers only).
+        "evidence_write",
+        "evidence_append",
+        "append_evidence",
+        "produce_evidence",
     }
 )
 
@@ -98,6 +103,8 @@ class ActionProposeArgs(_StrictModel):
 
 
 class CollectorTriggerArgs(_StrictModel):
+    """G7/G9: schedule collect on evidence-worker — no Prom/Loki/Tempo from AI/general."""
+
     incident_id: str
     collector: Literal["metrics", "logs", "traces", "changes"]
     query: str = Field(min_length=1, max_length=2000)

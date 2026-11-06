@@ -16,13 +16,14 @@ transitions, and outbox rules cannot be bypassed.
 | Command | Purpose |
 | --- | --- |
 | `transition_incident_command` | State machine + revision + timeline + outbox |
-| `append_evidence_command` | Append-only Evidence insert |
+| `append_evidence_command` | Producer-gated Evidence insert; fingerprint dedup (G1); rejects fake HIGH RAW without `blob_uri` (G5) |
+| `append_raw_evidence_with_blob` | Collector helper: S3/MinIO upload then append with honest RAW provenance (G5) |
+| `append_derived_evidence_command` | DETERMINISTIC_DERIVED + DERIVED_FROM parents (G4) |
+| `link_evidence_relation_command` | Evidence graph edges |
 | `decide_approval_command` | PENDING → APPROVED/REJECTED |
 | `reserve_execution_attempt_command` | Reserve attempt before MITIGATING |
 | `upsert_alert_command` | Insert/update `domain.alert` by fingerprint (F2) |
-| `create_incident_command` | Create DETECTED incident (+ optional service link) |
-| `attach_alert_command` | Set `alert.incident_id` |
-| `correlate_alert_command` | Fingerprint/time/service match or create (F4) |
+| `upsert_change_command` | Idempotent `domain.change` by `(source, fingerprint)` (G8); `source_ref`→`external_ref` |
 | `create_incident_command` | Create DETECTED incident (+ optional service link) |
 | `attach_alert_command` | Set `alert.incident_id` |
 | `correlate_alert_command` | Fingerprint/time/service match or create (F4) |

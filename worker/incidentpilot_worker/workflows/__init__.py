@@ -1,4 +1,9 @@
-"""Temporal workflows for incidentpilot-worker."""
+"""Temporal workflows for incidentpilot-worker.
+
+CollectCycleWorkflow lives on the evidence queue — import it from
+``incidentpilot_worker.workflows.collect_cycle`` (not here) so the general
+worker package init never pulls collector dependencies (G7).
+"""
 
 from incidentpilot_worker.workflows.incident_workflow import (
     IncidentWorkflow,

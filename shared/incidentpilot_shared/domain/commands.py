@@ -18,6 +18,8 @@ from incidentpilot_shared.domain.transitions import (
     TransitionResult,
     apply_transition,
 )
+from incidentpilot_shared.evidence_producers import assert_registered_evidence_producer
+from incidentpilot_shared.evidence_projections import persist_evidence_projection
 
 if TYPE_CHECKING:
     from psycopg import Connection
@@ -27,6 +29,7 @@ if TYPE_CHECKING:
 class AppendEvidenceResult:
     evidence_id: UUID
     evidence_key: str
+    inserted: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +52,14 @@ class ReserveAttemptResult:
 @dataclass(frozen=True, slots=True)
 class UpsertAlertResult:
     alert_id: UUID
+    fingerprint: str
+    inserted: bool
+
+
+@dataclass(frozen=True, slots=True)
+class UpsertChangeResult:
+    change_id: UUID
+    change_key: str
     fingerprint: str
     inserted: bool
 
@@ -144,9 +155,23 @@ def append_evidence_command(
     evidence_key: str | None = None,
     commit: bool = True,
 ) -> AppendEvidenceResult:
-    """Append factual Evidence (insert-only; DB forbids UPDATE/DELETE)."""
+    """Append factual Evidence (G1) + redacted LLM projection (G2).
+
+    - Only registered producers (never AI sandbox)
+    - Server-generated immutable ``evidence_id``
+    - Idempotent on ``(incident_id, fingerprint)`` — duplicate scrape returns
+      the existing row (``inserted=False``); no UPDATE of factual columns
+    - On insert, persist ``domain.evidence_projection`` (READY or BLOCKED);
+      canonical ``payload`` is never rewritten
+    """
+    producer_name = assert_registered_evidence_producer(producer)
     evidence_id = uuid4()
     key = evidence_key or f"EV-{evidence_id.hex[:12]}"
+    body = payload or {}
+    # G5: never persist fake HIGH RAW without a successful blob upload.
+    from incidentpilot_shared.evidence_raw import assert_raw_high_requires_blob
+
+    assert_raw_high_requires_blob(blob_uri=blob_uri, provenance=provenance)
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -159,6 +184,8 @@ def append_evidence_command(
                 %s, %s::jsonb, %s::jsonb, %s, %s,
                 COALESCE(%s, now()), %s
             )
+            ON CONFLICT (incident_id, fingerprint) DO NOTHING
+            RETURNING id, evidence_key
             """,
             (
                 str(evidence_id),
@@ -167,17 +194,134 @@ def append_evidence_command(
                 kind,
                 fingerprint,
                 summary,
-                json.dumps(payload or {}),
+                json.dumps(body),
                 json.dumps(provenance or {}),
                 blob_uri,
                 str(service_id) if service_id else None,
                 observed_at,
-                producer,
+                producer_name,
             ),
+        )
+        row = cur.fetchone()
+        if row is None:
+            cur.execute(
+                """
+                SELECT id, evidence_key FROM domain.evidence
+                WHERE incident_id = %s AND fingerprint = %s
+                """,
+                (str(incident_id), fingerprint),
+            )
+            row = cur.fetchone()
+            assert row is not None
+            if commit:
+                conn.commit()
+            return AppendEvidenceResult(
+                evidence_id=UUID(str(row[0])),
+                evidence_key=str(row[1]),
+                inserted=False,
+            )
+
+    stored_id = UUID(str(row[0]))
+    stored_key = str(row[1])
+    persist_evidence_projection(
+        conn,
+        evidence_id=stored_id,
+        summary=summary,
+        payload=body,
+    )
+    if commit:
+        conn.commit()
+    return AppendEvidenceResult(
+        evidence_id=stored_id,
+        evidence_key=stored_key,
+        inserted=True,
+    )
+
+
+def link_evidence_relation_command(
+    conn: Connection,
+    *,
+    from_evidence_id: UUID,
+    to_evidence_id: UUID,
+    relation_type: str,
+    commit: bool = True,
+) -> None:
+    """Insert an evidence graph edge (idempotent on unique triple)."""
+    if relation_type not in {
+        "SUPPORTS",
+        "CONTRADICTS",
+        "DERIVED_FROM",
+        "SAME_SIGNAL",
+        "TEMPORAL_NEAR",
+    }:
+        raise ValueError(f"invalid evidence relation_type: {relation_type!r}")
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.evidence_relation (
+                from_evidence_id, to_evidence_id, relation_type
+            ) VALUES (%s, %s, %s)
+            ON CONFLICT (from_evidence_id, to_evidence_id, relation_type) DO NOTHING
+            """,
+            (str(from_evidence_id), str(to_evidence_id), relation_type),
         )
     if commit:
         conn.commit()
-    return AppendEvidenceResult(evidence_id=evidence_id, evidence_key=key)
+
+
+def append_derived_evidence_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    kind: str,
+    fingerprint: str,
+    summary: str,
+    quality_rule_id: str,
+    parent_evidence_ids: list[UUID],
+    payload: dict[str, Any] | None = None,
+    observed_at: datetime | None = None,
+    commit: bool = True,
+) -> AppendEvidenceResult:
+    """Write DETERMINISTIC_DERIVED Evidence citing RAW parents via DERIVED_FROM.
+
+    Never marks derived rows as RAW. Producer is ``deterministic_processor``.
+    """
+    if not parent_evidence_ids:
+        raise ValueError("derived evidence requires at least one parent")
+    if not quality_rule_id.strip():
+        raise ValueError("quality_rule_id is required")
+
+    parent_ids = [UUID(str(p)) for p in parent_evidence_ids]
+    provenance = {
+        "layer": "DETERMINISTIC_DERIVED",
+        "quality_rule_id": quality_rule_id.strip(),
+        "parent_evidence_ids": [str(p) for p in parent_ids],
+    }
+    result = append_evidence_command(
+        conn,
+        incident_id=incident_id,
+        kind=kind,
+        fingerprint=fingerprint,
+        summary=summary,
+        producer="deterministic_processor",
+        payload=payload,
+        provenance=provenance,
+        observed_at=observed_at,
+        commit=False,
+    )
+    if result.inserted:
+        for parent_id in parent_ids:
+            # from=derived, to=parent (derived DERIVED_FROM parent)
+            link_evidence_relation_command(
+                conn,
+                from_evidence_id=result.evidence_id,
+                to_evidence_id=parent_id,
+                relation_type="DERIVED_FROM",
+                commit=False,
+            )
+    if commit:
+        conn.commit()
+    return result
 
 
 def decide_approval_command(
@@ -311,6 +455,89 @@ def upsert_alert_command(
         alert_id=alert_id,
         fingerprint=fingerprint,
         inserted=inserted,
+    )
+
+
+def upsert_change_command(
+    conn: Connection,
+    *,
+    change_type: str,
+    service_key: str,
+    observed_at: datetime,
+    source_ref: str,
+    source: str,
+    fingerprint: str,
+    summary: str,
+    payload: dict[str, Any] | None = None,
+    provenance: dict[str, Any] | None = None,
+    environment: str = "local",
+    commit: bool = True,
+) -> UpsertChangeResult:
+    """Insert ``domain.change`` idempotently by ``(source, fingerprint)`` (G8).
+
+    AC mapping: type→``change_type``, service→``service_id``, time→``observed_at``,
+    source_ref→``external_ref``. On conflict do nothing — no factual UPDATE.
+    """
+    from incidentpilot_shared.changes.types import ALLOWED_CHANGE_TYPES
+
+    if change_type not in ALLOWED_CHANGE_TYPES:
+        raise ValueError(f"unsupported change_type: {change_type!r}")
+    service_id = _ensure_service_id(conn, service_key=service_key, environment=environment)
+    change_id = uuid4()
+    change_key = f"CHG-{change_id.hex[:12]}"
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.change (
+                id, change_key, change_type, service_id, summary,
+                payload, provenance, source, external_ref, fingerprint, observed_at
+            ) VALUES (
+                %s, %s, %s, %s, %s,
+                %s::jsonb, %s::jsonb, %s, %s, %s, %s
+            )
+            ON CONFLICT (source, fingerprint) DO NOTHING
+            RETURNING id, change_key
+            """,
+            (
+                str(change_id),
+                change_key,
+                change_type,
+                str(service_id),
+                summary,
+                json.dumps(payload or {}),
+                json.dumps(provenance or {}),
+                source,
+                source_ref,
+                fingerprint,
+                observed_at,
+            ),
+        )
+        row = cur.fetchone()
+        if row is None:
+            cur.execute(
+                """
+                SELECT id, change_key FROM domain.change
+                WHERE source = %s AND fingerprint = %s
+                """,
+                (source, fingerprint),
+            )
+            row = cur.fetchone()
+            assert row is not None
+            if commit:
+                conn.commit()
+            return UpsertChangeResult(
+                change_id=UUID(str(row[0])),
+                change_key=str(row[1]),
+                fingerprint=fingerprint,
+                inserted=False,
+            )
+    if commit:
+        conn.commit()
+    return UpsertChangeResult(
+        change_id=UUID(str(row[0])),
+        change_key=str(row[1]),
+        fingerprint=fingerprint,
+        inserted=True,
     )
 
 

@@ -19,3 +19,41 @@ Domain mutations go through the shared command layer used by API + workers.
 
 Both return `list[NormalizedAlert]` (same shape). Persistence is
 `upsert_alert_command` in the API/worker — adapters only normalize.
+
+## Telemetry clients (G3)
+
+| Client | Env | Module |
+| --- | --- | --- |
+| `PrometheusClient` | `PROMETHEUS_URL` | `incidentpilot_adapters.telemetry` |
+| `LokiClient` | `LOKI_URL` | `incidentpilot_adapters.telemetry` |
+| `TempoClient` | `TEMPO_URL` | `incidentpilot_adapters.telemetry` |
+
+HTTP fetch only. Evidence-worker activities call `append_raw_evidence_with_blob`
+with `prometheus_collector` / `loki_collector` / `tempo_collector`. Do **not**
+put these URLs on the general worker.
+
+## Blob store (G5)
+
+| Client | Env | Module |
+| --- | --- | --- |
+| `S3BlobStore` / `resolve_evidence_blob_store` | `S3_ENDPOINT`, `S3_BUCKET_EVIDENCE`, MinIO/`AWS_*` keys | `incidentpilot_adapters.blob` |
+
+Uploads only — no domain SQL. Collectors claim RAW `quality=HIGH` only when
+`put` succeeds and `blob_uri` is set; on failure use MEDIUM + hash/external_ref.
+
+## Change sources (G8)
+
+| Adapter | Role | Module |
+| --- | --- | --- |
+| `ChangeSource` (Protocol) | Read-only `list_changes` / `fetch_change` | `incidentpilot_adapters.changes` |
+| `MemoryChangeSource` | In-memory stub for tests | `incidentpilot_adapters.changes` |
+
+**No mutate / deploy / rollback methods** on ChangeSource. Persist via
+`upsert_change_command` (`source_ref` → `domain.change.external_ref`).
+
+| Adapter | Role |
+| --- | --- |
+| `SimChangeSource` | Scenario catalog (deploy/commit/PR/flag/config/scale) for G9 |
+
+Evidence-worker `change_collector` upserts Change then emits `kind=CHANGE`
+Evidence. Bad-deploy → payment `DEPLOYMENT` in the collect window.

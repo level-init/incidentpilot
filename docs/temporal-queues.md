@@ -39,6 +39,48 @@ python -m incidentpilot_remediation smoke
 Workers subscribe briefly with a placeholder `queue_subscribe_ping` activity
 (Temporal requires ≥1 handler) and exit 0 on success.
 
+## Evidence collectors (G3)
+
+`incidentpilot-evidence` registers `collect_prometheus_metrics`,
+`collect_loki_logs`, and `collect_tempo_traces`. Those activities use
+`PROMETHEUS_URL` / `LOKI_URL` / `TEMPO_URL` and write Evidence via
+`append_raw_evidence_with_blob`. Keep those env vars **off** the general worker.
+
+## Collect jobs (G6)
+
+`CollectCycleWorkflow` also runs on `incidentpilot-evidence` (issue name:
+tq-evidence-collect — same queue; do not add a fourth queue).
+
+1. Client starts `CollectCycleWorkflow` with a `CollectJob`
+   (`incident_id`, `environment`, `cycle_id`, optional window/collectors).
+2. Activity `validate_collect_job_scope` re-reads Postgres and enforces
+   `ToolScope` — **queue ≠ authz**.
+3. Activity `run_collect_cycle` collects METRIC/LOG/TRACE.
+4. Workflow signals `IncidentWorkflow.evidence_updated` (`EvidenceUpdated`,
+   deduped by `cycle_id`). This is **not** an outbox domain event.
+
+`IncidentWorkflowInput.wait_for_evidence_updated` (default `false`) parks the
+parent until the first collect cycle completes.
+
+## COLLECTOR_TRIGGER (G7)
+
+| Process | May start collect? | Holds Prom/Loki/Tempo? |
+| --- | --- | --- |
+| `incidentpilot-worker` (general) | Yes — `trigger_collect_cycle` | **No** (`GENERAL_FORBIDDEN_ENV`) |
+| `evidence-worker` | Runs `CollectCycleWorkflow` | Yes |
+
+General worker imports collector code only via lazy evidence-branch in
+`worker_factory` — never at module load for the orchestration process.
+
+CollectJob collectors: `metrics` | `logs` | `traces` | `changes` (G9).
+
+## Investigation collect kickoff (G10)
+
+After `INVESTIGATING`, `IncidentWorkflow` calls general activity
+`kickoff_collect_cycle` (by name — no evidence imports on general), then waits for
+`EvidenceUpdated`. Production start enables this by default via
+`ensure_incident_workflow_started`.
+
 ## IncidentWorkflow (D2)
 
 `incidentpilot-general` runs `IncidentWorkflow`:

@@ -43,7 +43,9 @@ Topology/change data is **not** required. Response includes `incident_ids`.
 After Postgres commit, the API idempotently starts Temporal
 ``IncidentWorkflow`` (`id=incident-<uuid>`, queue `incidentpilot-general`).
 Already-running workflows are a no-op (`WorkflowAlreadyStartedError`).
-The workflow advances **DETECTED → TRIAGING → INVESTIGATING**.
+The workflow advances **DETECTED → TRIAGING → INVESTIGATING**, then (G10)
+kicks off a default collect cycle and waits for ``EvidenceUpdated`` so
+citable EV-ids exist for reasoning.
 
 ## CloudWatch (F3)
 
