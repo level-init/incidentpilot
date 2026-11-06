@@ -54,6 +54,11 @@ from incidentpilot_shared.evidence_producers import (
     assert_registered_evidence_producer,
     is_registered_evidence_producer,
 )
+from incidentpilot_shared.evidence_projections import (
+    StoredProjectionRef,
+    persist_evidence_projection,
+    read_evidence_projection_for_llm,
+)
 from incidentpilot_shared.incident_workflow import (
     WORKFLOW_NAME as INCIDENT_WORKFLOW_NAME,
 )
@@ -99,6 +104,7 @@ __all__ = [
     "EvidenceProducerDenied",
     "EvidenceProjection",
     "IllegalTransitionError",
+    "StoredProjectionRef",
     "IncidentState",
     "IncidentWorkflowInput",
     "NormalizedAlert",
@@ -134,6 +140,8 @@ __all__ = [
     "incident_workflow_task_queue",
     "incidentpilot_fingerprint",
     "is_registered_evidence_producer",
+    "persist_evidence_projection",
+    "read_evidence_projection_for_llm",
     "mark_outbox_published",
     "mark_outbox_retry",
     "normalize_alertmanager_webhook",
