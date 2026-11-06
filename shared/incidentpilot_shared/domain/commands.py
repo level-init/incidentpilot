@@ -57,6 +57,14 @@ class UpsertAlertResult:
 
 
 @dataclass(frozen=True, slots=True)
+class UpsertChangeResult:
+    change_id: UUID
+    change_key: str
+    fingerprint: str
+    inserted: bool
+
+
+@dataclass(frozen=True, slots=True)
 class CreateIncidentResult:
     incident_id: UUID
     public_id: str
@@ -447,6 +455,89 @@ def upsert_alert_command(
         alert_id=alert_id,
         fingerprint=fingerprint,
         inserted=inserted,
+    )
+
+
+def upsert_change_command(
+    conn: Connection,
+    *,
+    change_type: str,
+    service_key: str,
+    observed_at: datetime,
+    source_ref: str,
+    source: str,
+    fingerprint: str,
+    summary: str,
+    payload: dict[str, Any] | None = None,
+    provenance: dict[str, Any] | None = None,
+    environment: str = "local",
+    commit: bool = True,
+) -> UpsertChangeResult:
+    """Insert ``domain.change`` idempotently by ``(source, fingerprint)`` (G8).
+
+    AC mapping: type→``change_type``, service→``service_id``, time→``observed_at``,
+    source_ref→``external_ref``. On conflict do nothing — no factual UPDATE.
+    """
+    from incidentpilot_shared.changes.types import ALLOWED_CHANGE_TYPES
+
+    if change_type not in ALLOWED_CHANGE_TYPES:
+        raise ValueError(f"unsupported change_type: {change_type!r}")
+    service_id = _ensure_service_id(conn, service_key=service_key, environment=environment)
+    change_id = uuid4()
+    change_key = f"CHG-{change_id.hex[:12]}"
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.change (
+                id, change_key, change_type, service_id, summary,
+                payload, provenance, source, external_ref, fingerprint, observed_at
+            ) VALUES (
+                %s, %s, %s, %s, %s,
+                %s::jsonb, %s::jsonb, %s, %s, %s, %s
+            )
+            ON CONFLICT (source, fingerprint) DO NOTHING
+            RETURNING id, change_key
+            """,
+            (
+                str(change_id),
+                change_key,
+                change_type,
+                str(service_id),
+                summary,
+                json.dumps(payload or {}),
+                json.dumps(provenance or {}),
+                source,
+                source_ref,
+                fingerprint,
+                observed_at,
+            ),
+        )
+        row = cur.fetchone()
+        if row is None:
+            cur.execute(
+                """
+                SELECT id, change_key FROM domain.change
+                WHERE source = %s AND fingerprint = %s
+                """,
+                (source, fingerprint),
+            )
+            row = cur.fetchone()
+            assert row is not None
+            if commit:
+                conn.commit()
+            return UpsertChangeResult(
+                change_id=UUID(str(row[0])),
+                change_key=str(row[1]),
+                fingerprint=fingerprint,
+                inserted=False,
+            )
+    if commit:
+        conn.commit()
+    return UpsertChangeResult(
+        change_id=UUID(str(row[0])),
+        change_key=str(row[1]),
+        fingerprint=fingerprint,
+        inserted=True,
     )
 
 
