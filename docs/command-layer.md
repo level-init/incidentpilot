@@ -35,6 +35,10 @@ transitions, and outbox rules cannot be bypassed.
 | `publish_runbook_version_command` | draft→published (immutable); set active |
 | `pin_runbook_version_command` | Pin published version on incident + `RUNBOOK_FACT` |
 | `retrieve_runbooks` | Metadata + FTS hybrid search (not a mutator) |
+| `record_impact_snapshot_command` / `compute_impact_snapshot_command` | Impact snapshot citing METRIC Evidence (H7) |
+| `record_slo_burn_command` / `compute_slo_burn_command` | SLO burn observation citing METRIC Evidence (H7) |
+| `record_impact_snapshot_command` / `compute_impact_snapshot_command` | Impact snapshot citing METRIC Evidence (H7) |
+| `record_slo_burn_command` / `compute_slo_burn_command` | SLO burn observation citing METRIC Evidence (H7) |
 
 `transition_incident_command(..., DIAGNOSED)` raises `DiagnosedGateError` unless
 `via_diagnose_gate=True` (only set by `diagnose_incident_command`).

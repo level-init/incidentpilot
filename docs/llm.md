@@ -143,3 +143,20 @@ pin_runbook_version_command(conn, incident_id=…, runbook_version_id=hits[0].ve
 - Seed: `checkout.high_error_rate` allows `ROLLBACK_DEPLOYMENT`
 - Pin emits `RUNBOOK_FACT` via producer `runbook_store`
 - Hybrid retrieval = metadata filters + Postgres FTS (pgvector deferred)
+
+## Impact + SLO burn (H7)
+
+```python
+from incidentpilot_shared.domain.commands import (
+    compute_impact_snapshot_command,
+    compute_slo_burn_command,
+)
+
+compute_impact_snapshot_command(conn, incident_id=…)
+compute_slo_burn_command(conn, incident_id=…)
+```
+
+- Calculators are deterministic heuristics (`impact_from_metrics.v1`, `slo_burn_from_metrics.v1`)
+- Affected-user / revenue figures are **ranges labeled heuristic** — not a ledger
+- Rows cite METRIC Evidence via `provenance`; query via
+  `GET /incidents/{id}/impact-snapshots` and `…/slo-burns`

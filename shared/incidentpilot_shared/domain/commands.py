@@ -124,6 +124,26 @@ class PinRunbookResult:
 
 
 @dataclass(frozen=True, slots=True)
+class RecordImpactSnapshotResult:
+    snapshot_id: UUID
+    incident_id: UUID
+    severity: str | None
+    estimated_affected_users: int | None
+    cited_evidence_ids: tuple[UUID, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RecordSloBurnResult:
+    slo_burn_id: UUID
+    incident_id: UUID
+    slo_key: str
+    window_label: str
+    burn_rate: float | None
+    error_budget_remaining: float | None
+    cited_evidence_ids: tuple[UUID, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class CreateIncidentResult:
     incident_id: UUID
     public_id: str
@@ -1531,5 +1551,221 @@ def pin_runbook_version_command(
         evidence_id=fact.evidence_id,
         evidence_key=fact.evidence_key,
         allowed_action_types=allowed,
+    )
+
+
+def record_impact_snapshot_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    cited_evidence_ids: list[str] | tuple[str, ...],
+    severity: str | None = None,
+    customer_impact_summary: str | None = None,
+    estimated_affected_users: int | None = None,
+    metrics: dict[str, Any] | None = None,
+    quality_rule_id: str = "impact_from_metrics.v1",
+    commit: bool = True,
+) -> RecordImpactSnapshotResult:
+    """SYSTEM insert of an impact snapshot citing Evidence (H7)."""
+    cited = resolve_incident_evidence_refs(
+        conn, incident_id=incident_id, refs=cited_evidence_ids
+    )
+    snapshot_id = uuid4()
+    provenance = {
+        "writer": "system",
+        "source": "impact_calculator",
+        "quality_rule_id": quality_rule_id,
+        "cited_evidence_ids": [str(u) for u in cited],
+        "cited_evidence_keys": list(cited_evidence_ids),
+    }
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.impact_snapshot (
+                id, incident_id, severity, customer_impact_summary,
+                estimated_affected_users, metrics, provenance
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb
+            )
+            RETURNING id
+            """,
+            (
+                str(snapshot_id),
+                str(incident_id),
+                severity,
+                customer_impact_summary,
+                estimated_affected_users,
+                json.dumps(metrics or {}),
+                json.dumps(provenance),
+            ),
+        )
+        row = cur.fetchone()
+        assert row is not None
+    if commit:
+        conn.commit()
+    return RecordImpactSnapshotResult(
+        snapshot_id=UUID(str(row[0])),
+        incident_id=incident_id,
+        severity=severity,
+        estimated_affected_users=estimated_affected_users,
+        cited_evidence_ids=tuple(cited),
+    )
+
+
+def record_slo_burn_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    cited_evidence_ids: list[str] | tuple[str, ...],
+    slo_key: str,
+    window_label: str,
+    burn_rate: float | None = None,
+    error_budget_remaining: float | None = None,
+    payload: dict[str, Any] | None = None,
+    service_id: UUID | None = None,
+    quality_rule_id: str = "slo_burn_from_metrics.v1",
+    commit: bool = True,
+) -> RecordSloBurnResult:
+    """SYSTEM insert of an SLO burn observation citing Evidence (H7)."""
+    cited = resolve_incident_evidence_refs(
+        conn, incident_id=incident_id, refs=cited_evidence_ids
+    )
+    burn_id = uuid4()
+    provenance = {
+        "writer": "system",
+        "source": "slo_burn_calculator",
+        "quality_rule_id": quality_rule_id,
+        "cited_evidence_ids": [str(u) for u in cited],
+        "cited_evidence_keys": list(cited_evidence_ids),
+    }
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.slo_burn (
+                id, incident_id, service_id, slo_key, window_label,
+                burn_rate, error_budget_remaining, payload, provenance
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb
+            )
+            RETURNING id
+            """,
+            (
+                str(burn_id),
+                str(incident_id),
+                str(service_id) if service_id else None,
+                slo_key,
+                window_label,
+                burn_rate,
+                error_budget_remaining,
+                json.dumps(payload or {}),
+                json.dumps(provenance),
+            ),
+        )
+        row = cur.fetchone()
+        assert row is not None
+    if commit:
+        conn.commit()
+    return RecordSloBurnResult(
+        slo_burn_id=UUID(str(row[0])),
+        incident_id=incident_id,
+        slo_key=slo_key,
+        window_label=window_label,
+        burn_rate=burn_rate,
+        error_budget_remaining=error_budget_remaining,
+        cited_evidence_ids=tuple(cited),
+    )
+
+
+def compute_impact_snapshot_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    commit: bool = True,
+) -> RecordImpactSnapshotResult:
+    """Load METRIC evidence for the incident, compute heuristic impact, persist."""
+    from incidentpilot_shared.processors.impact import impact_from_metrics
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT evidence_key, payload
+            FROM domain.evidence
+            WHERE incident_id = %s AND kind = 'METRIC'
+            ORDER BY observed_at DESC
+            LIMIT 20
+            """,
+            (str(incident_id),),
+        )
+        rows = cur.fetchall()
+    if not rows:
+        raise ValueError("no METRIC evidence on incident for impact snapshot")
+    keys: list[str] = []
+    payloads: list[dict[str, Any]] = []
+    for key, payload in rows:
+        keys.append(str(key))
+        if isinstance(payload, dict):
+            payloads.append(payload)
+        else:
+            payloads.append(json.loads(payload) if payload else {})
+    estimate = impact_from_metrics(payloads)
+    if estimate is None:
+        raise ValueError("impact calculator produced no estimate from METRIC evidence")
+    return record_impact_snapshot_command(
+        conn,
+        incident_id=incident_id,
+        cited_evidence_ids=keys,
+        severity=estimate.severity,
+        customer_impact_summary=estimate.customer_impact_summary,
+        estimated_affected_users=estimate.estimated_affected_users,
+        metrics=estimate.metrics,
+        quality_rule_id=estimate.quality_rule_id,
+        commit=commit,
+    )
+
+
+def compute_slo_burn_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    slo_key: str = "checkout_availability",
+    window_label: str = "1h",
+    slo_target: float = 0.999,
+    commit: bool = True,
+) -> RecordSloBurnResult:
+    """Load latest METRIC evidence, compute SLO burn, persist."""
+    from incidentpilot_shared.processors.impact import slo_burn_from_metrics
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT evidence_key, payload
+            FROM domain.evidence
+            WHERE incident_id = %s AND kind = 'METRIC'
+            ORDER BY observed_at DESC
+            LIMIT 1
+            """,
+            (str(incident_id),),
+        )
+        row = cur.fetchone()
+    if row is None:
+        raise ValueError("no METRIC evidence on incident for SLO burn")
+    key = str(row[0])
+    payload = row[1] if isinstance(row[1], dict) else json.loads(row[1] or "{}")
+    estimate = slo_burn_from_metrics(
+        payload, slo_key=slo_key, window_label=window_label, slo_target=slo_target
+    )
+    if estimate is None:
+        raise ValueError("SLO burn calculator produced no estimate")
+    return record_slo_burn_command(
+        conn,
+        incident_id=incident_id,
+        cited_evidence_ids=[key],
+        slo_key=estimate.slo_key,
+        window_label=estimate.window_label,
+        burn_rate=estimate.burn_rate,
+        error_budget_remaining=estimate.error_budget_remaining,
+        payload=estimate.payload,
+        quality_rule_id=estimate.quality_rule_id,
+        commit=commit,
     )
 
