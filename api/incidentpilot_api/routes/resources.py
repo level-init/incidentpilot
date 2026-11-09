@@ -15,10 +15,13 @@ from incidentpilot_api.commands import (
     ConfirmActorDenied,
     ConfirmationRulesNotMet,
     PinnedRunbookRequired,
+    PolicyActorDenied,
+    PolicyDecisionExists,
     SeverityActorDenied,
     compute_impact_snapshot_command,
     compute_slo_burn_command,
     confirm_hypothesis_command,
+    evaluate_policy_command,
     propose_action_command,
     update_incident_severity_command,
 )
@@ -34,6 +37,8 @@ from incidentpilot_api.schemas import (
     HypothesisConfirmOut,
     HypothesisOut,
     ImpactSnapshotOut,
+    PolicyDecisionOut,
+    PolicyEvaluateBody,
     PostmortemOut,
     SeverityUpdateOut,
     SloBurnOut,
@@ -176,6 +181,47 @@ def propose_action(
         bumped=result.bumped,
         is_reversible=result.is_reversible,
         reverse_action_type=result.reverse_action_type,
+    )
+
+
+@router.post(
+    "/actions/{action_id}/policy/evaluate",
+    response_model=PolicyDecisionOut,
+)
+def evaluate_action_policy(
+    action_id: UUID,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+    body: PolicyEvaluateBody | None = None,
+) -> PolicyDecisionOut:
+    """SYSTEM EvaluatePolicy (I2). HTTP triggers SYSTEM — AI cannot POLICY_EVAL."""
+    require_permission(principal, Permission.INCIDENT_WRITE)
+    payload = body or PolicyEvaluateBody()
+    try:
+        result = evaluate_policy_command(
+            conn,
+            action_id=action_id,
+            action_version=payload.action_version,
+            autonomy_level=payload.autonomy_level,
+            actor="system",
+            commit=True,
+        )
+    except PolicyActorDenied as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except PolicyDecisionExists as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return PolicyDecisionOut(
+        policy_decision_id=result.policy_decision_id,
+        action_id=result.action_id,
+        action_version=result.action_version,
+        incident_id=result.incident_id,
+        decision=result.decision,
+        reason=result.reason,
+        policy_key=result.policy_key,
+        policy_version=result.policy_version,
+        action_status=result.action_status,
     )
 
 

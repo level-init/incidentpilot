@@ -82,8 +82,7 @@ Migrations are recorded in `public.schema_migrations`.
 
 | `domain.action` | Remediation proposal; `is_reversible` / `reverse_action_type` |
 | `domain.action_version` | Immutable snapshot; policy/approval/attempt bind here |
-| `domain.policy_decision` | Unique per `(action_id, action_version)` |
-| `domain.approval` | Unique per `(action_id, action_version)` |
+| `domain.policy_decision` | Unique + immutable per `(action_id, action_version)` (I2) || `domain.approval` | Unique per `(action_id, action_version)` |
 | `domain.execution_attempt` | `RESERVED` before MITIGATING allowed |
 | `domain.validation_result` | Post-remediation validation outcome |
 

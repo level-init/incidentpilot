@@ -183,6 +183,19 @@ class ProposeActionResult:
 
 
 @dataclass(frozen=True, slots=True)
+class EvaluatePolicyResult:
+    policy_decision_id: UUID
+    action_id: UUID
+    action_version: int
+    incident_id: UUID
+    decision: str
+    reason: str
+    policy_key: str
+    policy_version: str
+    action_status: str
+
+
+@dataclass(frozen=True, slots=True)
 class CreateIncidentResult:
     incident_id: UUID
     public_id: str
@@ -206,6 +219,8 @@ _DIAGNOSE_ACTORS = frozenset({"system", "incident-workflow"})
 _SEVERITY_ACTORS = frozenset({"system", "incident-workflow"})
 # H10: CONFIRM / CAUSED_BY are SYSTEM confirmation rules only.
 _CONFIRM_ACTORS = frozenset({"system", "incident-workflow"})
+# I2: EvaluatePolicy is SYSTEM-only (AI never binds POLICY_EVAL).
+_POLICY_ACTORS = frozenset({"system", "incident-workflow"})
 
 
 class DiagnosedGateError(PermissionError):
@@ -234,6 +249,14 @@ class ActionTypeNotAllowed(ValueError):
 
 class PinnedRunbookRequired(ValueError):
     """Raised when ProposeAction runs without a pinned RunbookVersion."""
+
+
+class PolicyActorDenied(PermissionError):
+    """Raised when a non-SYSTEM actor attempts EvaluatePolicy (I2)."""
+
+
+class PolicyDecisionExists(ValueError):
+    """Raised when a PolicyDecision already exists for (action_id, version)."""
 
 
 _KNOWN_ACTION_TYPES = frozenset(
@@ -2364,6 +2387,178 @@ def propose_action_command(
         bumped=False,
         is_reversible=is_rev,
         reverse_action_type=reverse_type,
+    )
+
+
+def evaluate_policy_command(
+    conn: Connection,
+    *,
+    action_id: UUID,
+    action_version: int | None = None,
+    autonomy_level: int = 2,
+    actor: str = "system",
+    commit: bool = True,
+) -> EvaluatePolicyResult:
+    """SYSTEM EvaluatePolicy → immutable PolicyDecision (I2).
+
+    AI sandbox cannot invoke this (also denied as POLICY_EVAL tool). BLOCK is
+    absolute — no emergency override. Re-eval of the same version is rejected.
+    """
+    if actor not in _POLICY_ACTORS or actor.startswith("ai_"):
+        raise PolicyActorDenied(
+            f"actor {actor!r} cannot EvaluatePolicy (SYSTEM only)"
+        )
+
+    from incidentpilot_shared.processors.policy import evaluate_policy
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT incident_id, action_type, current_version, status
+            FROM domain.action
+            WHERE id = %s
+            """,
+            (str(action_id),),
+        )
+        action_row = cur.fetchone()
+        if action_row is None:
+            raise LookupError(f"action {action_id} not found")
+        incident_id = UUID(str(action_row[0]))
+        action_type = str(action_row[1])
+        current_version = int(action_row[2])
+        version = int(action_version) if action_version is not None else current_version
+
+        cur.execute(
+            """
+            SELECT parameters
+            FROM domain.action_version
+            WHERE action_id = %s AND version = %s
+            """,
+            (str(action_id), version),
+        )
+        ver = cur.fetchone()
+        if ver is None:
+            raise LookupError(f"action_version {action_id} v{version} not found")
+        parameters = ver[0] if isinstance(ver[0], dict) else json.loads(ver[0] or "{}")
+
+        cur.execute(
+            """
+            SELECT id FROM domain.policy_decision
+            WHERE action_id = %s AND action_version = %s
+            """,
+            (str(action_id), version),
+        )
+        if cur.fetchone() is not None:
+            raise PolicyDecisionExists(
+                f"PolicyDecision already exists for action {action_id} v{version}"
+            )
+
+    verdict = evaluate_policy(
+        action_type=action_type,
+        parameters=parameters,
+        autonomy_level=autonomy_level,
+    )
+    decision_id = uuid4()
+    if verdict.decision == "BLOCK":
+        new_status = "BLOCKED"
+    else:
+        new_status = "POLICY_EVALUATED"
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.policy_decision (
+                id, action_id, action_version, decision, reason,
+                policy_key, policy_version, provenance
+            ) VALUES (
+                %s, %s, %s, %s, %s,
+                %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(decision_id),
+                str(action_id),
+                version,
+                verdict.decision,
+                verdict.reason,
+                verdict.policy_key,
+                verdict.policy_version,
+                json.dumps(
+                    {
+                        "writer": "system",
+                        "source": "evaluate_policy",
+                        "quality_rule_id": verdict.quality_rule_id,
+                        "actor": actor,
+                        "inputs": verdict.inputs,
+                    }
+                ),
+            ),
+        )
+        cur.execute(
+            """
+            UPDATE domain.action
+            SET status = %s, updated_at = now()
+            WHERE id = %s
+            """,
+            (new_status, str(action_id)),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.timeline_event (
+                incident_id, event_type, summary, actor, payload
+            ) VALUES (
+                %s, 'POLICY_DECISION', %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                f"policy {verdict.decision} for action {action_id} v{version}",
+                actor,
+                json.dumps(
+                    {
+                        "action_id": str(action_id),
+                        "action_version": version,
+                        "decision": verdict.decision,
+                        "reason": verdict.reason,
+                        "policy_decision_id": str(decision_id),
+                    }
+                ),
+            ),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.audit_event (
+                incident_id, action, actor, resource_type, resource_id, details
+            ) VALUES (
+                %s, 'policy.evaluate', %s, 'policy_decision', %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                actor,
+                str(decision_id),
+                json.dumps(
+                    {
+                        "action_id": str(action_id),
+                        "action_version": version,
+                        "decision": verdict.decision,
+                        "reason": verdict.reason,
+                    }
+                ),
+            ),
+        )
+    if commit:
+        conn.commit()
+    return EvaluatePolicyResult(
+        policy_decision_id=decision_id,
+        action_id=action_id,
+        action_version=version,
+        incident_id=incident_id,
+        decision=verdict.decision,
+        reason=verdict.reason,
+        policy_key=verdict.policy_key,
+        policy_version=verdict.policy_version,
+        action_status=new_status,
     )
 
 
