@@ -33,11 +33,50 @@ class AppendEvidenceResult:
 
 
 @dataclass(frozen=True, slots=True)
+class CreateApprovalResult:
+    approval_id: UUID
+    action_id: UUID
+    action_version: int
+    status: str
+    action_status: str
+    inserted: bool
+
+
+@dataclass(frozen=True, slots=True)
 class ApprovalDecisionResult:
     approval_id: UUID
     status: str
     action_id: UUID
     action_version: int
+    action_status: str
+    decided_by: str | None
+    noop: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class ConsumeApprovalResult:
+    approval_id: UUID
+    action_id: UUID
+    action_version: int
+    status: str
+    noop: bool = False
+
+
+class StaleActionVersion(Exception):
+    """Requested action_version is not authorized by the bound Approval."""
+
+    code = "STALE_ACTION_VERSION"
+
+    def __init__(self, message: str = "STALE_ACTION_VERSION") -> None:
+        super().__init__(message)
+
+
+class ApprovalPolicyRequired(Exception):
+    """Approval create requires REQUIRE_APPROVAL PolicyDecision for that version."""
+
+
+class ApprovalNotConsumable(Exception):
+    """Approval is not in APPROVED (or already CONSUMED) state for consume."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -563,6 +602,130 @@ def append_derived_evidence_command(
     return result
 
 
+def create_approval_command(
+    conn: Connection,
+    *,
+    action_id: UUID,
+    action_version: int | None = None,
+    expires_at: datetime | None = None,
+    commit: bool = True,
+) -> CreateApprovalResult:
+    """Create PENDING Approval bound to an exact action_version (I4).
+
+    Requires PolicyDecision = REQUIRE_APPROVAL for that version. Duplicate
+    create for the same ``(action_id, action_version)`` is a safe no-op.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT a.incident_id, a.current_version, a.status
+            FROM domain.action a
+            WHERE a.id = %s
+            """,
+            (str(action_id),),
+        )
+        action_row = cur.fetchone()
+        if action_row is None:
+            raise LookupError(f"action {action_id} not found")
+        incident_id = UUID(str(action_row[0]))
+        current_version = int(action_row[1])
+        version = int(action_version) if action_version is not None else current_version
+
+        cur.execute(
+            """
+            SELECT 1 FROM domain.action_version
+            WHERE action_id = %s AND version = %s
+            """,
+            (str(action_id), version),
+        )
+        if cur.fetchone() is None:
+            raise LookupError(f"action_version {action_id} v{version} not found")
+
+        cur.execute(
+            """
+            SELECT decision FROM domain.policy_decision
+            WHERE action_id = %s AND action_version = %s
+            """,
+            (str(action_id), version),
+        )
+        policy_row = cur.fetchone()
+        if policy_row is None or str(policy_row[0]) != "REQUIRE_APPROVAL":
+            raise ApprovalPolicyRequired(
+                f"REQUIRE_APPROVAL PolicyDecision required to create approval "
+                f"for action {action_id} v{version}"
+            )
+
+        cur.execute(
+            """
+            SELECT id, status FROM domain.approval
+            WHERE action_id = %s AND action_version = %s
+            """,
+            (str(action_id), version),
+        )
+        existing = cur.fetchone()
+        if existing is not None:
+            if commit:
+                conn.commit()
+            return CreateApprovalResult(
+                approval_id=UUID(str(existing[0])),
+                action_id=action_id,
+                action_version=version,
+                status=str(existing[1]),
+                action_status="AWAITING_APPROVAL"
+                if str(existing[1]) == "PENDING"
+                else str(action_row[2]),
+                inserted=False,
+            )
+
+        approval_id = uuid4()
+        cur.execute(
+            """
+            INSERT INTO domain.approval (
+                id, action_id, action_version, status, expires_at
+            ) VALUES (%s, %s, %s, 'PENDING', %s)
+            """,
+            (str(approval_id), str(action_id), version, expires_at),
+        )
+        cur.execute(
+            """
+            UPDATE domain.action
+            SET status = 'AWAITING_APPROVAL', updated_at = now()
+            WHERE id = %s
+            """,
+            (str(action_id),),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.timeline_event (
+                incident_id, event_type, summary, actor, payload
+            ) VALUES (
+                %s, 'APPROVAL_CREATED', %s, 'system', %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                f"approval pending for action {action_id} v{version}",
+                json.dumps(
+                    {
+                        "approval_id": str(approval_id),
+                        "action_id": str(action_id),
+                        "action_version": version,
+                    }
+                ),
+            ),
+        )
+    if commit:
+        conn.commit()
+    return CreateApprovalResult(
+        approval_id=approval_id,
+        action_id=action_id,
+        action_version=version,
+        status="PENDING",
+        action_status="AWAITING_APPROVAL",
+        inserted=True,
+    )
+
+
 def decide_approval_command(
     conn: Connection,
     *,
@@ -572,28 +735,109 @@ def decide_approval_command(
     decided_by: str,
     commit: bool = True,
 ) -> ApprovalDecisionResult:
-    """Record human/harness approval decision for a bound action version."""
+    """Record human/harness approval decision for a bound action version (I4).
+
+    Duplicate decide with the same status is a safe no-op. Reject is visible:
+    approval → REJECTED and action → CANCELLED.
+    """
     if status not in {"APPROVED", "REJECTED"}:
         raise ValueError("status must be APPROVED or REJECTED")
 
     with conn.cursor() as cur:
         cur.execute(
             """
+            SELECT id, status, decided_by
+            FROM domain.approval
+            WHERE action_id = %s AND action_version = %s
+            """,
+            (str(action_id), action_version),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise LookupError(f"no approval for action {action_id} v{action_version}")
+        approval_id = UUID(str(row[0]))
+        current_status = str(row[1])
+        prior_decided_by = None if row[2] is None else str(row[2])
+
+        if current_status == status:
+            cur.execute(
+                "SELECT status FROM domain.action WHERE id = %s",
+                (str(action_id),),
+            )
+            action_row = cur.fetchone()
+            action_status = str(action_row[0]) if action_row is not None else "UNKNOWN"
+            if commit:
+                conn.commit()
+            return ApprovalDecisionResult(
+                approval_id=approval_id,
+                status=status,
+                action_id=action_id,
+                action_version=action_version,
+                action_status=action_status,
+                decided_by=prior_decided_by or decided_by,
+                noop=True,
+            )
+
+        if current_status != "PENDING":
+            raise LookupError(
+                f"approval for action {action_id} v{action_version} "
+                f"is {current_status}, not PENDING"
+            )
+
+        action_status = "APPROVED" if status == "APPROVED" else "CANCELLED"
+        cur.execute(
+            """
             UPDATE domain.approval
             SET status = %s,
                 decided_by = %s,
                 decided_at = now()
-            WHERE action_id = %s
-              AND action_version = %s
-              AND status = 'PENDING'
+            WHERE id = %s AND status = 'PENDING'
             RETURNING id
             """,
-            (status, decided_by, str(action_id), action_version),
+            (status, decided_by, str(approval_id)),
         )
-        row = cur.fetchone()
-        if row is None:
+        if cur.fetchone() is None:
             raise LookupError(f"no PENDING approval for action {action_id} v{action_version}")
-        approval_id = UUID(str(row[0]))
+        cur.execute(
+            """
+            UPDATE domain.action
+            SET status = %s, updated_at = now()
+            WHERE id = %s
+            """,
+            (action_status, str(action_id)),
+        )
+        cur.execute(
+            """
+            SELECT incident_id FROM domain.action WHERE id = %s
+            """,
+            (str(action_id),),
+        )
+        incident_row = cur.fetchone()
+        if incident_row is not None:
+            cur.execute(
+                """
+                INSERT INTO domain.timeline_event (
+                    incident_id, event_type, summary, actor, payload
+                ) VALUES (
+                    %s, %s, %s, %s, %s::jsonb
+                )
+                """,
+                (
+                    str(incident_row[0]),
+                    "APPROVAL_DECIDED",
+                    f"approval {status} for action {action_id} v{action_version}",
+                    decided_by,
+                    json.dumps(
+                        {
+                            "approval_id": str(approval_id),
+                            "action_id": str(action_id),
+                            "action_version": action_version,
+                            "status": status,
+                            "action_status": action_status,
+                        }
+                    ),
+                ),
+            )
 
     if commit:
         conn.commit()
@@ -602,7 +846,123 @@ def decide_approval_command(
         status=status,
         action_id=action_id,
         action_version=action_version,
+        action_status=action_status,
+        decided_by=decided_by,
+        noop=False,
     )
+
+
+def consume_approval_command(
+    conn: Connection,
+    *,
+    action_id: UUID,
+    action_version: int,
+    commit: bool = True,
+) -> ConsumeApprovalResult:
+    """Single-use consume of an APPROVED approval for an exact version (I4).
+
+    vN approval cannot authorize vM (M≠N) — raises ``StaleActionVersion``
+    (``STALE_ACTION_VERSION``). Already-CONSUMED is a safe no-op.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, status FROM domain.approval
+            WHERE action_id = %s AND action_version = %s
+            """,
+            (str(action_id), action_version),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise StaleActionVersion(
+                f"STALE_ACTION_VERSION: no approval for action {action_id} v{action_version}"
+            )
+        approval_id = UUID(str(row[0]))
+        current_status = str(row[1])
+
+        if current_status == "CONSUMED":
+            if commit:
+                conn.commit()
+            return ConsumeApprovalResult(
+                approval_id=approval_id,
+                action_id=action_id,
+                action_version=action_version,
+                status="CONSUMED",
+                noop=True,
+            )
+
+        if current_status != "APPROVED":
+            raise ApprovalNotConsumable(
+                f"approval for action {action_id} v{action_version} "
+                f"is {current_status}, not APPROVED"
+            )
+
+        cur.execute(
+            """
+            UPDATE domain.approval
+            SET status = 'CONSUMED', consumed_at = now()
+            WHERE id = %s AND status = 'APPROVED'
+            RETURNING id
+            """,
+            (str(approval_id),),
+        )
+        if cur.fetchone() is None:
+            raise ApprovalNotConsumable(
+                f"approval for action {action_id} v{action_version} could not be consumed"
+            )
+
+    if commit:
+        conn.commit()
+    return ConsumeApprovalResult(
+        approval_id=approval_id,
+        action_id=action_id,
+        action_version=action_version,
+        status="CONSUMED",
+        noop=False,
+    )
+
+
+def assert_approval_authorizes(
+    conn: Connection,
+    *,
+    action_id: UUID,
+    action_version: int,
+) -> UUID:
+    """Return approval_id if APPROVED/CONSUMED for the exact version (I4).
+
+    Raises ``StaleActionVersion`` when a different version's approval exists
+    but the requested version is not authorized.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, status FROM domain.approval
+            WHERE action_id = %s AND action_version = %s
+            """,
+            (str(action_id), action_version),
+        )
+        row = cur.fetchone()
+        if row is not None and str(row[1]) in {"APPROVED", "CONSUMED"}:
+            return UUID(str(row[0]))
+
+        cur.execute(
+            """
+            SELECT action_version, status FROM domain.approval
+            WHERE action_id = %s
+            ORDER BY action_version DESC
+            """,
+            (str(action_id),),
+        )
+        others = cur.fetchall()
+        if others:
+            versions = ", ".join(f"v{int(r[0])}={r[1]}" for r in others)
+            raise StaleActionVersion(
+                f"STALE_ACTION_VERSION: approval does not authorize "
+                f"action {action_id} v{action_version} (have {versions})"
+            )
+        raise StaleActionVersion(
+            f"STALE_ACTION_VERSION: no approval for action {action_id} v{action_version}"
+        )
 
 
 def reserve_execution_attempt_command(
@@ -2493,9 +2853,7 @@ def evaluate_policy_command(
     (I3). AI sandbox cannot invoke this. BLOCK is absolute.
     """
     if actor not in _POLICY_ACTORS or actor.startswith("ai_"):
-        raise PolicyActorDenied(
-            f"actor {actor!r} cannot EvaluatePolicy (SYSTEM only)"
-        )
+        raise PolicyActorDenied(f"actor {actor!r} cannot EvaluatePolicy (SYSTEM only)")
 
     from incidentpilot_shared.autonomy import resolve_autonomy_level
     from incidentpilot_shared.processors.policy import evaluate_policy
@@ -2518,9 +2876,7 @@ def evaluate_policy_command(
         action_type = str(action_row[1])
         current_version = int(action_row[2])
         version = int(action_version) if action_version is not None else current_version
-        incident_severity = (
-            str(action_row[4]) if action_row[4] is not None else None
-        )
+        incident_severity = str(action_row[4]) if action_row[4] is not None else None
 
         cur.execute(
             """
@@ -2596,6 +2952,8 @@ def evaluate_policy_command(
     decision_id = uuid4()
     if verdict.decision == "BLOCK":
         new_status = "BLOCKED"
+    elif verdict.decision == "REQUIRE_APPROVAL":
+        new_status = "AWAITING_APPROVAL"
     else:
         new_status = "POLICY_EVALUATED"
 
@@ -2689,6 +3047,14 @@ def evaluate_policy_command(
                     }
                 ),
             ),
+        )
+    if verdict.decision == "REQUIRE_APPROVAL":
+        # I4: PENDING approval bound to this exact version (idempotent).
+        create_approval_command(
+            conn,
+            action_id=action_id,
+            action_version=version,
+            commit=False,
         )
     if commit:
         conn.commit()

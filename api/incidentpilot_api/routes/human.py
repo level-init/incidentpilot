@@ -104,7 +104,9 @@ def decide_approval(
         row = cur.fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="approval not found")
-    if row["approval_status"] != "PENDING":
+    # Duplicate decide with same status is a safe no-op (I4); other
+    # non-PENDING states still conflict inside decide_approval_command.
+    if row["approval_status"] != "PENDING" and row["approval_status"] != body.status:
         raise HTTPException(status_code=409, detail="approval is not PENDING")
 
     assert_approval_allowed_by_policy(

@@ -110,3 +110,20 @@ def assert_not_blocked(decision: str | None) -> None:
         raise PermissionError("PolicyDecision is BLOCK; execution forbidden")
     if decision not in {DECISION_ALLOW, DECISION_REQUIRE}:
         raise PermissionError("no PolicyDecision permitting execution")
+
+
+def assert_approval_satisfied(
+    decision: str | None,
+    *,
+    approval_status: str | None,
+) -> None:
+    """REQUIRE_APPROVAL needs APPROVED/CONSUMED Approval before execute (I4).
+
+    ALLOW_AUTONOMOUS skips approval. Callers still version-bind via
+    ``assert_approval_authorizes`` / ``consume_approval_command``.
+    """
+    assert_not_blocked(decision)
+    if decision == DECISION_ALLOW:
+        return
+    if approval_status not in {"APPROVED", "CONSUMED"}:
+        raise PermissionError("PolicyDecision is REQUIRE_APPROVAL; execution needs Approval (I4)")

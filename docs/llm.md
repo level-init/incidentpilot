@@ -202,6 +202,26 @@ evaluate_policy_command(conn, action_id=…, actor="system")
 - **First scored bad-deploy** (`checkout` + `ROLLBACK_DEPLOYMENT` + `local`) is **Level 2 → REQUIRE_APPROVAL**
 - Level 3 is configurable via `PUT /autonomy-config` — **not** a production default
 - Global default row is Level 2
+- `REQUIRE_APPROVAL` auto-creates a PENDING Approval and sets action `AWAITING_APPROVAL` (I4)
+
+## Approval create/consume (I4)
+
+```python
+from incidentpilot_shared.domain.commands import (
+    decide_approval_command,
+    consume_approval_command,
+    assert_approval_authorizes,
+)
+
+decide_approval_command(conn, action_id=…, action_version=1, status="APPROVED", decided_by="…")
+consume_approval_command(conn, action_id=…, action_version=1)
+assert_approval_authorizes(conn, action_id=…, action_version=1)
+```
+
+- Bound to exact `action_version` — v2 approval cannot authorize v3 (`STALE_ACTION_VERSION`)
+- Duplicate create / duplicate approve / re-consume are safe no-ops
+- Reject is visible: approval `REJECTED`, action `CANCELLED`
+- HTTP decide: `POST /approvals/{id}/decide` (session actor; BLOCK still un-overridable)
 
 ## ProposeAction (I1)
 

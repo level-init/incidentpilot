@@ -136,7 +136,7 @@ def test_system_persists_immutable_decision(conn: object) -> None:
         commit=False,
     )
     assert result.decision == "REQUIRE_APPROVAL"
-    assert result.action_status == "POLICY_EVALUATED"
+    assert result.action_status == "AWAITING_APPROVAL"
 
     with pytest.raises(PolicyDecisionExists):
         evaluate_policy_command(
