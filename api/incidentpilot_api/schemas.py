@@ -70,6 +70,15 @@ class HypothesisOut(BaseModel):
     score_kind: str = "heuristic"
 
 
+class ActionPropose(BaseModel):
+    action_type: str = Field(min_length=1, max_length=128)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    target_ref: dict[str, Any] = Field(default_factory=dict)
+    action_id: UUID | None = None
+    hypothesis_id: UUID | None = None
+    rationale: str | None = None
+
+
 class ActionOut(BaseModel):
     id: UUID
     incident_id: UUID
@@ -77,6 +86,21 @@ class ActionOut(BaseModel):
     status: str
     current_version: int
     is_reversible: bool
+
+
+class ActionProposeOut(BaseModel):
+    action_id: UUID
+    incident_id: UUID
+    action_type: str
+    version: int
+    current_version: int
+    status: str
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    runbook_version_id: UUID
+    allowed_action_types: list[str]
+    bumped: bool
+    is_reversible: bool
+    reverse_action_type: str | None = None
 
 
 class ApprovalOut(BaseModel):

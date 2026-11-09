@@ -187,6 +187,25 @@ hits = retrieve_historical_assist(conn, query="checkout error rate")
 - AI tool `historical_search` (READ) carries the same disclaimer
 - Citing `HIST-…` in `propose_hypothesis_command` raises `MissingEvidenceCitationError`
 
+## ProposeAction (I1)
+
+```python
+from incidentpilot_shared.domain.commands import propose_action_command
+
+propose_action_command(
+    conn,
+    incident_id=…,
+    action_type="ROLLBACK_DEPLOYMENT",
+    parameters={"revision": "prev"},
+)
+# param change on same action_id → new immutable action_version
+```
+
+- Requires pinned RunbookVersion; `action_type` must be ∈ `allowed_action_types`
+- Invalid types (e.g. SCALE when only ROLLBACK allowed) raise `ActionTypeNotAllowed`
+- HTTP: `POST /incidents/{id}/actions`
+- AI `action_propose` remains propose-only — SYSTEM persists via this command
+
 ## Confirmation rules (H10)
 
 ```python

@@ -545,6 +545,76 @@
         }
       }
     },
+    "/incidents/{incident_id}/actions": {
+      "post": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Propose Action",
+        "description": "ProposeAction bound to pinned runbook allowlist (I1).",
+        "operationId": "propose_action_incidents__incident_id__actions_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionPropose"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionProposeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/approvals": {
       "get": {
         "tags": [
@@ -1764,6 +1834,146 @@
           "is_reversible"
         ],
         "title": "ActionOut"
+      },
+      "ActionPropose": {
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Action Type"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          },
+          "target_ref": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Target Ref"
+          },
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "hypothesis_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hypothesis Id"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action_type"
+        ],
+        "title": "ActionPropose"
+      },
+      "ActionProposeOut": {
+        "properties": {
+          "action_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Action Id"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "action_type": {
+            "type": "string",
+            "title": "Action Type"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "current_version": {
+            "type": "integer",
+            "title": "Current Version"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          },
+          "runbook_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Runbook Version Id"
+          },
+          "allowed_action_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Action Types"
+          },
+          "bumped": {
+            "type": "boolean",
+            "title": "Bumped"
+          },
+          "is_reversible": {
+            "type": "boolean",
+            "title": "Is Reversible"
+          },
+          "reverse_action_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reverse Action Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action_id",
+          "incident_id",
+          "action_type",
+          "version",
+          "current_version",
+          "status",
+          "runbook_version_id",
+          "allowed_action_types",
+          "bumped",
+          "is_reversible"
+        ],
+        "title": "ActionProposeOut"
       },
       "AlertIngressAccepted": {
         "properties": {

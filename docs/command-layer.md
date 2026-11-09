@@ -40,6 +40,7 @@ transitions, and outbox rules cannot be bypassed.
 | `update_incident_severity_command` | SYSTEM rules: hint + impact/SLO/criticality → `incident.severity` (H8); AI denied |
 | `retrieve_historical_assist` | Past incidents/postmortems as non-Evidence suggestions (H9; not a mutator) |
 | `confirm_hypothesis_command` | SYSTEM class rules → CONFIRMED + optional CAUSED_BY (H10); RECOVERED alone insufficient |
+| `propose_action_command` | ProposeAction + immutable `action_version`; type ∈ pinned allowlist (I1) |
 
 `transition_incident_command(..., DIAGNOSED)` raises `DiagnosedGateError` unless
 `via_diagnose_gate=True` (only set by `diagnose_incident_command`).
