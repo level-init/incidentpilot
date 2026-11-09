@@ -24,6 +24,7 @@ transitions, and outbox rules cannot be bypassed.
 | `decide_approval_command` | PENDING → APPROVED/REJECTED; duplicate same status no-op; reject → action CANCELLED (I4) |
 | `consume_approval_command` | Single-use APPROVED → CONSUMED; wrong version → `STALE_ACTION_VERSION` (I4) |
 | `assert_approval_authorizes` | Exact-version APPROVED/CONSUMED gate; vN cannot authorize vM (I4) |
+| `expire_pending_approvals_command` | TIMEOUT path: PENDING → EXPIRED; actions CANCELLED (I5; no execute) |
 | `reserve_execution_attempt_command` | Reserve attempt before MITIGATING |
 | `upsert_alert_command` | Insert/update `domain.alert` by fingerprint (F2) |
 | `upsert_change_command` | Idempotent `domain.change` by `(source, fingerprint)` (G8); `source_ref`→`external_ref` |

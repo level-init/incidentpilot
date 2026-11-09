@@ -4,6 +4,7 @@ Collector / collect-cycle activities are imported only by the evidence-worker
 path in ``worker_factory`` (G7 — no Prom/Loki/Tempo on general).
 """
 
+from incidentpilot_worker.activities.approval_wait import handle_approval_timeout
 from incidentpilot_worker.activities.collector_trigger import (
     TriggerCollectCycleInput,
     kickoff_collect_cycle,
@@ -25,6 +26,7 @@ __all__ = [
     "TriggerCollectCycleInput",
     "advance_incident_state",
     "apply_diagnosed_gate",
+    "handle_approval_timeout",
     "kickoff_collect_cycle",
     "load_incident_snapshot",
     "trigger_collect_cycle",

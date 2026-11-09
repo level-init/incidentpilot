@@ -1,6 +1,6 @@
 """Durable timer names + defaults for IncidentWorkflow (D5).
 
-Business handlers are stubs — I5 / J7 fill approval and validation behavior.
+Approval timeout is wired in IncidentWorkflow (I5); validation handler is J7.
 Durations are seconds (JSON-safe for Temporal payloads).
 """
 

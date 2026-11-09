@@ -222,6 +222,8 @@ assert_approval_authorizes(conn, action_id=…, action_version=1)
 - Duplicate create / duplicate approve / re-consume are safe no-ops
 - Reject is visible: approval `REJECTED`, action `CANCELLED`
 - HTTP decide: `POST /approvals/{id}/decide` (session actor; BLOCK still un-overridable)
+- Decide enqueues outbox `approval.decided` → workflow signal `approval_decision` (I5)
+- Workflow `wait_for_approval`: durable `approval_timeout`; **timeout never executes** remediation (expires + replan to `DIAGNOSED`)
 
 ## ProposeAction (I1)
 
