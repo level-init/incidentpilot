@@ -35,6 +35,7 @@ from incidentpilot_shared.domain.commands import (
     SeverityActorDenied,
     UpdateIncidentSeverityResult,
     UpsertAlertResult,
+    UpsertAutonomyConfigResult,
     UpsertChangeResult,
     append_derived_evidence_command,
     append_evidence_command,
@@ -63,6 +64,7 @@ from incidentpilot_shared.domain.commands import (
     transition_incident_command,
     update_incident_severity_command,
     upsert_alert_command,
+    upsert_autonomy_config_command,
     upsert_change_command,
 )
 
@@ -95,6 +97,7 @@ __all__ = [
     "PolicyActorDenied",
     "PolicyDecisionExists",
     "ProposeActionResult",
+    "UpsertAutonomyConfigResult",
     "SeverityActorDenied",
     "UpdateIncidentSeverityResult",
     "UpsertAlertResult",
@@ -106,6 +109,7 @@ __all__ = [
     "correlate_alert_command",
     "evaluate_policy_command",
     "propose_action_command",
+    "upsert_autonomy_config_command",
     "create_incident_command",
     "create_runbook_command",
     "create_runbook_version_command",

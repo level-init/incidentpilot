@@ -24,6 +24,7 @@ from incidentpilot_api.commands import (
     evaluate_policy_command,
     propose_action_command,
     update_incident_severity_command,
+    upsert_autonomy_config_command,
 )
 from incidentpilot_api.db import get_conn
 from incidentpilot_api.rbac import Permission, require_permission
@@ -33,6 +34,8 @@ from incidentpilot_api.schemas import (
     ActionProposeOut,
     AlertOut,
     ApprovalOut,
+    AutonomyConfigOut,
+    AutonomyConfigUpsert,
     EvidenceOut,
     HypothesisConfirmOut,
     HypothesisOut,
@@ -222,6 +225,65 @@ def evaluate_action_policy(
         policy_key=result.policy_key,
         policy_version=result.policy_version,
         action_status=result.action_status,
+        autonomy_level=result.autonomy_level,
+        autonomy_source=result.autonomy_source,
+    )
+
+
+@router.get("/autonomy-config", response_model=list[AutonomyConfigOut])
+def list_autonomy_config(
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> list[AutonomyConfigOut]:
+    require_permission(principal, Permission.INCIDENT_READ)
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            SELECT id AS config_id, service_key, action_type, environment,
+                   severity, autonomy_level, notes
+            FROM domain.autonomy_config
+            ORDER BY
+                (service_key IS NULL)::int
+                + (action_type IS NULL)::int
+                + (environment IS NULL)::int
+                + (severity IS NULL)::int ASC,
+                service_key NULLS LAST,
+                action_type NULLS LAST
+            LIMIT 500
+            """
+        )
+        return [AutonomyConfigOut(**row) for row in cur.fetchall()]
+
+
+@router.put("/autonomy-config", response_model=AutonomyConfigOut)
+def upsert_autonomy_config(
+    body: AutonomyConfigUpsert,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> AutonomyConfigOut:
+    require_permission(principal, Permission.INCIDENT_WRITE)
+    try:
+        result = upsert_autonomy_config_command(
+            conn,
+            autonomy_level=body.autonomy_level,
+            service_key=body.service_key,
+            action_type=body.action_type,
+            environment=body.environment,
+            severity=body.severity,
+            notes=body.notes,
+            commit=True,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return AutonomyConfigOut(
+        config_id=result.config_id,
+        service_key=result.service_key,
+        action_type=result.action_type,
+        environment=result.environment,
+        severity=result.severity,
+        autonomy_level=result.autonomy_level,
+        notes=result.notes,
+        inserted=result.inserted,
     )
 
 

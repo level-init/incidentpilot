@@ -105,7 +105,8 @@ class ActionProposeOut(BaseModel):
 
 class PolicyEvaluateBody(BaseModel):
     action_version: int | None = Field(default=None, ge=1)
-    autonomy_level: int = Field(default=2, ge=1, le=3)
+    # Omit to resolve from domain.autonomy_config (I3).
+    autonomy_level: int | None = Field(default=None, ge=1, le=3)
 
 
 class PolicyDecisionOut(BaseModel):
@@ -118,6 +119,28 @@ class PolicyDecisionOut(BaseModel):
     policy_key: str
     policy_version: str
     action_status: str
+    autonomy_level: int
+    autonomy_source: str
+
+
+class AutonomyConfigUpsert(BaseModel):
+    autonomy_level: int = Field(ge=1, le=3)
+    service_key: str | None = None
+    action_type: str | None = None
+    environment: str | None = None
+    severity: str | None = None
+    notes: str | None = None
+
+
+class AutonomyConfigOut(BaseModel):
+    config_id: UUID
+    service_key: str | None = None
+    action_type: str | None = None
+    environment: str | None = None
+    severity: str | None = None
+    autonomy_level: int
+    notes: str | None = None
+    inserted: bool | None = None
 
 
 class ApprovalOut(BaseModel):

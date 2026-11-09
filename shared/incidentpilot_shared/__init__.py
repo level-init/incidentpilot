@@ -25,6 +25,10 @@ from incidentpilot_shared.alerts import (
     normalize_alertmanager_webhook,
     normalize_cloudwatch_payload,
 )
+from incidentpilot_shared.autonomy import (
+    AutonomyMatch,
+    resolve_autonomy_level,
+)
 from incidentpilot_shared.changes import (
     ALLOWED_CHANGE_TYPES,
     NormalizedChange,
@@ -165,6 +169,7 @@ __all__ = [
     "AiToolRegistry",
     "AppendEvidenceResult",
     "ApprovalDecisionResult",
+    "AutonomyMatch",
     "CollectJob",
     "CorrelateAlertResult",
     "CreateIncidentResult",
@@ -257,6 +262,7 @@ __all__ = [
     "record_from_llm_result",
     "release_outbox_lease",
     "reserve_execution_attempt_command",
+    "resolve_autonomy_level",
     "resolve_incident_evidence_refs",
     "supply_projection_to_llm",
     "transition_incident",

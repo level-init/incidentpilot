@@ -193,6 +193,20 @@ class EvaluatePolicyResult:
     policy_key: str
     policy_version: str
     action_status: str
+    autonomy_level: int
+    autonomy_source: str
+
+
+@dataclass(frozen=True, slots=True)
+class UpsertAutonomyConfigResult:
+    config_id: UUID
+    service_key: str | None
+    action_type: str | None
+    environment: str | None
+    severity: str | None
+    autonomy_level: int
+    notes: str | None
+    inserted: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -2390,33 +2404,110 @@ def propose_action_command(
     )
 
 
+def upsert_autonomy_config_command(
+    conn: Connection,
+    *,
+    autonomy_level: int,
+    service_key: str | None = None,
+    action_type: str | None = None,
+    environment: str | None = None,
+    severity: str | None = None,
+    notes: str | None = None,
+    commit: bool = True,
+) -> UpsertAutonomyConfigResult:
+    """Insert or update an autonomy config row (I3). NULL dims = wildcards."""
+    level = int(autonomy_level)
+    if level not in {1, 2, 3}:
+        raise ValueError("autonomy_level must be 1, 2, or 3")
+    svc = (service_key or "").strip() or None
+    atype = (action_type or "").strip() or None
+    env = (environment or "").strip() or None
+    sev = (severity or "").strip() or None
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id
+            FROM domain.autonomy_config
+            WHERE COALESCE(service_key, '') = COALESCE(%s, '')
+              AND COALESCE(action_type, '') = COALESCE(%s, '')
+              AND COALESCE(environment, '') = COALESCE(%s, '')
+              AND COALESCE(severity, '') = COALESCE(%s, '')
+            LIMIT 1
+            """,
+            (svc, atype, env, sev),
+        )
+        existing = cur.fetchone()
+        if existing is not None:
+            returned_id = UUID(str(existing[0]))
+            cur.execute(
+                """
+                UPDATE domain.autonomy_config
+                SET autonomy_level = %s,
+                    notes = %s,
+                    updated_at = now()
+                WHERE id = %s
+                """,
+                (level, notes, str(returned_id)),
+            )
+            inserted = False
+        else:
+            returned_id = uuid4()
+            cur.execute(
+                """
+                INSERT INTO domain.autonomy_config (
+                    id, service_key, action_type, environment, severity,
+                    autonomy_level, notes
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s
+                )
+                """,
+                (str(returned_id), svc, atype, env, sev, level, notes),
+            )
+            inserted = True
+    if commit:
+        conn.commit()
+    return UpsertAutonomyConfigResult(
+        config_id=returned_id,
+        service_key=svc,
+        action_type=atype,
+        environment=env,
+        severity=sev,
+        autonomy_level=level,
+        notes=notes,
+        inserted=inserted,
+    )
+
+
 def evaluate_policy_command(
     conn: Connection,
     *,
     action_id: UUID,
     action_version: int | None = None,
-    autonomy_level: int = 2,
+    autonomy_level: int | None = None,
     actor: str = "system",
     commit: bool = True,
 ) -> EvaluatePolicyResult:
-    """SYSTEM EvaluatePolicy → immutable PolicyDecision (I2).
+    """SYSTEM EvaluatePolicy → immutable PolicyDecision (I2/I3).
 
-    AI sandbox cannot invoke this (also denied as POLICY_EVAL tool). BLOCK is
-    absolute — no emergency override. Re-eval of the same version is rejected.
+    When ``autonomy_level`` is omitted, resolve from ``domain.autonomy_config``
+    (I3). AI sandbox cannot invoke this. BLOCK is absolute.
     """
     if actor not in _POLICY_ACTORS or actor.startswith("ai_"):
         raise PolicyActorDenied(
             f"actor {actor!r} cannot EvaluatePolicy (SYSTEM only)"
         )
 
+    from incidentpilot_shared.autonomy import resolve_autonomy_level
     from incidentpilot_shared.processors.policy import evaluate_policy
 
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT incident_id, action_type, current_version, status
-            FROM domain.action
-            WHERE id = %s
+            SELECT a.incident_id, a.action_type, a.current_version, a.status,
+                   i.severity
+            FROM domain.action a
+            JOIN domain.incident i ON i.id = a.incident_id
+            WHERE a.id = %s
             """,
             (str(action_id),),
         )
@@ -2427,6 +2518,9 @@ def evaluate_policy_command(
         action_type = str(action_row[1])
         current_version = int(action_row[2])
         version = int(action_version) if action_version is not None else current_version
+        incident_severity = (
+            str(action_row[4]) if action_row[4] is not None else None
+        )
 
         cur.execute(
             """
@@ -2443,6 +2537,21 @@ def evaluate_policy_command(
 
         cur.execute(
             """
+            SELECT s.key, s.environment
+            FROM domain.incident_service isv
+            JOIN domain.service s ON s.id = isv.service_id
+            WHERE isv.incident_id = %s
+            ORDER BY isv.created_at ASC
+            LIMIT 1
+            """,
+            (str(incident_id),),
+        )
+        svc_row = cur.fetchone()
+        service_key = str(svc_row[0]) if svc_row is not None else None
+        environment = str(svc_row[1]) if svc_row is not None else "local"
+
+        cur.execute(
+            """
             SELECT id FROM domain.policy_decision
             WHERE action_id = %s AND action_version = %s
             """,
@@ -2453,10 +2562,36 @@ def evaluate_policy_command(
                 f"PolicyDecision already exists for action {action_id} v{version}"
             )
 
+    if autonomy_level is None:
+        match = resolve_autonomy_level(
+            conn,
+            service_key=service_key,
+            action_type=action_type,
+            environment=environment,
+            severity=incident_severity,
+        )
+        resolved_level = match.autonomy_level
+        autonomy_source = match.source
+        autonomy_meta = {
+            "config_id": match.config_id,
+            "specificity": match.specificity,
+            "notes": match.notes,
+            "matched": {
+                "service_key": match.service_key,
+                "action_type": match.action_type,
+                "environment": match.environment,
+                "severity": match.severity,
+            },
+        }
+    else:
+        resolved_level = int(autonomy_level)
+        autonomy_source = "explicit"
+        autonomy_meta = {"config_id": None}
+
     verdict = evaluate_policy(
         action_type=action_type,
         parameters=parameters,
-        autonomy_level=autonomy_level,
+        autonomy_level=resolved_level,
     )
     decision_id = uuid4()
     if verdict.decision == "BLOCK":
@@ -2490,6 +2625,14 @@ def evaluate_policy_command(
                         "quality_rule_id": verdict.quality_rule_id,
                         "actor": actor,
                         "inputs": verdict.inputs,
+                        "autonomy_level": resolved_level,
+                        "autonomy_source": autonomy_source,
+                        "autonomy": autonomy_meta,
+                        "context": {
+                            "service_key": service_key,
+                            "environment": environment,
+                            "severity": incident_severity,
+                        },
                     }
                 ),
             ),
@@ -2559,6 +2702,8 @@ def evaluate_policy_command(
         policy_key=verdict.policy_key,
         policy_version=verdict.policy_version,
         action_status=new_status,
+        autonomy_level=resolved_level,
+        autonomy_source=autonomy_source,
     )
 
 

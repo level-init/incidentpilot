@@ -82,9 +82,11 @@ Migrations are recorded in `public.schema_migrations`.
 
 | `domain.action` | Remediation proposal; `is_reversible` / `reverse_action_type` |
 | `domain.action_version` | Immutable snapshot; policy/approval/attempt bind here |
-| `domain.policy_decision` | Unique + immutable per `(action_id, action_version)` (I2) || `domain.approval` | Unique per `(action_id, action_version)` |
+| `domain.policy_decision` | Unique + immutable per `(action_id, action_version)` (I2) |
+| `domain.approval` | Unique per `(action_id, action_version)` |
 | `domain.execution_attempt` | `RESERVED` before MITIGATING allowed |
 | `domain.validation_result` | Post-remediation validation outcome |
+| `domain.autonomy_config` | Levels 1–3 by service/action/env/severity wildcards (I3); default Level 2 |
 
 | `domain.impact_snapshot` | Point-in-time impact estimate (H7; cites Evidence in `provenance`) |
 | `domain.slo_burn` | SLO burn / error-budget observations (H7) |
