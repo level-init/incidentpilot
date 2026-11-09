@@ -10,17 +10,21 @@ from incidentpilot_worker.activities.collector_trigger import (
     trigger_collect_cycle,
 )
 from incidentpilot_worker.activities.incident_transitions import (
+    DIAGNOSED_GATE_ERROR_TYPE,
     STALE_REVISION_ERROR_TYPE,
     IncidentSnapshot,
     advance_incident_state,
+    apply_diagnosed_gate,
     load_incident_snapshot,
 )
 
 __all__ = [
+    "DIAGNOSED_GATE_ERROR_TYPE",
     "STALE_REVISION_ERROR_TYPE",
     "IncidentSnapshot",
     "TriggerCollectCycleInput",
     "advance_incident_state",
+    "apply_diagnosed_gate",
     "kickoff_collect_cycle",
     "load_incident_snapshot",
     "trigger_collect_cycle",

@@ -57,3 +57,19 @@ Uploads only — no domain SQL. Collectors claim RAW `quality=HIGH` only when
 
 Evidence-worker `change_collector` upserts Change then emits `kind=CHANGE`
 Evidence. Bad-deploy → payment `DEPLOYMENT` in the collect window.
+
+## LLM providers (H1)
+
+| Adapter | Role | Module |
+| --- | --- | --- |
+| `LLMProvider` (Protocol) | `complete(request) → LLMResult` | `incidentpilot_adapters.llm` |
+| `FakeLLMProvider` | Canned JSON for tests | `incidentpilot_adapters.llm` |
+| `complete_structured` | Call + pydantic schema + EV-id allow-list | `incidentpilot_adapters.llm` |
+
+**Must not** write `domain.*` (H2: shared `complete_structured_recorded` /
+`record_ai_invocation_command` persist `ai_invocation`). Invalid JSON / extra
+fields / invented Evidence ids are rejected — prose cannot mutate domain.
+
+Env (general `incidentpilot-worker` only): `LLM_PROVIDER` (default `fake`),
+`LLM_MODEL`, later `OPENAI_API_KEY` / `LLM_API_KEY`. Do **not** put LLM keys on
+evidence- or remediation-worker.

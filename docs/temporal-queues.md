@@ -74,6 +74,12 @@ General worker imports collector code only via lazy evidence-branch in
 
 CollectJob collectors: `metrics` | `logs` | `traces` | `changes` (G9).
 
+## LLM keys (H1)
+
+`LLM_PROVIDER` / `LLM_MODEL` / `OPENAI_API_KEY` belong on **general**
+`incidentpilot-worker` (reasoning). Do not inject them into evidence-worker or
+remediation-worker. See [llm.md](llm.md).
+
 ## Investigation collect kickoff (G10)
 
 After `INVESTIGATING`, `IncidentWorkflow` calls general activity

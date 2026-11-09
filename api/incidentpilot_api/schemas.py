@@ -64,7 +64,10 @@ class HypothesisOut(BaseModel):
     status: str
     statement: str
     proposed_by: str
+    # Column ``confidence`` stores a heuristic score (H4) — not a calibrated probability.
     confidence: float | None = None
+    rank: int | None = None
+    score_kind: str = "heuristic"
 
 
 class ActionOut(BaseModel):
@@ -101,3 +104,47 @@ class PostmortemOut(BaseModel):
     title: str
     body_markdown: str
     corrective_actions: list[Any]
+
+
+class ImpactSnapshotOut(BaseModel):
+    id: UUID
+    incident_id: UUID
+    captured_at: datetime
+    severity: str | None = None
+    customer_impact_summary: str | None = None
+    estimated_affected_users: int | None = None
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    provenance: dict[str, Any] = Field(default_factory=dict)
+
+
+class SloBurnOut(BaseModel):
+    id: UUID
+    incident_id: UUID
+    slo_key: str
+    window_label: str
+    burn_rate: float | None = None
+    error_budget_remaining: float | None = None
+    observed_at: datetime
+    payload: dict[str, Any] = Field(default_factory=dict)
+    provenance: dict[str, Any] = Field(default_factory=dict)
+
+
+class SeverityUpdateOut(BaseModel):
+    incident_id: UUID
+    previous_severity: str | None = None
+    severity: str
+    changed: bool
+    explanation: str
+    quality_rule_id: str
+    inputs: dict[str, Any] = Field(default_factory=dict)
+
+
+class HypothesisConfirmOut(BaseModel):
+    incident_id: UUID
+    hypothesis_id: UUID
+    status: str
+    hypothesis_class: str | None = None
+    caused_by_written: bool
+    reason: str
+    quality_rule_id: str
+    inputs: dict[str, Any] = Field(default_factory=dict)

@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
-from incidentpilot_shared.collect_job import CollectJob, EvidenceUpdated
+from incidentpilot_shared.collect_job import DEFAULT_COLLECTORS, CollectJob, EvidenceUpdated
 from incidentpilot_shared.tool_scope import (
     ScopeViolationError,
     ToolScope,
@@ -33,7 +33,7 @@ SCOPE_VIOLATION_ERROR_TYPE = "CollectJobScopeViolation"
 def _job_from_payload(payload: CollectJob | dict[str, Any]) -> CollectJob:
     if isinstance(payload, CollectJob):
         return payload
-    collectors = payload.get("collectors") or ("metrics", "logs", "traces")
+    collectors = payload.get("collectors") or DEFAULT_COLLECTORS
     cycle_id = payload.get("cycle_id")
     return CollectJob(
         incident_id=str(payload["incident_id"]),

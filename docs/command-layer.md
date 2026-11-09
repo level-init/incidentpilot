@@ -27,6 +27,24 @@ transitions, and outbox rules cannot be bypassed.
 | `create_incident_command` | Create DETECTED incident (+ optional service link) |
 | `attach_alert_command` | Set `alert.incident_id` |
 | `correlate_alert_command` | Fingerprint/time/service match or create (F4) |
+| `propose_hypothesis_command` | SYSTEM insert PROPOSED hypothesis; resolve EV citations (H4) |
+| `rank_hypotheses_command` | Heuristic rank/score for PROPOSED rows (not LEADING/CONFIRM) |
+| `resolve_incident_evidence_refs` | Map `EV-…` / uuid cites → evidence UUIDs on an incident |
+| `diagnose_incident_command` | SYSTEM gate: mark LEADING + `INVESTIGATING→DIAGNOSED` (H5); AI denied |
+| `create_runbook_command` / `create_runbook_version_command` | Draft runbook + version (H6) |
+| `publish_runbook_version_command` | draft→published (immutable); set active |
+| `pin_runbook_version_command` | Pin published version on incident + `RUNBOOK_FACT` |
+| `retrieve_runbooks` | Metadata + FTS hybrid search (not a mutator) |
+| `record_impact_snapshot_command` / `compute_impact_snapshot_command` | Impact snapshot citing METRIC Evidence (H7) |
+| `record_slo_burn_command` / `compute_slo_burn_command` | SLO burn observation citing METRIC Evidence (H7) |
+| `update_incident_severity_command` | SYSTEM rules: hint + impact/SLO/criticality → `incident.severity` (H8); AI denied |
+| `retrieve_historical_assist` | Past incidents/postmortems as non-Evidence suggestions (H9; not a mutator) |
+| `confirm_hypothesis_command` | SYSTEM class rules → CONFIRMED + optional CAUSED_BY (H10); RECOVERED alone insufficient |
+
+`transition_incident_command(..., DIAGNOSED)` raises `DiagnosedGateError` unless
+`via_diagnose_gate=True` (only set by `diagnose_incident_command`).
+
+Pinned runbook authority is `allowed_action_types` — never `body_markdown`.
 
 ## Adapter boundary
 

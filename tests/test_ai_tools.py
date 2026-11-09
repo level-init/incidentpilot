@@ -65,6 +65,10 @@ def test_valid_args_accepted_for_allow_listed_tools() -> None:
             {"incident_id": "inc-1", "query": "rollback checkout"},
         ),
         (
+            "historical_search",
+            {"incident_id": "inc-1", "query": "checkout error rate"},
+        ),
+        (
             "hypothesis_propose",
             {
                 "incident_id": "inc-1",

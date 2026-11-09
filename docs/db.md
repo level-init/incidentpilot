@@ -68,17 +68,17 @@ Migrations are recorded in `public.schema_migrations`.
 
 | Table | Notes |
 | --- | --- |
-| `domain.service` | Deployable/service identity (`key` + `environment`) |
+| `domain.service` | Deployable/service identity (`key` + `environment` + `criticality` H8) |
 | `domain.incident` | Includes `incident_revision` (optimistic concurrency) |
 | `domain.incident_service` | M:N involvement (`affected` / `suspected` / …) |
 | `domain.alert` | Unique IncidentPilot `fingerprint` |
 | `domain.evidence` | Append-only factual substrate (UPDATE/DELETE forbidden) |
 | `domain.evidence_projection` | Redacted LLM view (`READY` / `BLOCKED`) — G2 |
-| `domain.evidence_relation` | Evidence graph edges |
-| `domain.change` | Deployments / commits / flags / config signals (G8: AC `source_ref` → column `external_ref`) |
-| `domain.hypothesis` | Statuses: PROPOSED / LEADING / CONFIRMED / REJECTED / SUPERSEDED |
-| `domain.runbook` | Logical runbook identity |
-| `domain.runbook_version` | Versioned body + `allowed_action_types`; published = immutable |
+| `domain.evidence_relation` | Evidence graph edges (`CAUSED_BY` = SYSTEM confirmation only, H10) || `domain.change` | Deployments / commits / flags / config signals (G8: AC `source_ref` → column `external_ref`) |
+| `domain.hypothesis` | Statuses: PROPOSED (=OPEN) / LEADING / CONFIRMED / REJECTED / SUPERSEDED; `confidence` holds heuristic score (`provenance.score_kind=heuristic`) |
+| `domain.runbook` | Logical runbook identity (`hypothesis_class`, service) |
+| `domain.runbook_version` | Versioned body + `allowed_action_types` (authority); FTS `search_tsv`; published = immutable |
+| `domain.incident.pinned_runbook_version_id` | H6 pin of published version |
 
 | `domain.action` | Remediation proposal; `is_reversible` / `reverse_action_type` |
 | `domain.action_version` | Immutable snapshot; policy/approval/attempt bind here |
@@ -87,11 +87,11 @@ Migrations are recorded in `public.schema_migrations`.
 | `domain.execution_attempt` | `RESERVED` before MITIGATING allowed |
 | `domain.validation_result` | Post-remediation validation outcome |
 
-| `domain.impact_snapshot` | Point-in-time impact estimate |
-| `domain.slo_burn` | SLO burn / error-budget observations |
+| `domain.impact_snapshot` | Point-in-time impact estimate (H7; cites Evidence in `provenance`) |
+| `domain.slo_burn` | SLO burn / error-budget observations (H7) |
 | `domain.timeline_event` | Append-only process chronicle |
 | `domain.audit_event` | Append-only privileged ops audit |
-| `domain.ai_invocation` | Minimum AI provenance (artifacts URI later) |
+| `domain.ai_invocation` | Minimum AI provenance (H2; S3 packages L3) |
 | `domain.postmortem` | DRAFT/FINAL; `corrective_actions` JSON array |
 
 ## Incident transitions (B5)

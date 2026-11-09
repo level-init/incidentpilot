@@ -5,7 +5,7 @@ trust: the sandbox may only invoke the fixed allow-list (READ / PROPOSE).
 Forbidden capabilities (ACTION_EXECUTE, POLICY_EVAL, GroundTruth, shell /
 kubectl / SQL, secrets) are never registered and are rejected on lookup.
 
-H3 will broker these tools; this module only defines schemas + deny policy.
+H3 brokers these tools via ``ai_tool_broker``; this module defines schemas + deny policy.
 """
 
 from __future__ import annotations
@@ -61,8 +61,28 @@ DENIED_TOOL_NAMES: Final[frozenset[str]] = frozenset(
         "evidence_append",
         "append_evidence",
         "produce_evidence",
+        # H5: DIAGNOSED / LEADING are SYSTEM gates — never AI tools.
+        "incident_transition",
+        "transition_incident",
+        "mark_leading",
+        "hypothesis_leading",
+        "diagnose_incident",
+        "apply_diagnosed_gate",
+        # H8: severity is SYSTEM rules only — AI may explain, never set.
+        "set_severity",
+        "update_severity",
+        "severity_update",
+        "incident_set_severity",
+        "update_incident_severity",
+        # H10: CONFIRM / CAUSED_BY are SYSTEM confirmation rules only.
+        "confirm_hypothesis",
+        "hypothesis_confirm",
+        "write_caused_by",
+        "caused_by",
+        "set_caused_by",
     }
 )
+
 
 
 class _StrictModel(BaseModel):
@@ -86,10 +106,21 @@ class RunbookSearchArgs(_StrictModel):
     limit: int = Field(default=5, ge=1, le=20)
 
 
+class HistoricalSearchArgs(_StrictModel):
+    """Past incidents/postmortems as suggestions only — never Evidence (H9)."""
+
+    incident_id: str
+    query: str = Field(min_length=1, max_length=1000)
+    limit: int = Field(default=5, ge=1, le=20)
+
+
 class HypothesisProposeArgs(_StrictModel):
+    """Propose only — SYSTEM persists via ``propose_hypothesis_command`` (H4)."""
+
     incident_id: str
     statement: str = Field(min_length=1, max_length=4000)
     cited_evidence_ids: list[str] = Field(default_factory=list)
+    # Heuristic score hint (not a calibrated probability). Persisted as score_kind=heuristic.
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
 
 
@@ -143,6 +174,15 @@ def _default_tools() -> dict[str, ToolSpec]:
             capability=ToolCapability.READ,
             description="Search runbooks relevant to the incident.",
             args_model=RunbookSearchArgs,
+        ),
+        ToolSpec(
+            name="historical_search",
+            capability=ToolCapability.READ,
+            description=(
+                "Search past incidents/postmortems as non-authoritative suggestions "
+                "(never Evidence; do not cite HIST- ids as EV facts)."
+            ),
+            args_model=HistoricalSearchArgs,
         ),
         ToolSpec(
             name="hypothesis_propose",

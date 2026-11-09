@@ -19,4 +19,7 @@ transition activities, `trigger_collect_cycle` (G7 — schedules evidence jobs).
 **Does not own:** rollback / privileged remediation keys, GroundTruth access,
 or Prom/Loki/Tempo credentials (those stay on `evidence-worker` only).
 
+**Owns (H1+):** LLM provider config (`LLM_PROVIDER` / API keys) for structured
+reasoning — never invent Evidence; SYSTEM writes domain rows (H2+).
+
 See [docs/temporal-queues.md](../docs/temporal-queues.md).

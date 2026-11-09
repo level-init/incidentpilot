@@ -29,6 +29,7 @@ _VALID_KINDS = frozenset(
         "ACTION_RESULT",
         "HUMAN_OBSERVATION",
         "ALERT_CONTEXT",
+        "RUNBOOK_FACT",
         "OTHER",
     }
 )
