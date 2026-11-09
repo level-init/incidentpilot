@@ -31,9 +31,15 @@ transitions, and outbox rules cannot be bypassed.
 | `rank_hypotheses_command` | Heuristic rank/score for PROPOSED rows (not LEADING/CONFIRM) |
 | `resolve_incident_evidence_refs` | Map `EV-…` / uuid cites → evidence UUIDs on an incident |
 | `diagnose_incident_command` | SYSTEM gate: mark LEADING + `INVESTIGATING→DIAGNOSED` (H5); AI denied |
+| `create_runbook_command` / `create_runbook_version_command` | Draft runbook + version (H6) |
+| `publish_runbook_version_command` | draft→published (immutable); set active |
+| `pin_runbook_version_command` | Pin published version on incident + `RUNBOOK_FACT` |
+| `retrieve_runbooks` | Metadata + FTS hybrid search (not a mutator) |
 
 `transition_incident_command(..., DIAGNOSED)` raises `DiagnosedGateError` unless
 `via_diagnose_gate=True` (only set by `diagnose_incident_command`).
+
+Pinned runbook authority is `allowed_action_types` — never `body_markdown`.
 
 ## Adapter boundary
 

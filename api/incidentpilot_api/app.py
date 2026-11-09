@@ -12,6 +12,7 @@ from incidentpilot_api.routes import (
     human,
     incidents,
     resources,
+    runbooks,
     webhooks_alerts,
 )
 
@@ -32,6 +33,7 @@ app.include_router(health.router)
 app.include_router(incidents.router)
 app.include_router(resources.router)
 app.include_router(evidence.router)
+app.include_router(runbooks.router)
 app.include_router(human.router)
 app.include_router(eval_routes.router)
 app.include_router(webhooks_alerts.router)

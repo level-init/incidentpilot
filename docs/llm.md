@@ -127,3 +127,19 @@ diagnose_incident_command(
 - Transitions incident to `DIAGNOSED` (revision bump + timeline/outbox)
 - Free-form `transition_incident_command(..., DIAGNOSED)` is rejected
 - Temporal activity: `apply_diagnosed_gate` on the general worker
+
+## Runbook store + retrieval (H6)
+
+Executable authority is **`allowed_action_types`** on a published `RunbookVersion`.
+`body_markdown` is human context only.
+
+```python
+from incidentpilot_shared import retrieve_runbooks, pin_runbook_version_command
+
+hits = retrieve_runbooks(conn, query="checkout high_error_rate", hypothesis_class="high_error_rate")
+pin_runbook_version_command(conn, incident_id=…, runbook_version_id=hits[0].version_id)
+```
+
+- Seed: `checkout.high_error_rate` allows `ROLLBACK_DEPLOYMENT`
+- Pin emits `RUNBOOK_FACT` via producer `runbook_store`
+- Hybrid retrieval = metadata filters + Postgres FTS (pgvector deferred)

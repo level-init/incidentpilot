@@ -19,6 +19,7 @@ REGISTERED_EVIDENCE_PRODUCERS: Final[frozenset[str]] = frozenset(
         "change_collector",
         "alert_context",
         "deterministic_processor",
+        "runbook_store",
         "test_producer",
     }
 )

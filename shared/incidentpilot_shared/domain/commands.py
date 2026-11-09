@@ -100,6 +100,30 @@ class DiagnoseIncidentResult:
 
 
 @dataclass(frozen=True, slots=True)
+class CreateRunbookResult:
+    runbook_id: UUID
+    key: str
+
+
+@dataclass(frozen=True, slots=True)
+class CreateRunbookVersionResult:
+    runbook_version_id: UUID
+    runbook_id: UUID
+    version: int
+    status: str
+    allowed_action_types: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PinRunbookResult:
+    incident_id: UUID
+    runbook_version_id: UUID
+    evidence_id: UUID
+    evidence_key: str
+    allowed_action_types: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class CreateIncidentResult:
     incident_id: UUID
     public_id: str
@@ -1231,5 +1255,281 @@ def diagnose_incident_command(
         to_state=transition.to_state.value,
         previous_revision=transition.previous_revision,
         new_revision=transition.new_revision,
+    )
+
+
+def create_runbook_command(
+    conn: Connection,
+    *,
+    key: str,
+    title: str,
+    hypothesis_class: str | None = None,
+    description: str | None = None,
+    service_key: str | None = None,
+    environment: str = "local",
+    commit: bool = True,
+) -> CreateRunbookResult:
+    """Create a logical runbook (H6)."""
+    rb_key = key.strip()
+    if not rb_key:
+        raise ValueError("runbook key is required")
+    title_s = title.strip()
+    if not title_s:
+        raise ValueError("runbook title is required")
+    service_id: UUID | None = None
+    if service_key and service_key.strip():
+        service_id = _ensure_service_id(
+            conn, service_key=service_key.strip(), environment=environment
+        )
+    runbook_id = uuid4()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.runbook (
+                id, key, title, service_id, hypothesis_class, description
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id, key
+            """,
+            (
+                str(runbook_id),
+                rb_key,
+                title_s,
+                str(service_id) if service_id else None,
+                hypothesis_class,
+                description,
+            ),
+        )
+        row = cur.fetchone()
+        assert row is not None
+    if commit:
+        conn.commit()
+    return CreateRunbookResult(runbook_id=UUID(str(row[0])), key=str(row[1]))
+
+
+def create_runbook_version_command(
+    conn: Connection,
+    *,
+    runbook_id: UUID,
+    body_markdown: str,
+    allowed_action_types: list[str] | tuple[str, ...],
+    version: int | None = None,
+    proposed_by: str = "system",
+    commit: bool = True,
+) -> CreateRunbookVersionResult:
+    """Create a draft RunbookVersion. Authority is ``allowed_action_types`` only."""
+    actions = tuple(str(a).strip() for a in allowed_action_types if str(a).strip())
+    if not actions:
+        raise ValueError("allowed_action_types must be non-empty (prose is not authority)")
+    body = body_markdown if body_markdown is not None else ""
+    with conn.cursor() as cur:
+        if version is None:
+            cur.execute(
+                """
+                SELECT COALESCE(MAX(version), 0) + 1
+                FROM domain.runbook_version
+                WHERE runbook_id = %s
+                """,
+                (str(runbook_id),),
+            )
+            next_version = int(cur.fetchone()[0])
+        else:
+            next_version = int(version)
+        version_id = uuid4()
+        cur.execute(
+            """
+            INSERT INTO domain.runbook_version (
+                id, runbook_id, version, status, body_markdown,
+                allowed_action_types, proposed_by
+            ) VALUES (
+                %s, %s, %s, 'draft', %s, %s::text[], %s
+            )
+            RETURNING id, version, status, allowed_action_types
+            """,
+            (
+                str(version_id),
+                str(runbook_id),
+                next_version,
+                body,
+                list(actions),
+                proposed_by,
+            ),
+        )
+        row = cur.fetchone()
+        assert row is not None
+    if commit:
+        conn.commit()
+    allowed = tuple(str(x) for x in (row[3] or []))
+    return CreateRunbookVersionResult(
+        runbook_version_id=UUID(str(row[0])),
+        runbook_id=runbook_id,
+        version=int(row[1]),
+        status=str(row[2]),
+        allowed_action_types=allowed,
+    )
+
+
+def publish_runbook_version_command(
+    conn: Connection,
+    *,
+    runbook_version_id: UUID,
+    set_active: bool = True,
+    commit: bool = True,
+) -> CreateRunbookVersionResult:
+    """Publish a draft version (immutable thereafter) and optionally set active."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT runbook_id, version, status, allowed_action_types
+            FROM domain.runbook_version
+            WHERE id = %s
+            """,
+            (str(runbook_version_id),),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise ValueError(f"runbook_version not found: {runbook_version_id}")
+        runbook_id = UUID(str(row[0]))
+        version = int(row[1])
+        status = str(row[2])
+        allowed = tuple(str(x) for x in (row[3] or []))
+        if status == "published":
+            return CreateRunbookVersionResult(
+                runbook_version_id=runbook_version_id,
+                runbook_id=runbook_id,
+                version=version,
+                status=status,
+                allowed_action_types=allowed,
+            )
+        if status != "draft":
+            raise ValueError(f"cannot publish runbook_version in status {status}")
+        cur.execute(
+            """
+            UPDATE domain.runbook_version
+            SET status = 'published'
+            WHERE id = %s
+            RETURNING status, allowed_action_types
+            """,
+            (str(runbook_version_id),),
+        )
+        published = cur.fetchone()
+        assert published is not None
+        if set_active:
+            cur.execute(
+                """
+                UPDATE domain.runbook
+                SET active_version_id = %s, updated_at = now()
+                WHERE id = %s
+                """,
+                (str(runbook_version_id), str(runbook_id)),
+            )
+    if commit:
+        conn.commit()
+    return CreateRunbookVersionResult(
+        runbook_version_id=runbook_version_id,
+        runbook_id=runbook_id,
+        version=version,
+        status=str(published[0]),
+        allowed_action_types=tuple(str(x) for x in (published[1] or [])),
+    )
+
+
+def pin_runbook_version_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    runbook_version_id: UUID,
+    actor: str = "system",
+    commit: bool = True,
+) -> PinRunbookResult:
+    """Pin a published RunbookVersion on an incident and emit RUNBOOK_FACT (H6).
+
+    Authority for later ProposeAction is ``allowed_action_types`` in the fact
+    payload — never ``body_markdown``.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT rv.status, rv.version, rv.allowed_action_types, r.key, r.hypothesis_class
+            FROM domain.runbook_version rv
+            JOIN domain.runbook r ON r.id = rv.runbook_id
+            WHERE rv.id = %s
+            """,
+            (str(runbook_version_id),),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise ValueError(f"runbook_version not found: {runbook_version_id}")
+        status = str(row[0])
+        if status != "published":
+            raise ValueError(f"only published versions can be pinned (got {status})")
+        version = int(row[1])
+        allowed = tuple(str(x) for x in (row[2] or []))
+        runbook_key = str(row[3])
+        hypothesis_class = str(row[4]) if row[4] is not None else None
+        if not allowed:
+            raise ValueError("pinned version has empty allowed_action_types")
+
+        cur.execute(
+            """
+            UPDATE domain.incident
+            SET pinned_runbook_version_id = %s
+            WHERE id = %s
+            RETURNING id
+            """,
+            (str(runbook_version_id), str(incident_id)),
+        )
+        if cur.fetchone() is None:
+            raise ValueError(f"incident not found: {incident_id}")
+
+        cur.execute(
+            """
+            INSERT INTO domain.timeline_event (
+                incident_id, event_type, summary, actor, payload
+            ) VALUES (
+                %s, 'RUNBOOK_PINNED', %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                f"pinned {runbook_key}@v{version}",
+                actor,
+                json.dumps(
+                    {
+                        "runbook_version_id": str(runbook_version_id),
+                        "runbook_key": runbook_key,
+                        "version": version,
+                        "allowed_action_types": list(allowed),
+                    }
+                ),
+            ),
+        )
+
+    fact = append_evidence_command(
+        conn,
+        incident_id=incident_id,
+        kind="RUNBOOK_FACT",
+        fingerprint=f"runbook_store:pin:{incident_id}:{runbook_version_id}",
+        summary=f"Pinned runbook {runbook_key} v{version}",
+        payload={
+            "runbook_version_id": str(runbook_version_id),
+            "runbook_key": runbook_key,
+            "version": version,
+            "allowed_action_types": list(allowed),
+            "hypothesis_class": hypothesis_class,
+            # Explicit: prose is not authority.
+            "authority": "allowed_action_types",
+        },
+        provenance={"writer": "system", "source": "runbook_pin", "actor": actor},
+        producer="runbook_store",
+        commit=False,
+    )
+    if commit:
+        conn.commit()
+    return PinRunbookResult(
+        incident_id=incident_id,
+        runbook_version_id=runbook_version_id,
+        evidence_id=fact.evidence_id,
+        evidence_key=fact.evidence_key,
+        allowed_action_types=allowed,
     )
 
