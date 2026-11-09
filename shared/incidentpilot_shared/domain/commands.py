@@ -349,12 +349,22 @@ def transition_incident_command(
 
     ``INVESTIGATING → DIAGNOSED`` is blocked unless ``via_diagnose_gate=True``
     (H5 — only ``diagnose_incident_command`` may set that flag).
+    Replan paths (e.g. ``AWAITING_APPROVAL → DIAGNOSED`` on I5 timeout) are
+    allowed without the diagnose gate.
     """
     target = IncidentState(to_state) if not isinstance(to_state, IncidentState) else to_state
     if target is IncidentState.DIAGNOSED and not via_diagnose_gate:
-        raise DiagnosedGateError(
-            "DIAGNOSED is only allowed via diagnose_incident_command (SYSTEM gate)"
-        )
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT state FROM domain.incident WHERE id = %s",
+                (str(incident_id),),
+            )
+            row = cur.fetchone()
+            current = IncidentState(row[0]) if row is not None else None
+        if current is IncidentState.INVESTIGATING:
+            raise DiagnosedGateError(
+                "DIAGNOSED is only allowed via diagnose_incident_command (SYSTEM gate)"
+            )
     uow = UnitOfWork(conn, requires_outbox=True)
     result = apply_transition(
         conn,
@@ -813,7 +823,10 @@ def decide_approval_command(
             (str(action_id),),
         )
         incident_row = cur.fetchone()
-        if incident_row is not None:
+        incident_id: UUID | None = (
+            UUID(str(incident_row[0])) if incident_row is not None else None
+        )
+        if incident_id is not None:
             cur.execute(
                 """
                 INSERT INTO domain.timeline_event (
@@ -823,7 +836,7 @@ def decide_approval_command(
                 )
                 """,
                 (
-                    str(incident_row[0]),
+                    str(incident_id),
                     "APPROVAL_DECIDED",
                     f"approval {status} for action {action_id} v{action_version}",
                     decided_by,
@@ -838,6 +851,22 @@ def decide_approval_command(
                     ),
                 ),
             )
+            # I5: wake IncidentWorkflow approval wait (outbox → signal).
+            from incidentpilot_shared.domain.outbox import enqueue_outbox
+
+            enqueue_outbox(
+                conn,
+                aggregate_type="incident",
+                aggregate_id=str(incident_id),
+                event_type="approval.decided",
+                payload={
+                    "approval_id": str(approval_id),
+                    "action_id": str(action_id),
+                    "action_version": action_version,
+                    "status": status,
+                    "decided_by": decided_by,
+                },
+            )
 
     if commit:
         conn.commit()
@@ -849,6 +878,90 @@ def decide_approval_command(
         action_status=action_status,
         decided_by=decided_by,
         noop=False,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ExpireApprovalsResult:
+    incident_id: UUID
+    expired_count: int
+    action_ids: tuple[UUID, ...]
+
+
+def expire_pending_approvals_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    reason: str = "approval_timeout",
+    commit: bool = True,
+) -> ExpireApprovalsResult:
+    """Mark PENDING approvals EXPIRED for an incident (I5 timeout; no execute)."""
+    expired: list[UUID] = []
+    action_ids: list[UUID] = []
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT ap.id, ap.action_id
+            FROM domain.approval ap
+            JOIN domain.action a ON a.id = ap.action_id
+            WHERE a.incident_id = %s
+              AND ap.status = 'PENDING'
+            FOR UPDATE OF ap
+            """,
+            (str(incident_id),),
+        )
+        rows = cur.fetchall()
+        for row in rows:
+            approval_id = UUID(str(row[0]))
+            action_id = UUID(str(row[1]))
+            cur.execute(
+                """
+                UPDATE domain.approval
+                SET status = 'EXPIRED', decided_at = now(),
+                    decided_by = 'system:approval_timeout'
+                WHERE id = %s AND status = 'PENDING'
+                """,
+                (str(approval_id),),
+            )
+            if cur.rowcount == 1:
+                expired.append(approval_id)
+                action_ids.append(action_id)
+                cur.execute(
+                    """
+                    UPDATE domain.action
+                    SET status = 'CANCELLED', updated_at = now()
+                    WHERE id = %s AND status = 'AWAITING_APPROVAL'
+                    """,
+                    (str(action_id),),
+                )
+        if expired:
+            cur.execute(
+                """
+                INSERT INTO domain.timeline_event (
+                    incident_id, event_type, summary, actor, payload
+                ) VALUES (
+                    %s, 'APPROVAL_TIMEOUT', %s, 'system', %s::jsonb
+                )
+                """,
+                (
+                    str(incident_id),
+                    f"approval timeout expired {len(expired)} pending approval(s)",
+                    json.dumps(
+                        {
+                            "reason": reason,
+                            "expired_approval_ids": [str(x) for x in expired],
+                            "action_ids": [str(x) for x in action_ids],
+                            "remediation_executed": False,
+                        }
+                    ),
+                ),
+            )
+    if commit:
+        conn.commit()
+    return ExpireApprovalsResult(
+        incident_id=incident_id,
+        expired_count=len(expired),
+        action_ids=tuple(action_ids),
     )
 
 

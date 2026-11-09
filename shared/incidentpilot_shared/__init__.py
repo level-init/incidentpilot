@@ -25,6 +25,7 @@ from incidentpilot_shared.alerts import (
     normalize_alertmanager_webhook,
     normalize_cloudwatch_payload,
 )
+from incidentpilot_shared.approval_signals import ApprovalDecisionSignal
 from incidentpilot_shared.autonomy import (
     AutonomyMatch,
     resolve_autonomy_level,
@@ -177,6 +178,7 @@ __all__ = [
     "AiToolRegistry",
     "AppendEvidenceResult",
     "ApprovalDecisionResult",
+    "ApprovalDecisionSignal",
     "ApprovalNotConsumable",
     "ApprovalPolicyRequired",
     "AutonomyMatch",

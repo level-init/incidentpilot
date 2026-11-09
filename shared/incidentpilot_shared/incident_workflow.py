@@ -33,6 +33,8 @@ class IncidentWorkflowInput:
     # Worker types this as WorkflowTimerConfig; kept as Any for shared package.
     timers: Any | None = None
     wait_for_timer: str | None = None
+    # I5: durable AWAITING_APPROVAL wait (signal vs approval_timeout).
+    wait_for_approval: bool = False
 
 
 def incident_workflow_id(incident_id: str | UUID) -> str:
