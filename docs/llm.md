@@ -106,7 +106,7 @@ propose_hypothesis_command(
 
 - Multiple `PROPOSED` (OPEN) hypotheses per incident are allowed
 - Missing / cross-incident EV citations → `MissingEvidenceCitationError` (no row)
-- `rank_hypotheses_command` sets ranks only; CONFIRM / CAUSED_BY are out of scope (H10)
+- `rank_hypotheses_command` sets ranks only; CONFIRM / CAUSED_BY via `confirm_hypothesis_command` (H10)
 - Broker `hypothesis_propose` stays `executed=False` — it does not INSERT
 
 ## SYSTEM LEADING + DIAGNOSED gate (H5)
@@ -186,3 +186,17 @@ hits = retrieve_historical_assist(conn, query="checkout error rate")
 - API: `GET /history/search` returns `authoritative=false` / `may_cite_as_evidence=false`
 - AI tool `historical_search` (READ) carries the same disclaimer
 - Citing `HIST-…` in `propose_hypothesis_command` raises `MissingEvidenceCitationError`
+
+## Confirmation rules (H10)
+
+```python
+from incidentpilot_shared.domain.commands import confirm_hypothesis_command
+
+confirm_hypothesis_command(conn, incident_id=…, hypothesis_id=…, actor="system")
+```
+
+- Class-specific rules (`confirmation_rules.v1`); deploy-class needs CHANGE + ACTION_RESULT + RECOVERED
+- **RECOVERED alone never CONFIRMs**
+- SYSTEM writes optional `CAUSED_BY` evidence relation; humans/AI cannot write it directly
+- AI tools `confirm_hypothesis` / `write_caused_by` are denied
+- HTTP: `POST /incidents/{id}/hypotheses/{hid}/confirm` (runs as SYSTEM)

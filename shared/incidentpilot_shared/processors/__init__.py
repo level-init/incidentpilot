@@ -1,8 +1,14 @@
-"""Deterministic evidence processors (G4) + impact/SLO/severity (H7/H8)."""
+"""Deterministic processors (G4) + impact/SLO/severity/confirmation (H7–H10)."""
 
 from incidentpilot_shared.processors.baseline import (
     RULE_BASELINE_COMPARE,
     baseline_compare,
+)
+from incidentpilot_shared.processors.confirmation import (
+    RULE_CONFIRMATION_V1,
+    ConfirmationDecision,
+    ConfirmationSignals,
+    evaluate_confirmation_rules,
 )
 from incidentpilot_shared.processors.impact import (
     RULE_IMPACT_FROM_METRICS,
@@ -24,14 +30,18 @@ from incidentpilot_shared.processors.top_errors import (
 
 __all__ = [
     "RULE_BASELINE_COMPARE",
+    "RULE_CONFIRMATION_V1",
     "RULE_IMPACT_FROM_METRICS",
     "RULE_SLO_BURN_FROM_METRICS",
     "RULE_SEVERITY_FROM_SIGNALS",
     "RULE_TOP_ERRORS",
+    "ConfirmationDecision",
+    "ConfirmationSignals",
     "ImpactEstimate",
     "SeverityDecision",
     "SloBurnEstimate",
     "baseline_compare",
+    "evaluate_confirmation_rules",
     "impact_from_metrics",
     "severity_from_signals",
     "slo_burn_from_metrics",

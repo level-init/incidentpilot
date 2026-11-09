@@ -905,6 +905,76 @@
         }
       }
     },
+    "/incidents/{incident_id}/hypotheses/{hypothesis_id}/confirm": {
+      "post": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Confirm Hypothesis",
+        "description": "SYSTEM confirmation rules after ValidationResult RECOVERED (H10).",
+        "operationId": "confirm_hypothesis_incidents__incident_id__hypotheses__hypothesis_id__confirm_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HypothesisConfirmOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/incidents/{incident_id}/severity/update": {
       "post": {
         "tags": [
@@ -2118,6 +2188,62 @@
           "summary"
         ],
         "title": "HumanObservationCreate"
+      },
+      "HypothesisConfirmOut": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "hypothesis_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Hypothesis Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "hypothesis_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hypothesis Class"
+          },
+          "caused_by_written": {
+            "type": "boolean",
+            "title": "Caused By Written"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "quality_rule_id": {
+            "type": "string",
+            "title": "Quality Rule Id"
+          },
+          "inputs": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Inputs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "hypothesis_id",
+          "status",
+          "caused_by_written",
+          "reason",
+          "quality_rule_id"
+        ],
+        "title": "HypothesisConfirmOut"
       },
       "HypothesisOut": {
         "properties": {

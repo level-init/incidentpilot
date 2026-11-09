@@ -74,8 +74,7 @@ Migrations are recorded in `public.schema_migrations`.
 | `domain.alert` | Unique IncidentPilot `fingerprint` |
 | `domain.evidence` | Append-only factual substrate (UPDATE/DELETE forbidden) |
 | `domain.evidence_projection` | Redacted LLM view (`READY` / `BLOCKED`) — G2 |
-| `domain.evidence_relation` | Evidence graph edges |
-| `domain.change` | Deployments / commits / flags / config signals (G8: AC `source_ref` → column `external_ref`) |
+| `domain.evidence_relation` | Evidence graph edges (`CAUSED_BY` = SYSTEM confirmation only, H10) || `domain.change` | Deployments / commits / flags / config signals (G8: AC `source_ref` → column `external_ref`) |
 | `domain.hypothesis` | Statuses: PROPOSED (=OPEN) / LEADING / CONFIRMED / REJECTED / SUPERSEDED; `confidence` holds heuristic score (`provenance.score_kind=heuristic`) |
 | `domain.runbook` | Logical runbook identity (`hypothesis_class`, service) |
 | `domain.runbook_version` | Versioned body + `allowed_action_types` (authority); FTS `search_tsv`; published = immutable |

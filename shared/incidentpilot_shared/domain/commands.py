@@ -155,6 +155,18 @@ class UpdateIncidentSeverityResult:
 
 
 @dataclass(frozen=True, slots=True)
+class ConfirmHypothesisResult:
+    incident_id: UUID
+    hypothesis_id: UUID
+    status: str
+    hypothesis_class: str | None
+    caused_by_written: bool
+    reason: str
+    quality_rule_id: str
+    inputs: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
 class CreateIncidentResult:
     incident_id: UUID
     public_id: str
@@ -176,6 +188,8 @@ _TERMINAL_INCIDENT_STATES = frozenset({"RESOLVED", "CLOSED", "POSTMORTEM"})
 _DIAGNOSE_ACTORS = frozenset({"system", "incident-workflow"})
 # H8: incident.severity is SYSTEM-rules only (AI explains, never sets).
 _SEVERITY_ACTORS = frozenset({"system", "incident-workflow"})
+# H10: CONFIRM / CAUSED_BY are SYSTEM confirmation rules only.
+_CONFIRM_ACTORS = frozenset({"system", "incident-workflow"})
 
 
 class DiagnosedGateError(PermissionError):
@@ -188,6 +202,14 @@ class DiagnoseActorDenied(PermissionError):
 
 class SeverityActorDenied(PermissionError):
     """Raised when a non-SYSTEM actor attempts to set incident severity."""
+
+
+class ConfirmActorDenied(PermissionError):
+    """Raised when a non-SYSTEM actor attempts hypothesis CONFIRM (H10)."""
+
+
+class ConfirmationRulesNotMet(ValueError):
+    """Raised when class confirmation rules reject CONFIRM."""
 
 
 def transition_incident_command(
@@ -355,6 +377,10 @@ def append_evidence_command(
     )
 
 
+class CausedByActorDenied(PermissionError):
+    """Raised when a non-SYSTEM path attempts to write CAUSED_BY (H10)."""
+
+
 def link_evidence_relation_command(
     conn: Connection,
     *,
@@ -362,16 +388,28 @@ def link_evidence_relation_command(
     to_evidence_id: UUID,
     relation_type: str,
     commit: bool = True,
+    via_confirmation_gate: bool = False,
 ) -> None:
-    """Insert an evidence graph edge (idempotent on unique triple)."""
-    if relation_type not in {
+    """Insert an evidence graph edge (idempotent on unique triple).
+
+    ``CAUSED_BY`` is SYSTEM-only under confirmation rules (H10) — humans/AI
+    cannot write it directly; only ``confirm_hypothesis_command`` sets
+    ``via_confirmation_gate=True``.
+    """
+    allowed = {
         "SUPPORTS",
         "CONTRADICTS",
         "DERIVED_FROM",
         "SAME_SIGNAL",
         "TEMPORAL_NEAR",
-    }:
+        "CAUSED_BY",
+    }
+    if relation_type not in allowed:
         raise ValueError(f"invalid evidence relation_type: {relation_type!r}")
+    if relation_type == "CAUSED_BY" and not via_confirmation_gate:
+        raise CausedByActorDenied(
+            "CAUSED_BY may only be written by SYSTEM confirmation rules (H10)"
+        )
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -1983,6 +2021,192 @@ def update_incident_severity_command(
         severity=decision.severity,
         changed=changed,
         explanation=decision.explanation,
+        quality_rule_id=decision.quality_rule_id,
+        inputs=decision.inputs,
+    )
+
+
+def confirm_hypothesis_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    hypothesis_id: UUID,
+    actor: str = "system",
+    commit: bool = True,
+) -> ConfirmHypothesisResult:
+    """SYSTEM confirmation rules → Hypothesis CONFIRMED (+ optional CAUSED_BY).
+
+    Wired after ValidationResult RECOVERED (J8/H10). RECOVERED alone never
+    confirms. AI / humans cannot CONFIRM or write CAUSED_BY directly.
+    """
+    if actor not in _CONFIRM_ACTORS or actor.startswith("ai_"):
+        raise ConfirmActorDenied(
+            f"actor {actor!r} cannot CONFIRM hypothesis (SYSTEM rules only)"
+        )
+
+    from incidentpilot_shared.processors.confirmation import (
+        ConfirmationSignals,
+        evaluate_confirmation_rules,
+    )
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT status, hypothesis_class, cited_evidence_ids
+            FROM domain.hypothesis
+            WHERE id = %s AND incident_id = %s
+            """,
+            (str(hypothesis_id), str(incident_id)),
+        )
+        hypo = cur.fetchone()
+        if hypo is None:
+            raise LookupError(
+                f"hypothesis {hypothesis_id} not found on incident {incident_id}"
+            )
+        status = str(hypo[0])
+        hypo_class = str(hypo[1]) if hypo[1] is not None else None
+        cited = list(hypo[2] or [])
+
+        cur.execute(
+            """
+            SELECT 1
+            FROM domain.validation_result
+            WHERE incident_id = %s AND outcome = 'RECOVERED'
+            ORDER BY decided_at DESC
+            LIMIT 1
+            """,
+            (str(incident_id),),
+        )
+        recovered = cur.fetchone() is not None
+
+        cur.execute(
+            """
+            SELECT kind, id
+            FROM domain.evidence
+            WHERE incident_id = %s AND kind IN ('CHANGE', 'ACTION_RESULT', 'METRIC')
+            """,
+            (str(incident_id),),
+        )
+        kind_rows = cur.fetchall()
+        has_change = any(str(r[0]) == "CHANGE" for r in kind_rows)
+        has_action = any(str(r[0]) == "ACTION_RESULT" for r in kind_rows)
+        change_ids = [UUID(str(r[1])) for r in kind_rows if str(r[0]) == "CHANGE"]
+        metric_ids = [UUID(str(r[1])) for r in kind_rows if str(r[0]) == "METRIC"]
+
+    decision = evaluate_confirmation_rules(
+        ConfirmationSignals(
+            hypothesis_status=status,
+            hypothesis_class=hypo_class,
+            validation_recovered=recovered,
+            has_change_evidence=has_change,
+            has_action_result_evidence=has_action,
+            cited_evidence_count=len(cited),
+        )
+    )
+    if not decision.confirm:
+        raise ConfirmationRulesNotMet(decision.reason)
+
+    caused_by_written = False
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE domain.hypothesis
+            SET status = 'CONFIRMED',
+                updated_at = now(),
+                provenance = provenance || %s::jsonb
+            WHERE id = %s AND incident_id = %s
+            """,
+            (
+                json.dumps(
+                    {
+                        "writer": "system",
+                        "source": "hypothesis_confirm",
+                        "quality_rule_id": decision.quality_rule_id,
+                        "reason": decision.reason,
+                        "inputs": decision.inputs,
+                    }
+                ),
+                str(hypothesis_id),
+                str(incident_id),
+            ),
+        )
+        if decision.write_caused_by and change_ids:
+            target = change_ids[0]
+            source: UUID | None = next(
+                (m for m in metric_ids if m != target),
+                None,
+            )
+            if source is None:
+                for raw in cited:
+                    candidate = UUID(str(raw))
+                    if candidate != target:
+                        source = candidate
+                        break
+            if source is not None:
+                # Symptom CAUSED_BY CHANGE (deploy) — SYSTEM confirmation only.
+                link_evidence_relation_command(
+                    conn,
+                    from_evidence_id=source,
+                    to_evidence_id=target,
+                    relation_type="CAUSED_BY",
+                    commit=False,
+                    via_confirmation_gate=True,
+                )
+                caused_by_written = True
+
+        cur.execute(
+            """
+            INSERT INTO domain.timeline_event (
+                incident_id, event_type, summary, actor, payload
+            ) VALUES (
+                %s, 'HYPOTHESIS_CONFIRMED', %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                f"hypothesis {hypothesis_id} CONFIRMED ({hypo_class or 'unclassified'})",
+                actor,
+                json.dumps(
+                    {
+                        "hypothesis_id": str(hypothesis_id),
+                        "hypothesis_class": hypo_class,
+                        "caused_by_written": caused_by_written,
+                        "reason": decision.reason,
+                        "quality_rule_id": decision.quality_rule_id,
+                    }
+                ),
+            ),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.audit_event (
+                incident_id, action, actor, resource_type, resource_id, details
+            ) VALUES (
+                %s, 'hypothesis.confirm', %s, 'hypothesis', %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                actor,
+                str(hypothesis_id),
+                json.dumps(
+                    {
+                        "caused_by_written": caused_by_written,
+                        "reason": decision.reason,
+                        "quality_rule_id": decision.quality_rule_id,
+                    }
+                ),
+            ),
+        )
+    if commit:
+        conn.commit()
+    return ConfirmHypothesisResult(
+        incident_id=incident_id,
+        hypothesis_id=hypothesis_id,
+        status="CONFIRMED",
+        hypothesis_class=hypo_class,
+        caused_by_written=caused_by_written,
+        reason=decision.reason,
         quality_rule_id=decision.quality_rule_id,
         inputs=decision.inputs,
     )

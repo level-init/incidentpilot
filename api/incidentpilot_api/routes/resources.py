@@ -11,9 +11,12 @@ from psycopg.rows import dict_row
 
 from incidentpilot_api.auth import Principal, get_principal
 from incidentpilot_api.commands import (
+    ConfirmActorDenied,
+    ConfirmationRulesNotMet,
     SeverityActorDenied,
     compute_impact_snapshot_command,
     compute_slo_burn_command,
+    confirm_hypothesis_command,
     update_incident_severity_command,
 )
 from incidentpilot_api.db import get_conn
@@ -23,6 +26,7 @@ from incidentpilot_api.schemas import (
     AlertOut,
     ApprovalOut,
     EvidenceOut,
+    HypothesisConfirmOut,
     HypothesisOut,
     ImpactSnapshotOut,
     PostmortemOut,
@@ -259,6 +263,44 @@ def compute_slo_burn(
         row = cur.fetchone()
     assert row is not None
     return SloBurnOut(**row)
+
+
+@router.post(
+    "/incidents/{incident_id}/hypotheses/{hypothesis_id}/confirm",
+    response_model=HypothesisConfirmOut,
+)
+def confirm_hypothesis(
+    incident_id: UUID,
+    hypothesis_id: UUID,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> HypothesisConfirmOut:
+    """SYSTEM confirmation rules after ValidationResult RECOVERED (H10)."""
+    require_permission(principal, Permission.INCIDENT_WRITE)
+    try:
+        result = confirm_hypothesis_command(
+            conn,
+            incident_id=incident_id,
+            hypothesis_id=hypothesis_id,
+            actor="system",
+            commit=True,
+        )
+    except ConfirmActorDenied as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ConfirmationRulesNotMet as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return HypothesisConfirmOut(
+        incident_id=result.incident_id,
+        hypothesis_id=result.hypothesis_id,
+        status=result.status,
+        hypothesis_class=result.hypothesis_class,
+        caused_by_written=result.caused_by_written,
+        reason=result.reason,
+        quality_rule_id=result.quality_rule_id,
+        inputs=result.inputs,
+    )
 
 
 @router.post(
