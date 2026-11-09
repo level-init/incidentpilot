@@ -1271,6 +1271,95 @@
         }
       }
     },
+    "/history/search": {
+      "get": {
+        "tags": [
+          "history"
+        ],
+        "summary": "Search History",
+        "operationId": "search_history_history_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000,
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 5,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "exclude_incident_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exclude Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoricalSearchOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/incidents/{incident_id}/observations": {
       "post": {
         "tags": [
@@ -1902,6 +1991,113 @@
         },
         "type": "object",
         "title": "HealthResponse"
+      },
+      "HistoricalHitOut": {
+        "properties": {
+          "suggestion_id": {
+            "type": "string",
+            "title": "Suggestion Id"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "public_id": {
+            "type": "string",
+            "title": "Public Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "rank": {
+            "type": "number",
+            "title": "Rank"
+          },
+          "postmortem_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postmortem Title"
+          },
+          "snippet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snippet"
+          },
+          "authoritative": {
+            "type": "boolean",
+            "title": "Authoritative",
+            "default": false
+          },
+          "may_cite_as_evidence": {
+            "type": "boolean",
+            "title": "May Cite As Evidence",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "suggestion_id",
+          "incident_id",
+          "public_id",
+          "title",
+          "state",
+          "rank"
+        ],
+        "title": "HistoricalHitOut"
+      },
+      "HistoricalSearchOut": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "authoritative": {
+            "type": "boolean",
+            "title": "Authoritative",
+            "default": false
+          },
+          "may_cite_as_evidence": {
+            "type": "boolean",
+            "title": "May Cite As Evidence",
+            "default": false
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "Historical hits are suggestions only \u2014 not Evidence. Cite EV-\u2026 from the current incident after new collection."
+          },
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/HistoricalHitOut"
+            },
+            "type": "array",
+            "title": "Hits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "hits"
+        ],
+        "title": "HistoricalSearchOut"
       },
       "HumanObservationCreate": {
         "properties": {

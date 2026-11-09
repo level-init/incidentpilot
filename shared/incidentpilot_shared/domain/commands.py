@@ -980,7 +980,10 @@ def resolve_incident_evidence_refs(
     """Resolve ``EV-…`` keys (or uuid strings) to evidence UUIDs on this incident.
 
     Missing / wrong-incident citations raise ``MissingEvidenceCitationError``.
+    Historical assist ids (``HIST-…``, H9) are never Evidence and are rejected.
     """
+    from incidentpilot_shared.history import is_historical_suggestion_ref
+
     if not refs:
         raise MissingEvidenceCitationError("hypothesis requires at least one evidence citation")
     resolved: list[UUID] = []
@@ -990,6 +993,11 @@ def resolve_incident_evidence_refs(
             ref = str(raw).strip()
             if not ref:
                 raise MissingEvidenceCitationError("empty evidence citation")
+            if is_historical_suggestion_ref(ref):
+                raise MissingEvidenceCitationError(
+                    f"historical suggestion {ref!r} is not Evidence — "
+                    "collect current-incident EV-… citations"
+                )
             if ref in seen:
                 continue
             seen.add(ref)

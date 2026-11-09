@@ -42,6 +42,7 @@ class TelemetryExplorer(Protocol):
 
 CollectorTriggerFn = Callable[[dict[str, Any]], Mapping[str, Any]]
 RunbookSearchFn = Callable[[dict[str, Any]], Mapping[str, Any]]
+HistoricalSearchFn = Callable[[dict[str, Any]], Mapping[str, Any]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +66,7 @@ class AiToolBroker:
         telemetry_explorer: TelemetryExplorer | None = None,
         collector_trigger: CollectorTriggerFn | None = None,
         runbook_searcher: RunbookSearchFn | None = None,
+        historical_searcher: HistoricalSearchFn | None = None,
     ) -> None:
         self._scope = scope
         self._registry = registry or default_ai_tool_registry()
@@ -72,6 +74,7 @@ class AiToolBroker:
         self._telemetry_explorer = telemetry_explorer
         self._collector_trigger = collector_trigger
         self._runbook_searcher = runbook_searcher
+        self._historical_searcher = historical_searcher
 
     @property
     def scope(self) -> ToolScope:
@@ -133,6 +136,8 @@ class AiToolBroker:
             return self._evidence_projection_read(args)
         if tool_name == "runbook_search":
             return self._runbook_search(args)
+        if tool_name == "historical_search":
+            return self._historical_search(args)
         if tool_name == "hypothesis_propose":
             return {"proposal": args, "executed": False}
         if tool_name == "action_propose":
@@ -185,6 +190,21 @@ class AiToolBroker:
         if self._runbook_searcher is not None:
             return self._runbook_searcher(args)
         return {"query": args["query"], "hits": [], "limit": args.get("limit", 5)}
+
+    def _historical_search(self, args: dict[str, Any]) -> Mapping[str, Any]:
+        if self._historical_searcher is not None:
+            return self._historical_searcher(args)
+        return {
+            "query": args["query"],
+            "hits": [],
+            "limit": args.get("limit", 5),
+            "authoritative": False,
+            "may_cite_as_evidence": False,
+            "disclaimer": (
+                "Historical hits are suggestions only — not Evidence. "
+                "Cite EV-… from the current incident after new collection."
+            ),
+        }
 
     def _collector_trigger_invoke(self, args: dict[str, Any]) -> Mapping[str, Any]:
         if self._collector_trigger is None:

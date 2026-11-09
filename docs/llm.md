@@ -172,3 +172,17 @@ update_incident_severity_command(conn, incident_id=…, actor="system")
 - Deterministic rules (`severity_from_signals.v1`) from alert hint + impact + SLO + service criticality
 - AI may explain only — `set_severity` / `update_severity` tools are denied; AI actors raise `SeverityActorDenied`
 - HTTP: `POST /incidents/{id}/severity/update` (always runs as SYSTEM)
+
+## Historical retrieval assist (H9)
+
+```python
+from incidentpilot_shared import retrieve_historical_assist
+
+hits = retrieve_historical_assist(conn, query="checkout error rate")
+# hits[*].suggestion_id like HIST-INC-… — never cite as Evidence
+```
+
+- Past RESOLVED/CLOSED/POSTMORTEM incidents + FINAL postmortems → suggestions only
+- API: `GET /history/search` returns `authoritative=false` / `may_cite_as_evidence=false`
+- AI tool `historical_search` (READ) carries the same disclaimer
+- Citing `HIST-…` in `propose_hypothesis_command` raises `MissingEvidenceCitationError`
