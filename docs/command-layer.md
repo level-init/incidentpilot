@@ -30,6 +30,10 @@ transitions, and outbox rules cannot be bypassed.
 | `propose_hypothesis_command` | SYSTEM insert PROPOSED hypothesis; resolve EV citations (H4) |
 | `rank_hypotheses_command` | Heuristic rank/score for PROPOSED rows (not LEADING/CONFIRM) |
 | `resolve_incident_evidence_refs` | Map `EV-…` / uuid cites → evidence UUIDs on an incident |
+| `diagnose_incident_command` | SYSTEM gate: mark LEADING + `INVESTIGATING→DIAGNOSED` (H5); AI denied |
+
+`transition_incident_command(..., DIAGNOSED)` raises `DiagnosedGateError` unless
+`via_diagnose_gate=True` (only set by `diagnose_incident_command`).
 
 ## Adapter boundary
 

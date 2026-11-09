@@ -106,5 +106,24 @@ propose_hypothesis_command(
 
 - Multiple `PROPOSED` (OPEN) hypotheses per incident are allowed
 - Missing / cross-incident EV citations → `MissingEvidenceCitationError` (no row)
-- `rank_hypotheses_command` sets ranks only; LEADING / CONFIRM / CAUSED_BY are out of scope (H5/H10)
+- `rank_hypotheses_command` sets ranks only; CONFIRM / CAUSED_BY are out of scope (H10)
 - Broker `hypothesis_propose` stays `executed=False` — it does not INSERT
+
+## SYSTEM LEADING + DIAGNOSED gate (H5)
+
+```python
+from incidentpilot_shared import diagnose_incident_command
+
+diagnose_incident_command(
+    conn,
+    incident_id=incident_id,
+    hypothesis_id=hypothesis_id,  # must be PROPOSED with citations
+    expected_revision=revision,
+    actor="system",  # or incident-workflow; AI sandbox denied
+)
+```
+
+- Persists `status=LEADING` + `leading_at`
+- Transitions incident to `DIAGNOSED` (revision bump + timeline/outbox)
+- Free-form `transition_incident_command(..., DIAGNOSED)` is rejected
+- Temporal activity: `apply_diagnosed_gate` on the general worker

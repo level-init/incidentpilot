@@ -69,6 +69,9 @@ def test_api_and_worker_share_same_command_callables() -> None:
     assert worker_commands.rank_hypotheses_command is (
         shared_commands.rank_hypotheses_command
     )
+    assert api_commands.diagnose_incident_command is (
+        shared_commands.diagnose_incident_command
+    )
 
 
 def test_adapters_have_no_domain_sql() -> None:
@@ -122,6 +125,7 @@ def test_transition_command_applies_revision_check(conn: object) -> None:
             incident_id=incident_id,
             expected_revision=1,
             to_state=IncidentState.DIAGNOSED,
+            via_diagnose_gate=True,
         )
 
 

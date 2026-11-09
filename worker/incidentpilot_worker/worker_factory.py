@@ -19,6 +19,7 @@ from incidentpilot_worker.activities.collector_trigger import (
 )
 from incidentpilot_worker.activities.incident_transitions import (
     advance_incident_state,
+    apply_diagnosed_gate,
     load_incident_snapshot,
 )
 from incidentpilot_worker.workflows.incident_workflow import IncidentWorkflow
@@ -39,6 +40,7 @@ def build_worker(client: Client, task_queue: TaskQueue | str) -> Worker:
                 queue_subscribe_ping,
                 load_incident_snapshot,
                 advance_incident_state,
+                apply_diagnosed_gate,
                 trigger_collect_cycle,
                 kickoff_collect_cycle,
             ],
