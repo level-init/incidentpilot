@@ -790,6 +790,183 @@
         }
       }
     },
+    "/runbooks/search": {
+      "get": {
+        "tags": [
+          "runbooks"
+        ],
+        "summary": "Search Runbooks",
+        "operationId": "search_runbooks_runbooks_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000,
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 5,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "hypothesis_class",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hypothesis Class"
+            }
+          },
+          {
+            "name": "service_key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Service Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunbookHitOut"
+                  },
+                  "title": "Response Search Runbooks Runbooks Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incidents/{incident_id}/runbook-pin": {
+      "post": {
+        "tags": [
+          "runbooks"
+        ],
+        "summary": "Pin Runbook",
+        "operationId": "pin_runbook_incidents__incident_id__runbook_pin_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunbookPinBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunbookPinOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/incidents/{incident_id}/observations": {
       "post": {
         "tags": [
@@ -1476,6 +1653,22 @@
               }
             ],
             "title": "Confidence"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank"
+          },
+          "score_kind": {
+            "type": "string",
+            "title": "Score Kind",
+            "default": "heuristic"
           }
         },
         "type": "object",
@@ -1674,6 +1867,112 @@
           "corrective_actions"
         ],
         "title": "PostmortemOut"
+      },
+      "RunbookHitOut": {
+        "properties": {
+          "runbook_key": {
+            "type": "string",
+            "title": "Runbook Key"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Version Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "hypothesis_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hypothesis Class"
+          },
+          "allowed_action_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Action Types"
+          },
+          "rank": {
+            "type": "number",
+            "title": "Rank"
+          }
+        },
+        "type": "object",
+        "required": [
+          "runbook_key",
+          "title",
+          "version_id",
+          "version",
+          "allowed_action_types",
+          "rank"
+        ],
+        "title": "RunbookHitOut"
+      },
+      "RunbookPinBody": {
+        "properties": {
+          "runbook_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Runbook Version Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "runbook_version_id"
+        ],
+        "title": "RunbookPinBody"
+      },
+      "RunbookPinOut": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "runbook_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Runbook Version Id"
+          },
+          "evidence_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Evidence Id"
+          },
+          "evidence_key": {
+            "type": "string",
+            "title": "Evidence Key"
+          },
+          "allowed_action_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Action Types"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "runbook_version_id",
+          "evidence_id",
+          "evidence_key",
+          "allowed_action_types"
+        ],
+        "title": "RunbookPinOut"
       },
       "TimelineEventOut": {
         "properties": {
