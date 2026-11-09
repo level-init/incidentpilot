@@ -167,6 +167,22 @@ class ConfirmHypothesisResult:
 
 
 @dataclass(frozen=True, slots=True)
+class ProposeActionResult:
+    action_id: UUID
+    incident_id: UUID
+    action_type: str
+    version: int
+    current_version: int
+    status: str
+    parameters: dict[str, Any]
+    runbook_version_id: UUID
+    allowed_action_types: tuple[str, ...]
+    bumped: bool
+    is_reversible: bool
+    reverse_action_type: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class CreateIncidentResult:
     incident_id: UUID
     public_id: str
@@ -210,6 +226,37 @@ class ConfirmActorDenied(PermissionError):
 
 class ConfirmationRulesNotMet(ValueError):
     """Raised when class confirmation rules reject CONFIRM."""
+
+
+class ActionTypeNotAllowed(ValueError):
+    """Raised when ProposeAction type is outside pinned runbook allowlist (I1)."""
+
+
+class PinnedRunbookRequired(ValueError):
+    """Raised when ProposeAction runs without a pinned RunbookVersion."""
+
+
+_KNOWN_ACTION_TYPES = frozenset(
+    {
+        "ROLLBACK_DEPLOYMENT",
+        "RESTART_WORKLOAD",
+        "SCALE_WORKLOAD",
+        "DISABLE_FEATURE_FLAG",
+        "RESTORE_FEATURE_FLAG",
+        "RESTORE_CONFIG",
+        "PAUSE_CONSUMER",
+        "REROUTE_TRAFFIC",
+        "OTHER",
+    }
+)
+
+
+def _default_reversibility(action_type: str) -> tuple[bool, str | None]:
+    if action_type == "ROLLBACK_DEPLOYMENT":
+        return True, "OTHER"
+    if action_type in {"DISABLE_FEATURE_FLAG", "RESTORE_FEATURE_FLAG", "RESTORE_CONFIG"}:
+        return True, "OTHER"
+    return False, None
 
 
 def transition_incident_command(
@@ -1250,9 +1297,7 @@ def diagnose_incident_command(
         )
         row = cur.fetchone()
         if row is None:
-            raise ValueError(
-                f"hypothesis {hypothesis_id} not found on incident {incident_id}"
-            )
+            raise ValueError(f"hypothesis {hypothesis_id} not found on incident {incident_id}")
         status, cite_count = str(row[0]), int(row[1] or 0)
         if status != "PROPOSED":
             raise ValueError(
@@ -1630,9 +1675,7 @@ def record_impact_snapshot_command(
     commit: bool = True,
 ) -> RecordImpactSnapshotResult:
     """SYSTEM insert of an impact snapshot citing Evidence (H7)."""
-    cited = resolve_incident_evidence_refs(
-        conn, incident_id=incident_id, refs=cited_evidence_ids
-    )
+    cited = resolve_incident_evidence_refs(conn, incident_id=incident_id, refs=cited_evidence_ids)
     snapshot_id = uuid4()
     provenance = {
         "writer": "system",
@@ -1690,9 +1733,7 @@ def record_slo_burn_command(
     commit: bool = True,
 ) -> RecordSloBurnResult:
     """SYSTEM insert of an SLO burn observation citing Evidence (H7)."""
-    cited = resolve_incident_evidence_refs(
-        conn, incident_id=incident_id, refs=cited_evidence_ids
-    )
+    cited = resolve_incident_evidence_refs(conn, incident_id=incident_id, refs=cited_evidence_ids)
     burn_id = uuid4()
     provenance = {
         "writer": "system",
@@ -1914,11 +1955,11 @@ def update_incident_severity_command(
             (str(incident_id),),
         )
         burn_row = cur.fetchone()
-        burn_rate = None if burn_row is None else (
-            float(burn_row[0]) if burn_row[0] is not None else None
+        burn_rate = (
+            None if burn_row is None else (float(burn_row[0]) if burn_row[0] is not None else None)
         )
-        budget = None if burn_row is None else (
-            float(burn_row[1]) if burn_row[1] is not None else None
+        budget = (
+            None if burn_row is None else (float(burn_row[1]) if burn_row[1] is not None else None)
         )
 
         # Highest criticality among linked services (default MEDIUM).
@@ -2026,6 +2067,306 @@ def update_incident_severity_command(
     )
 
 
+def propose_action_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    action_type: str,
+    parameters: dict[str, Any] | None = None,
+    target_ref: dict[str, Any] | None = None,
+    action_id: UUID | None = None,
+    hypothesis_id: UUID | None = None,
+    proposed_by: str = "system",
+    rationale: str | None = None,
+    commit: bool = True,
+) -> ProposeActionResult:
+    """Propose a remediation Action bound to the pinned RunbookVersion (I1).
+
+    ``action_type`` must be ∈ pinned ``allowed_action_types``. New parameters on
+    an existing action insert an immutable ``action_version`` and bump
+    ``current_version``. Adapter execute is out of scope.
+    """
+    atype = str(action_type).strip()
+    if atype not in _KNOWN_ACTION_TYPES:
+        raise ValueError(f"invalid action_type: {atype!r}")
+    params = dict(parameters or {})
+    target = dict(target_ref or {})
+    is_rev, reverse_type = _default_reversibility(atype)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT pinned_runbook_version_id
+            FROM domain.incident
+            WHERE id = %s
+            """,
+            (str(incident_id),),
+        )
+        inc = cur.fetchone()
+        if inc is None:
+            raise LookupError(f"incident {incident_id} not found")
+        pinned_id = inc[0]
+        if pinned_id is None:
+            raise PinnedRunbookRequired(
+                "ProposeAction requires a pinned RunbookVersion on the incident"
+            )
+        pinned_uuid = UUID(str(pinned_id))
+        cur.execute(
+            """
+            SELECT allowed_action_types, status
+            FROM domain.runbook_version
+            WHERE id = %s
+            """,
+            (str(pinned_uuid),),
+        )
+        rv = cur.fetchone()
+        if rv is None:
+            raise ValueError(f"pinned runbook_version not found: {pinned_uuid}")
+        if str(rv[1]) != "published":
+            raise ValueError("pinned runbook_version must be published")
+        allowed = tuple(str(x) for x in (rv[0] or []))
+        if atype not in allowed:
+            raise ActionTypeNotAllowed(
+                f"action_type {atype!r} not in pinned allowed_action_types {list(allowed)}"
+            )
+
+    if action_id is not None:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT incident_id, action_type, current_version, status,
+                       is_reversible, reverse_action_type
+                FROM domain.action
+                WHERE id = %s
+                """,
+                (str(action_id),),
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise LookupError(f"action {action_id} not found")
+            if UUID(str(row[0])) != incident_id:
+                raise ValueError("action does not belong to incident")
+            if str(row[1]) != atype:
+                raise ValueError("cannot change action_type on an existing action")
+            current_version = int(row[2])
+            status = str(row[3])
+            is_rev = bool(row[4])
+            reverse_type = str(row[5]) if row[5] is not None else None
+            cur.execute(
+                """
+                SELECT parameters, target_ref
+                FROM domain.action_version
+                WHERE action_id = %s AND version = %s
+                """,
+                (str(action_id), current_version),
+            )
+            ver_row = cur.fetchone()
+            assert ver_row is not None
+            prev_params = (
+                ver_row[0] if isinstance(ver_row[0], dict) else json.loads(ver_row[0] or "{}")
+            )
+            prev_target = (
+                ver_row[1] if isinstance(ver_row[1], dict) else json.loads(ver_row[1] or "{}")
+            )
+            if prev_params == params and prev_target == target:
+                if commit:
+                    conn.commit()
+                return ProposeActionResult(
+                    action_id=action_id,
+                    incident_id=incident_id,
+                    action_type=atype,
+                    version=current_version,
+                    current_version=current_version,
+                    status=status,
+                    parameters=params,
+                    runbook_version_id=pinned_uuid,
+                    allowed_action_types=allowed,
+                    bumped=False,
+                    is_reversible=is_rev,
+                    reverse_action_type=reverse_type,
+                )
+            new_version = current_version + 1
+            cur.execute(
+                """
+                INSERT INTO domain.action_version (
+                    action_id, version, action_type, parameters, target_ref,
+                    is_reversible, reverse_action_type, proposed_by, provenance
+                ) VALUES (
+                    %s, %s, %s, %s::jsonb, %s::jsonb,
+                    %s, %s, %s, %s::jsonb
+                )
+                """,
+                (
+                    str(action_id),
+                    new_version,
+                    atype,
+                    json.dumps(params),
+                    json.dumps(target),
+                    is_rev,
+                    reverse_type,
+                    proposed_by,
+                    json.dumps(
+                        {
+                            "writer": "system",
+                            "source": "propose_action",
+                            "runbook_version_id": str(pinned_uuid),
+                            "rationale": rationale,
+                            "bumped_from": current_version,
+                        }
+                    ),
+                ),
+            )
+            cur.execute(
+                """
+                UPDATE domain.action
+                SET current_version = %s,
+                    status = 'PROPOSED',
+                    runbook_version_id = %s,
+                    updated_at = now()
+                WHERE id = %s
+                """,
+                (new_version, str(pinned_uuid), str(action_id)),
+            )
+            cur.execute(
+                """
+                INSERT INTO domain.timeline_event (
+                    incident_id, event_type, summary, actor, payload
+                ) VALUES (
+                    %s, 'ACTION_PROPOSED', %s, %s, %s::jsonb
+                )
+                """,
+                (
+                    str(incident_id),
+                    f"action {action_id} bumped to v{new_version} ({atype})",
+                    proposed_by,
+                    json.dumps(
+                        {
+                            "action_id": str(action_id),
+                            "version": new_version,
+                            "action_type": atype,
+                            "bumped": True,
+                        }
+                    ),
+                ),
+            )
+        if commit:
+            conn.commit()
+        return ProposeActionResult(
+            action_id=action_id,
+            incident_id=incident_id,
+            action_type=atype,
+            version=new_version,
+            current_version=new_version,
+            status="PROPOSED",
+            parameters=params,
+            runbook_version_id=pinned_uuid,
+            allowed_action_types=allowed,
+            bumped=True,
+            is_reversible=is_rev,
+            reverse_action_type=reverse_type,
+        )
+
+    new_id = uuid4()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.action (
+                id, incident_id, action_type, current_version,
+                hypothesis_id, runbook_version_id,
+                is_reversible, reverse_action_type, status, proposed_by, provenance
+            ) VALUES (
+                %s, %s, %s, 1,
+                %s, %s,
+                %s, %s, 'PROPOSED', %s, %s::jsonb
+            )
+            """,
+            (
+                str(new_id),
+                str(incident_id),
+                atype,
+                str(hypothesis_id) if hypothesis_id else None,
+                str(pinned_uuid),
+                is_rev,
+                reverse_type,
+                proposed_by,
+                json.dumps(
+                    {
+                        "writer": "system",
+                        "source": "propose_action",
+                        "runbook_version_id": str(pinned_uuid),
+                        "rationale": rationale,
+                    }
+                ),
+            ),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.action_version (
+                action_id, version, action_type, parameters, target_ref,
+                is_reversible, reverse_action_type, proposed_by, provenance
+            ) VALUES (
+                %s, 1, %s, %s::jsonb, %s::jsonb,
+                %s, %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(new_id),
+                atype,
+                json.dumps(params),
+                json.dumps(target),
+                is_rev,
+                reverse_type,
+                proposed_by,
+                json.dumps(
+                    {
+                        "writer": "system",
+                        "source": "propose_action",
+                        "runbook_version_id": str(pinned_uuid),
+                        "rationale": rationale,
+                    }
+                ),
+            ),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.timeline_event (
+                incident_id, event_type, summary, actor, payload
+            ) VALUES (
+                %s, 'ACTION_PROPOSED', %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                f"action {new_id} proposed ({atype}) v1",
+                proposed_by,
+                json.dumps(
+                    {
+                        "action_id": str(new_id),
+                        "version": 1,
+                        "action_type": atype,
+                        "bumped": False,
+                    }
+                ),
+            ),
+        )
+    if commit:
+        conn.commit()
+    return ProposeActionResult(
+        action_id=new_id,
+        incident_id=incident_id,
+        action_type=atype,
+        version=1,
+        current_version=1,
+        status="PROPOSED",
+        parameters=params,
+        runbook_version_id=pinned_uuid,
+        allowed_action_types=allowed,
+        bumped=False,
+        is_reversible=is_rev,
+        reverse_action_type=reverse_type,
+    )
+
+
 def confirm_hypothesis_command(
     conn: Connection,
     *,
@@ -2040,9 +2381,7 @@ def confirm_hypothesis_command(
     confirms. AI / humans cannot CONFIRM or write CAUSED_BY directly.
     """
     if actor not in _CONFIRM_ACTORS or actor.startswith("ai_"):
-        raise ConfirmActorDenied(
-            f"actor {actor!r} cannot CONFIRM hypothesis (SYSTEM rules only)"
-        )
+        raise ConfirmActorDenied(f"actor {actor!r} cannot CONFIRM hypothesis (SYSTEM rules only)")
 
     from incidentpilot_shared.processors.confirmation import (
         ConfirmationSignals,
@@ -2060,9 +2399,7 @@ def confirm_hypothesis_command(
         )
         hypo = cur.fetchone()
         if hypo is None:
-            raise LookupError(
-                f"hypothesis {hypothesis_id} not found on incident {incident_id}"
-            )
+            raise LookupError(f"hypothesis {hypothesis_id} not found on incident {incident_id}")
         status = str(hypo[0])
         hypo_class = str(hypo[1]) if hypo[1] is not None else None
         cited = list(hypo[2] or [])
@@ -2210,4 +2547,3 @@ def confirm_hypothesis_command(
         quality_rule_id=decision.quality_rule_id,
         inputs=decision.inputs,
     )
-

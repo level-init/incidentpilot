@@ -11,18 +11,23 @@ from psycopg.rows import dict_row
 
 from incidentpilot_api.auth import Principal, get_principal
 from incidentpilot_api.commands import (
+    ActionTypeNotAllowed,
     ConfirmActorDenied,
     ConfirmationRulesNotMet,
+    PinnedRunbookRequired,
     SeverityActorDenied,
     compute_impact_snapshot_command,
     compute_slo_burn_command,
     confirm_hypothesis_command,
+    propose_action_command,
     update_incident_severity_command,
 )
 from incidentpilot_api.db import get_conn
 from incidentpilot_api.rbac import Permission, require_permission
 from incidentpilot_api.schemas import (
     ActionOut,
+    ActionPropose,
+    ActionProposeOut,
     AlertOut,
     ApprovalOut,
     EvidenceOut,
@@ -122,6 +127,56 @@ def list_actions(
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(sql, params)
         return [ActionOut(**row) for row in cur.fetchall()]
+
+
+@router.post(
+    "/incidents/{incident_id}/actions",
+    response_model=ActionProposeOut,
+    status_code=201,
+)
+def propose_action(
+    incident_id: UUID,
+    body: ActionPropose,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> ActionProposeOut:
+    """ProposeAction bound to pinned runbook allowlist (I1)."""
+    require_permission(principal, Permission.INCIDENT_WRITE)
+    try:
+        result = propose_action_command(
+            conn,
+            incident_id=incident_id,
+            action_type=body.action_type,
+            parameters=body.parameters,
+            target_ref=body.target_ref,
+            action_id=body.action_id,
+            hypothesis_id=body.hypothesis_id,
+            proposed_by=principal.actor_id,
+            rationale=body.rationale,
+            commit=True,
+        )
+    except PinnedRunbookRequired as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ActionTypeNotAllowed as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ActionProposeOut(
+        action_id=result.action_id,
+        incident_id=result.incident_id,
+        action_type=result.action_type,
+        version=result.version,
+        current_version=result.current_version,
+        status=result.status,
+        parameters=result.parameters,
+        runbook_version_id=result.runbook_version_id,
+        allowed_action_types=list(result.allowed_action_types),
+        bumped=result.bumped,
+        is_reversible=result.is_reversible,
+        reverse_action_type=result.reverse_action_type,
+    )
 
 
 @router.get("/approvals", response_model=list[ApprovalOut])
