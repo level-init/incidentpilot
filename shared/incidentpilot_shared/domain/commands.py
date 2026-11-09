@@ -89,6 +89,17 @@ class RankHypothesesResult:
 
 
 @dataclass(frozen=True, slots=True)
+class DiagnoseIncidentResult:
+    incident_id: UUID
+    hypothesis_id: UUID
+    leading_at: datetime
+    from_state: str
+    to_state: str
+    previous_revision: int
+    new_revision: int
+
+
+@dataclass(frozen=True, slots=True)
 class CreateIncidentResult:
     incident_id: UUID
     public_id: str
@@ -106,6 +117,17 @@ class CorrelateAlertResult:
 CORRELATION_WINDOW_MINUTES = 30
 _TERMINAL_INCIDENT_STATES = frozenset({"RESOLVED", "CLOSED", "POSTMORTEM"})
 
+# H5: DIAGNOSED is a SYSTEM gate — not free-form TransitionIncident.
+_DIAGNOSE_ACTORS = frozenset({"system", "incident-workflow"})
+
+
+class DiagnosedGateError(PermissionError):
+    """Raised when DIAGNOSED is requested outside ``diagnose_incident_command``."""
+
+
+class DiagnoseActorDenied(PermissionError):
+    """Raised when a non-SYSTEM actor attempts the LEADING + DIAGNOSED gate."""
+
 
 def transition_incident_command(
     conn: Connection,
@@ -115,14 +137,24 @@ def transition_incident_command(
     to_state: IncidentState | str,
     actor: str = "system",
     commit: bool = True,
+    via_diagnose_gate: bool = False,
 ) -> TransitionResult:
-    """Transition incident with revision guard + outbox + timeline event."""
+    """Transition incident with revision guard + outbox + timeline event.
+
+    ``INVESTIGATING → DIAGNOSED`` is blocked unless ``via_diagnose_gate=True``
+    (H5 — only ``diagnose_incident_command`` may set that flag).
+    """
+    target = IncidentState(to_state) if not isinstance(to_state, IncidentState) else to_state
+    if target is IncidentState.DIAGNOSED and not via_diagnose_gate:
+        raise DiagnosedGateError(
+            "DIAGNOSED is only allowed via diagnose_incident_command (SYSTEM gate)"
+        )
     uow = UnitOfWork(conn, requires_outbox=True)
     result = apply_transition(
         conn,
         incident_id=incident_id,
         expected_revision=expected_revision,
-        to_state=to_state,
+        to_state=target,
     )
     with conn.cursor() as cur:
         cur.execute(
@@ -1078,4 +1110,126 @@ def rank_hypotheses_command(
     if commit:
         conn.commit()
     return RankHypothesesResult(incident_id=incident_id, ranked=tuple(results))
+
+
+def diagnose_incident_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    hypothesis_id: UUID,
+    expected_revision: int,
+    actor: str = "system",
+    commit: bool = True,
+) -> DiagnoseIncidentResult:
+    """SYSTEM gate: mark hypothesis LEADING and transition to DIAGNOSED (H5).
+
+    AI sandbox / non-SYSTEM actors are denied. Generic
+    ``transition_incident_command(..., DIAGNOSED)`` is also denied unless it
+    passes ``via_diagnose_gate=True`` (only this command sets that).
+    """
+    if actor not in _DIAGNOSE_ACTORS or actor.startswith("ai_"):
+        raise DiagnoseActorDenied(
+            f"actor {actor!r} cannot apply LEADING + DIAGNOSED (SYSTEM gate only)"
+        )
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT status, cardinality(cited_evidence_ids)
+            FROM domain.hypothesis
+            WHERE id = %s AND incident_id = %s
+            """,
+            (str(hypothesis_id), str(incident_id)),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise ValueError(
+                f"hypothesis {hypothesis_id} not found on incident {incident_id}"
+            )
+        status, cite_count = str(row[0]), int(row[1] or 0)
+        if status != "PROPOSED":
+            raise ValueError(
+                f"hypothesis {hypothesis_id} status must be PROPOSED to become LEADING "
+                f"(got {status})"
+            )
+        if cite_count < 1:
+            raise ValueError("LEADING hypothesis requires at least one evidence citation")
+
+        # Demote any prior LEADING (rare re-diagnose) for audit clarity.
+        cur.execute(
+            """
+            UPDATE domain.hypothesis
+            SET status = 'SUPERSEDED',
+                updated_at = now(),
+                provenance = provenance || %s::jsonb
+            WHERE incident_id = %s
+              AND status = 'LEADING'
+            """,
+            (
+                json.dumps({"writer": "system", "source": "hypothesis_leading_supersede"}),
+                str(incident_id),
+            ),
+        )
+        cur.execute(
+            """
+            UPDATE domain.hypothesis
+            SET status = 'LEADING',
+                leading_at = now(),
+                updated_at = now(),
+                provenance = provenance || %s::jsonb
+            WHERE id = %s
+              AND incident_id = %s
+            RETURNING leading_at
+            """,
+            (
+                json.dumps(
+                    {
+                        "writer": "system",
+                        "source": "hypothesis_leading",
+                        "score_kind": "heuristic",
+                    }
+                ),
+                str(hypothesis_id),
+                str(incident_id),
+            ),
+        )
+        leading_row = cur.fetchone()
+        assert leading_row is not None
+        leading_at = leading_row[0]
+        cur.execute(
+            """
+            INSERT INTO domain.timeline_event (
+                incident_id, event_type, summary, actor, payload
+            ) VALUES (
+                %s, 'HYPOTHESIS_LEADING', %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                f"hypothesis {hypothesis_id} designated LEADING",
+                actor,
+                json.dumps({"hypothesis_id": str(hypothesis_id)}),
+            ),
+        )
+
+    transition = transition_incident_command(
+        conn,
+        incident_id=incident_id,
+        expected_revision=expected_revision,
+        to_state=IncidentState.DIAGNOSED,
+        actor=actor,
+        commit=False,
+        via_diagnose_gate=True,
+    )
+    if commit:
+        conn.commit()
+    return DiagnoseIncidentResult(
+        incident_id=incident_id,
+        hypothesis_id=hypothesis_id,
+        leading_at=leading_at,
+        from_state=transition.from_state.value,
+        to_state=transition.to_state.value,
+        previous_revision=transition.previous_revision,
+        new_revision=transition.new_revision,
+    )
 

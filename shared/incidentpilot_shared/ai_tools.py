@@ -61,6 +61,13 @@ DENIED_TOOL_NAMES: Final[frozenset[str]] = frozenset(
         "evidence_append",
         "append_evidence",
         "produce_evidence",
+        # H5: DIAGNOSED / LEADING are SYSTEM gates — never AI tools.
+        "incident_transition",
+        "transition_incident",
+        "mark_leading",
+        "hypothesis_leading",
+        "diagnose_incident",
+        "apply_diagnosed_gate",
     }
 )
 

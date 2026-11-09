@@ -18,7 +18,12 @@ from incidentpilot_shared.domain.transitions import (
     IncidentState,
     StaleRevisionError,
 )
-from incidentpilot_worker.commands import transition_incident_command
+from incidentpilot_worker.commands import (
+    DiagnoseActorDenied,
+    DiagnosedGateError,
+    diagnose_incident_command,
+    transition_incident_command,
+)
 from incidentpilot_worker.db import connect
 
 # Early closed-loop path for IncidentWorkflow (D2).
@@ -30,6 +35,7 @@ _EARLY_PATH: tuple[IncidentState, ...] = (
 
 STALE_REVISION_ERROR_TYPE = "StaleRevision"
 ILLEGAL_TRANSITION_ERROR_TYPE = "IllegalTransition"
+DIAGNOSED_GATE_ERROR_TYPE = "DiagnosedGateDenied"
 
 
 def _rank(state: IncidentState) -> int:
@@ -138,6 +144,81 @@ def advance_incident_state(
             "from_state": result.from_state.value,
             "to_state": result.to_state.value,
             "revision": result.new_revision,
+            "skipped": False,
+        }
+
+
+@activity.defn(name="apply_diagnosed_gate")
+def apply_diagnosed_gate(
+    incident_id: str,
+    hypothesis_id: str,
+    expected_revision: int,
+) -> dict[str, Any]:
+    """H5 SYSTEM gate: LEADING + DIAGNOSED (never AI authority)."""
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT state, incident_revision
+                FROM domain.incident
+                WHERE id = %s
+                """,
+                (incident_id,),
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise LookupError(f"incident not found: {incident_id}")
+            current = IncidentState(row[0])
+            revision = int(row[1])
+
+        if current is IncidentState.DIAGNOSED:
+            return {
+                "incident_id": incident_id,
+                "hypothesis_id": hypothesis_id,
+                "state": current.value,
+                "revision": revision,
+                "skipped": True,
+            }
+
+        if revision != expected_revision:
+            _raise_stale(
+                StaleRevisionError(
+                    incident_id=UUID(incident_id),
+                    expected_revision=expected_revision,
+                    actual_revision=revision,
+                )
+            )
+
+        try:
+            result = diagnose_incident_command(
+                conn,
+                incident_id=UUID(incident_id),
+                hypothesis_id=UUID(hypothesis_id),
+                expected_revision=expected_revision,
+                actor="incident-workflow",
+                commit=True,
+            )
+        except StaleRevisionError as exc:
+            _raise_stale(exc)
+        except IllegalTransitionError as exc:
+            raise ApplicationError(
+                str(exc),
+                type=ILLEGAL_TRANSITION_ERROR_TYPE,
+                non_retryable=True,
+            ) from exc
+        except (DiagnoseActorDenied, DiagnosedGateError, ValueError) as exc:
+            raise ApplicationError(
+                str(exc),
+                type=DIAGNOSED_GATE_ERROR_TYPE,
+                non_retryable=True,
+            ) from exc
+
+        return {
+            "incident_id": incident_id,
+            "hypothesis_id": str(result.hypothesis_id),
+            "state": result.to_state,
+            "revision": result.new_revision,
+            "leading_at": result.leading_at.isoformat(),
             "skipped": False,
         }
 
