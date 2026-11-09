@@ -103,6 +103,23 @@ class ActionProposeOut(BaseModel):
     reverse_action_type: str | None = None
 
 
+class PolicyEvaluateBody(BaseModel):
+    action_version: int | None = Field(default=None, ge=1)
+    autonomy_level: int = Field(default=2, ge=1, le=3)
+
+
+class PolicyDecisionOut(BaseModel):
+    policy_decision_id: UUID
+    action_id: UUID
+    action_version: int
+    incident_id: UUID
+    decision: str
+    reason: str
+    policy_key: str
+    policy_version: str
+    action_status: str
+
+
 class ApprovalOut(BaseModel):
     id: UUID
     action_id: UUID

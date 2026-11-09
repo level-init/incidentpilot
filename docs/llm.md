@@ -187,6 +187,20 @@ hits = retrieve_historical_assist(conn, query="checkout error rate")
 - AI tool `historical_search` (READ) carries the same disclaimer
 - Citing `HIST-…` in `propose_hypothesis_command` raises `MissingEvidenceCitationError`
 
+## EvaluatePolicy (I2)
+
+```python
+from incidentpilot_shared.domain.commands import evaluate_policy_command
+
+evaluate_policy_command(conn, action_id=…, autonomy_level=2, actor="system")
+# → ALLOW_AUTONOMOUS | REQUIRE_APPROVAL | BLOCK (immutable row)
+```
+
+- SYSTEM-only; AI `POLICY_EVAL` tool remains denied; AI actors raise `PolicyActorDenied`
+- `BLOCK` is absolute (no emergency override); `assert_not_blocked` gates execute paths
+- HTTP: `POST /actions/{id}/policy/evaluate` (always runs as SYSTEM)
+- Autonomy levels 1–3 are inputs here; durable config is I3
+
 ## ProposeAction (I1)
 
 ```python

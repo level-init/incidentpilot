@@ -615,6 +615,83 @@
         }
       }
     },
+    "/actions/{action_id}/policy/evaluate": {
+      "post": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Evaluate Action Policy",
+        "description": "SYSTEM EvaluatePolicy (I2). HTTP triggers SYSTEM \u2014 AI cannot POLICY_EVAL.",
+        "operationId": "evaluate_action_policy_actions__action_id__policy_evaluate_post",
+        "parameters": [
+          {
+            "name": "action_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Action Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PolicyEvaluateBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyDecisionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/approvals": {
       "get": {
         "tags": [
@@ -2731,6 +2808,87 @@
           "expected_revision"
         ],
         "title": "IncidentTransition"
+      },
+      "PolicyDecisionOut": {
+        "properties": {
+          "policy_decision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Policy Decision Id"
+          },
+          "action_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Action Id"
+          },
+          "action_version": {
+            "type": "integer",
+            "title": "Action Version"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "decision": {
+            "type": "string",
+            "title": "Decision"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "policy_key": {
+            "type": "string",
+            "title": "Policy Key"
+          },
+          "policy_version": {
+            "type": "string",
+            "title": "Policy Version"
+          },
+          "action_status": {
+            "type": "string",
+            "title": "Action Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "policy_decision_id",
+          "action_id",
+          "action_version",
+          "incident_id",
+          "decision",
+          "reason",
+          "policy_key",
+          "policy_version",
+          "action_status"
+        ],
+        "title": "PolicyDecisionOut"
+      },
+      "PolicyEvaluateBody": {
+        "properties": {
+          "action_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Version"
+          },
+          "autonomy_level": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Autonomy Level",
+            "default": 2
+          }
+        },
+        "type": "object",
+        "title": "PolicyEvaluateBody"
       },
       "PostmortemOut": {
         "properties": {
