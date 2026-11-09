@@ -9,6 +9,7 @@ from incidentpilot_api.routes import eval as eval_routes
 from incidentpilot_api.routes import (
     evidence,
     health,
+    history,
     human,
     incidents,
     resources,
@@ -34,6 +35,7 @@ app.include_router(incidents.router)
 app.include_router(resources.router)
 app.include_router(evidence.router)
 app.include_router(runbooks.router)
+app.include_router(history.router)
 app.include_router(human.router)
 app.include_router(eval_routes.router)
 app.include_router(webhooks_alerts.router)

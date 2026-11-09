@@ -89,8 +89,8 @@ from incidentpilot_shared.domain import (
     resolve_incident_evidence_refs,
     transition_incident,
     transition_incident_command,
-    update_incident_severity_command,
     try_begin_idempotent,
+    update_incident_severity_command,
     upsert_alert_command,
     upsert_change_command,
 )
@@ -104,6 +104,11 @@ from incidentpilot_shared.evidence_projections import (
     StoredProjectionRef,
     persist_evidence_projection,
     read_evidence_projection_for_llm,
+)
+from incidentpilot_shared.history import (
+    HistoricalHit,
+    historical_searcher_for_broker,
+    retrieve_historical_assist,
 )
 from incidentpilot_shared.hypotheses import (
     clamp_heuristic_score,
@@ -171,6 +176,7 @@ __all__ = [
     "EvidenceProducerDenied",
     "EvidenceProjection",
     "EvidenceUpdated",
+    "HistoricalHit",
     "IllegalTransitionError",
     "StoredProjectionRef",
     "IncidentState",
@@ -225,6 +231,7 @@ __all__ = [
     "ensure_incident_workflow_started",
     "fetch_pending_outbox",
     "heuristic_score_from_signals",
+    "historical_searcher_for_broker",
     "incident_workflow_id",
     "incident_workflow_task_queue",
     "incidentpilot_fingerprint",
@@ -242,6 +249,7 @@ __all__ = [
     "propose_hypothesis_command",
     "publish_runbook_version_command",
     "queues_for_process",
+    "retrieve_historical_assist",
     "retrieve_runbooks",
     "runbook_searcher_for_broker",
     "rank_hypotheses_command",

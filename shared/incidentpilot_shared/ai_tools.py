@@ -100,6 +100,14 @@ class RunbookSearchArgs(_StrictModel):
     limit: int = Field(default=5, ge=1, le=20)
 
 
+class HistoricalSearchArgs(_StrictModel):
+    """Past incidents/postmortems as suggestions only — never Evidence (H9)."""
+
+    incident_id: str
+    query: str = Field(min_length=1, max_length=1000)
+    limit: int = Field(default=5, ge=1, le=20)
+
+
 class HypothesisProposeArgs(_StrictModel):
     """Propose only — SYSTEM persists via ``propose_hypothesis_command`` (H4)."""
 
@@ -160,6 +168,15 @@ def _default_tools() -> dict[str, ToolSpec]:
             capability=ToolCapability.READ,
             description="Search runbooks relevant to the incident.",
             args_model=RunbookSearchArgs,
+        ),
+        ToolSpec(
+            name="historical_search",
+            capability=ToolCapability.READ,
+            description=(
+                "Search past incidents/postmortems as non-authoritative suggestions "
+                "(never Evidence; do not cite HIST- ids as EV facts)."
+            ),
+            args_model=HistoricalSearchArgs,
         ),
         ToolSpec(
             name="hypothesis_propose",

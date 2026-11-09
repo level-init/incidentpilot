@@ -38,6 +38,7 @@ transitions, and outbox rules cannot be bypassed.
 | `record_impact_snapshot_command` / `compute_impact_snapshot_command` | Impact snapshot citing METRIC Evidence (H7) |
 | `record_slo_burn_command` / `compute_slo_burn_command` | SLO burn observation citing METRIC Evidence (H7) |
 | `update_incident_severity_command` | SYSTEM rules: hint + impact/SLO/criticality → `incident.severity` (H8); AI denied |
+| `retrieve_historical_assist` | Past incidents/postmortems as non-Evidence suggestions (H9; not a mutator) |
 
 `transition_incident_command(..., DIAGNOSED)` raises `DiagnosedGateError` unless
 `via_diagnose_gate=True` (only set by `diagnose_incident_command`).
