@@ -74,6 +74,12 @@ DENIED_TOOL_NAMES: Final[frozenset[str]] = frozenset(
         "severity_update",
         "incident_set_severity",
         "update_incident_severity",
+        # H10: CONFIRM / CAUSED_BY are SYSTEM confirmation rules only.
+        "confirm_hypothesis",
+        "hypothesis_confirm",
+        "write_caused_by",
+        "caused_by",
+        "set_caused_by",
     }
 )
 

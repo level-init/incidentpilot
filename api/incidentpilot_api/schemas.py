@@ -137,3 +137,14 @@ class SeverityUpdateOut(BaseModel):
     explanation: str
     quality_rule_id: str
     inputs: dict[str, Any] = Field(default_factory=dict)
+
+
+class HypothesisConfirmOut(BaseModel):
+    incident_id: UUID
+    hypothesis_id: UUID
+    status: str
+    hypothesis_class: str | None = None
+    caused_by_written: bool
+    reason: str
+    quality_rule_id: str
+    inputs: dict[str, Any] = Field(default_factory=dict)
