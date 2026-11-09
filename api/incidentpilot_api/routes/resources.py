@@ -11,8 +11,10 @@ from psycopg.rows import dict_row
 
 from incidentpilot_api.auth import Principal, get_principal
 from incidentpilot_api.commands import (
+    SeverityActorDenied,
     compute_impact_snapshot_command,
     compute_slo_burn_command,
+    update_incident_severity_command,
 )
 from incidentpilot_api.db import get_conn
 from incidentpilot_api.rbac import Permission, require_permission
@@ -24,6 +26,7 @@ from incidentpilot_api.schemas import (
     HypothesisOut,
     ImpactSnapshotOut,
     PostmortemOut,
+    SeverityUpdateOut,
     SloBurnOut,
     TimelineEventOut,
 )
@@ -256,6 +259,39 @@ def compute_slo_burn(
         row = cur.fetchone()
     assert row is not None
     return SloBurnOut(**row)
+
+
+@router.post(
+    "/incidents/{incident_id}/severity/update",
+    response_model=SeverityUpdateOut,
+)
+def update_incident_severity(
+    incident_id: UUID,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> SeverityUpdateOut:
+    """SYSTEM rules recompute incident.severity (H8). HTTP callers trigger SYSTEM."""
+    require_permission(principal, Permission.INCIDENT_WRITE)
+    try:
+        result = update_incident_severity_command(
+            conn,
+            incident_id=incident_id,
+            actor="system",
+            commit=True,
+        )
+    except SeverityActorDenied as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return SeverityUpdateOut(
+        incident_id=result.incident_id,
+        previous_severity=result.previous_severity,
+        severity=result.severity,
+        changed=result.changed,
+        explanation=result.explanation,
+        quality_rule_id=result.quality_rule_id,
+        inputs=result.inputs,
+    )
 
 
 @router.get("/incidents/{incident_id}/postmortem", response_model=PostmortemOut)

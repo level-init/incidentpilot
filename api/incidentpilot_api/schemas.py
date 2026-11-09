@@ -127,3 +127,13 @@ class SloBurnOut(BaseModel):
     observed_at: datetime
     payload: dict[str, Any] = Field(default_factory=dict)
     provenance: dict[str, Any] = Field(default_factory=dict)
+
+
+class SeverityUpdateOut(BaseModel):
+    incident_id: UUID
+    previous_severity: str | None = None
+    severity: str
+    changed: bool
+    explanation: str
+    quality_rule_id: str
+    inputs: dict[str, Any] = Field(default_factory=dict)

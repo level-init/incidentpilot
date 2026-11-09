@@ -68,7 +68,7 @@ Migrations are recorded in `public.schema_migrations`.
 
 | Table | Notes |
 | --- | --- |
-| `domain.service` | Deployable/service identity (`key` + `environment`) |
+| `domain.service` | Deployable/service identity (`key` + `environment` + `criticality` H8) |
 | `domain.incident` | Includes `incident_revision` (optimistic concurrency) |
 | `domain.incident_service` | M:N involvement (`affected` / `suspected` / …) |
 | `domain.alert` | Unique IncidentPilot `fingerprint` |

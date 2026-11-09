@@ -144,6 +144,17 @@ class RecordSloBurnResult:
 
 
 @dataclass(frozen=True, slots=True)
+class UpdateIncidentSeverityResult:
+    incident_id: UUID
+    previous_severity: str | None
+    severity: str
+    changed: bool
+    explanation: str
+    quality_rule_id: str
+    inputs: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
 class CreateIncidentResult:
     incident_id: UUID
     public_id: str
@@ -163,6 +174,8 @@ _TERMINAL_INCIDENT_STATES = frozenset({"RESOLVED", "CLOSED", "POSTMORTEM"})
 
 # H5: DIAGNOSED is a SYSTEM gate — not free-form TransitionIncident.
 _DIAGNOSE_ACTORS = frozenset({"system", "incident-workflow"})
+# H8: incident.severity is SYSTEM-rules only (AI explains, never sets).
+_SEVERITY_ACTORS = frozenset({"system", "incident-workflow"})
 
 
 class DiagnosedGateError(PermissionError):
@@ -171,6 +184,10 @@ class DiagnosedGateError(PermissionError):
 
 class DiagnoseActorDenied(PermissionError):
     """Raised when a non-SYSTEM actor attempts the LEADING + DIAGNOSED gate."""
+
+
+class SeverityActorDenied(PermissionError):
+    """Raised when a non-SYSTEM actor attempts to set incident severity."""
 
 
 def transition_incident_command(
@@ -1767,5 +1784,198 @@ def compute_slo_burn_command(
         payload=estimate.payload,
         quality_rule_id=estimate.quality_rule_id,
         commit=commit,
+    )
+
+
+def update_incident_severity_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    actor: str = "system",
+    commit: bool = True,
+) -> UpdateIncidentSeverityResult:
+    """SYSTEM rules: set ``incident.severity`` from hint + impact/SLO/criticality (H8).
+
+    AI sandbox / non-SYSTEM actors are denied. There is no AI tool to set severity.
+    """
+    if actor not in _SEVERITY_ACTORS or actor.startswith("ai_"):
+        raise SeverityActorDenied(
+            f"actor {actor!r} cannot set incident severity (SYSTEM rules only)"
+        )
+
+    from incidentpilot_shared.processors.severity import severity_from_signals
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT severity
+            FROM domain.incident
+            WHERE id = %s
+            """,
+            (str(incident_id),),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise LookupError(f"incident {incident_id} not found")
+        previous = None if row[0] is None else str(row[0])
+
+        # Hint: latest firing alert label, else current severity (create-time hint).
+        cur.execute(
+            """
+            SELECT labels
+            FROM domain.alert
+            WHERE incident_id = %s
+            ORDER BY received_at DESC
+            LIMIT 1
+            """,
+            (str(incident_id),),
+        )
+        alert_row = cur.fetchone()
+        hint = previous
+        if alert_row is not None:
+            raw_labels = alert_row[0]
+            if isinstance(raw_labels, dict):
+                labels = raw_labels
+            else:
+                labels = json.loads(raw_labels or "{}")
+            if isinstance(labels, dict):
+                for key in ("severity", "severity_hint", "sev"):
+                    if labels.get(key):
+                        hint = str(labels[key])
+                        break
+
+        cur.execute(
+            """
+            SELECT severity
+            FROM domain.impact_snapshot
+            WHERE incident_id = %s
+            ORDER BY captured_at DESC
+            LIMIT 1
+            """,
+            (str(incident_id),),
+        )
+        snap = cur.fetchone()
+        impact_severity = None if snap is None or snap[0] is None else str(snap[0])
+
+        cur.execute(
+            """
+            SELECT burn_rate, error_budget_remaining
+            FROM domain.slo_burn
+            WHERE incident_id = %s
+            ORDER BY observed_at DESC
+            LIMIT 1
+            """,
+            (str(incident_id),),
+        )
+        burn_row = cur.fetchone()
+        burn_rate = None if burn_row is None else (
+            float(burn_row[0]) if burn_row[0] is not None else None
+        )
+        budget = None if burn_row is None else (
+            float(burn_row[1]) if burn_row[1] is not None else None
+        )
+
+        # Highest criticality among linked services (default MEDIUM).
+        cur.execute(
+            """
+            SELECT COALESCE(MAX(
+                CASE s.criticality
+                    WHEN 'CRITICAL' THEN 3
+                    WHEN 'HIGH' THEN 2
+                    WHEN 'MEDIUM' THEN 1
+                    WHEN 'LOW' THEN 0
+                    ELSE 1
+                END
+            ), 1) AS crit_rank
+            FROM domain.incident_service isv
+            JOIN domain.service s ON s.id = isv.service_id
+            WHERE isv.incident_id = %s
+            """,
+            (str(incident_id),),
+        )
+        crit_row = cur.fetchone()
+        crit_rank = int(crit_row[0]) if crit_row is not None else 1
+        criticality = {3: "CRITICAL", 2: "HIGH", 1: "MEDIUM", 0: "LOW"}[crit_rank]
+
+    decision = severity_from_signals(
+        severity_hint=hint,
+        impact_severity=impact_severity,
+        burn_rate=burn_rate,
+        error_budget_remaining=budget,
+        criticality=criticality,
+    )
+    changed = previous != decision.severity
+
+    with conn.cursor() as cur:
+        if changed:
+            cur.execute(
+                """
+                UPDATE domain.incident
+                SET severity = %s,
+                    updated_at = now()
+                WHERE id = %s
+                """,
+                (decision.severity, str(incident_id)),
+            )
+        cur.execute(
+            """
+            INSERT INTO domain.timeline_event (
+                incident_id, event_type, summary, actor, payload
+            ) VALUES (
+                %s, 'SEVERITY_UPDATE', %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                (
+                    f"severity {previous} → {decision.severity}"
+                    if changed
+                    else f"severity unchanged ({decision.severity})"
+                ),
+                actor,
+                json.dumps(
+                    {
+                        "previous": previous,
+                        "severity": decision.severity,
+                        "changed": changed,
+                        "explanation": decision.explanation,
+                        "quality_rule_id": decision.quality_rule_id,
+                        "inputs": decision.inputs,
+                    }
+                ),
+            ),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.audit_event (
+                incident_id, action, actor, resource_type, resource_id, details
+            ) VALUES (
+                %s, 'incident.severity_update', %s, 'incident', %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                actor,
+                str(incident_id),
+                json.dumps(
+                    {
+                        "previous": previous,
+                        "severity": decision.severity,
+                        "changed": changed,
+                        "quality_rule_id": decision.quality_rule_id,
+                    }
+                ),
+            ),
+        )
+    if commit:
+        conn.commit()
+    return UpdateIncidentSeverityResult(
+        incident_id=incident_id,
+        previous_severity=previous,
+        severity=decision.severity,
+        changed=changed,
+        explanation=decision.explanation,
+        quality_rule_id=decision.quality_rule_id,
+        inputs=decision.inputs,
     )
 

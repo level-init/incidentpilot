@@ -160,3 +160,15 @@ compute_slo_burn_command(conn, incident_id=…)
 - Affected-user / revenue figures are **ranges labeled heuristic** — not a ledger
 - Rows cite METRIC Evidence via `provenance`; query via
   `GET /incidents/{id}/impact-snapshots` and `…/slo-burns`
+
+## Severity updater (H8)
+
+```python
+from incidentpilot_shared.domain.commands import update_incident_severity_command
+
+update_incident_severity_command(conn, incident_id=…, actor="system")
+```
+
+- Deterministic rules (`severity_from_signals.v1`) from alert hint + impact + SLO + service criticality
+- AI may explain only — `set_severity` / `update_severity` tools are denied; AI actors raise `SeverityActorDenied`
+- HTTP: `POST /incidents/{id}/severity/update` (always runs as SYSTEM)

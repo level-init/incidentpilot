@@ -905,6 +905,66 @@
         }
       }
     },
+    "/incidents/{incident_id}/severity/update": {
+      "post": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Update Incident Severity",
+        "description": "SYSTEM rules recompute incident.severity (H8). HTTP callers trigger SYSTEM.",
+        "operationId": "update_incident_severity_incidents__incident_id__severity_update_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeverityUpdateOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/incidents/{incident_id}/postmortem": {
       "get": {
         "tags": [
@@ -2286,6 +2346,56 @@
           "allowed_action_types"
         ],
         "title": "RunbookPinOut"
+      },
+      "SeverityUpdateOut": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "previous_severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Severity"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity"
+          },
+          "changed": {
+            "type": "boolean",
+            "title": "Changed"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "quality_rule_id": {
+            "type": "string",
+            "title": "Quality Rule Id"
+          },
+          "inputs": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Inputs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "severity",
+          "changed",
+          "explanation",
+          "quality_rule_id"
+        ],
+        "title": "SeverityUpdateOut"
       },
       "SloBurnOut": {
         "properties": {
