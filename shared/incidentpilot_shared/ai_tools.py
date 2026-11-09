@@ -68,8 +68,15 @@ DENIED_TOOL_NAMES: Final[frozenset[str]] = frozenset(
         "hypothesis_leading",
         "diagnose_incident",
         "apply_diagnosed_gate",
+        # H8: severity is SYSTEM rules only — AI may explain, never set.
+        "set_severity",
+        "update_severity",
+        "severity_update",
+        "incident_set_severity",
+        "update_incident_severity",
     }
 )
+
 
 
 class _StrictModel(BaseModel):

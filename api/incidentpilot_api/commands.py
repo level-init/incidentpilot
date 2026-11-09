@@ -22,6 +22,8 @@ from incidentpilot_shared.domain.commands import (
     RecordImpactSnapshotResult,
     RecordSloBurnResult,
     ReserveAttemptResult,
+    SeverityActorDenied,
+    UpdateIncidentSeverityResult,
     UpsertAlertResult,
     UpsertChangeResult,
     append_derived_evidence_command,
@@ -46,6 +48,7 @@ from incidentpilot_shared.domain.commands import (
     reserve_execution_attempt_command,
     resolve_incident_evidence_refs,
     transition_incident_command,
+    update_incident_severity_command,
     upsert_alert_command,
     upsert_change_command,
 )
@@ -69,6 +72,8 @@ __all__ = [
     "RankHypothesesResult",
     "RecordAiInvocationResult",
     "ReserveAttemptResult",
+    "SeverityActorDenied",
+    "UpdateIncidentSeverityResult",
     "UpsertAlertResult",
     "UpsertChangeResult",
     "append_derived_evidence_command",
@@ -93,6 +98,7 @@ __all__ = [
     "reserve_execution_attempt_command",
     "resolve_incident_evidence_refs",
     "transition_incident_command",
+    "update_incident_severity_command",
     "upsert_alert_command",
     "upsert_change_command",
 ]
