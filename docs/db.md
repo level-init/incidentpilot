@@ -88,8 +88,8 @@ Migrations are recorded in `public.schema_migrations`.
 | `domain.execution_attempt` | `RESERVED` before MITIGATING allowed |
 | `domain.validation_result` | Post-remediation validation outcome |
 
-| `domain.impact_snapshot` | Point-in-time impact estimate |
-| `domain.slo_burn` | SLO burn / error-budget observations |
+| `domain.impact_snapshot` | Point-in-time impact estimate (H7; cites Evidence in `provenance`) |
+| `domain.slo_burn` | SLO burn / error-budget observations (H7) |
 | `domain.timeline_event` | Append-only process chronicle |
 | `domain.audit_event` | Append-only privileged ops audit |
 | `domain.ai_invocation` | Minimum AI provenance (H2; S3 packages L3) |

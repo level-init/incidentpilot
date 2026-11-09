@@ -10,6 +10,10 @@ from psycopg import Connection
 from psycopg.rows import dict_row
 
 from incidentpilot_api.auth import Principal, get_principal
+from incidentpilot_api.commands import (
+    compute_impact_snapshot_command,
+    compute_slo_burn_command,
+)
 from incidentpilot_api.db import get_conn
 from incidentpilot_api.rbac import Permission, require_permission
 from incidentpilot_api.schemas import (
@@ -18,7 +22,9 @@ from incidentpilot_api.schemas import (
     ApprovalOut,
     EvidenceOut,
     HypothesisOut,
+    ImpactSnapshotOut,
     PostmortemOut,
+    SloBurnOut,
     TimelineEventOut,
 )
 
@@ -148,6 +154,108 @@ def list_timeline(
             (str(incident_id),),
         )
         return [TimelineEventOut(**row) for row in cur.fetchall()]
+
+
+@router.get(
+    "/incidents/{incident_id}/impact-snapshots",
+    response_model=list[ImpactSnapshotOut],
+)
+def list_impact_snapshots(
+    incident_id: UUID,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> list[ImpactSnapshotOut]:
+    require_permission(principal, Permission.INCIDENT_READ)
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            SELECT id, incident_id, captured_at, severity, customer_impact_summary,
+                   estimated_affected_users, metrics, provenance
+            FROM domain.impact_snapshot
+            WHERE incident_id = %s
+            ORDER BY captured_at DESC
+            LIMIT 100
+            """,
+            (str(incident_id),),
+        )
+        return [ImpactSnapshotOut(**row) for row in cur.fetchall()]
+
+
+@router.post(
+    "/incidents/{incident_id}/impact-snapshots/compute",
+    response_model=ImpactSnapshotOut,
+)
+def compute_impact_snapshot(
+    incident_id: UUID,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> ImpactSnapshotOut:
+    require_permission(principal, Permission.INCIDENT_WRITE)
+    try:
+        result = compute_impact_snapshot_command(conn, incident_id=incident_id, commit=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            SELECT id, incident_id, captured_at, severity, customer_impact_summary,
+                   estimated_affected_users, metrics, provenance
+            FROM domain.impact_snapshot
+            WHERE id = %s
+            """,
+            (str(result.snapshot_id),),
+        )
+        row = cur.fetchone()
+    assert row is not None
+    return ImpactSnapshotOut(**row)
+
+
+@router.get("/incidents/{incident_id}/slo-burns", response_model=list[SloBurnOut])
+def list_slo_burns(
+    incident_id: UUID,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> list[SloBurnOut]:
+    require_permission(principal, Permission.INCIDENT_READ)
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            SELECT id, incident_id, slo_key, window_label, burn_rate,
+                   error_budget_remaining, observed_at, payload, provenance
+            FROM domain.slo_burn
+            WHERE incident_id = %s
+            ORDER BY observed_at DESC
+            LIMIT 100
+            """,
+            (str(incident_id),),
+        )
+        return [SloBurnOut(**row) for row in cur.fetchall()]
+
+
+@router.post("/incidents/{incident_id}/slo-burns/compute", response_model=SloBurnOut)
+def compute_slo_burn(
+    incident_id: UUID,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> SloBurnOut:
+    require_permission(principal, Permission.INCIDENT_WRITE)
+    try:
+        result = compute_slo_burn_command(conn, incident_id=incident_id, commit=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            SELECT id, incident_id, slo_key, window_label, burn_rate,
+                   error_budget_remaining, observed_at, payload, provenance
+            FROM domain.slo_burn
+            WHERE id = %s
+            """,
+            (str(result.slo_burn_id),),
+        )
+        row = cur.fetchone()
+    assert row is not None
+    return SloBurnOut(**row)
 
 
 @router.get("/incidents/{incident_id}/postmortem", response_model=PostmortemOut)
