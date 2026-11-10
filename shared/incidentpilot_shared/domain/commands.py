@@ -1183,6 +1183,151 @@ def append_action_result_evidence_command(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class RecordValidationResultResult:
+    validation_result_id: UUID
+    incident_id: UUID
+    execution_attempt_id: UUID
+    outcome: str
+    inserted: bool
+    incident_state: str | None = None
+    incident_revision: int | None = None
+
+
+def record_validation_result_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    execution_attempt_id: UUID,
+    outcome: str,
+    criteria: dict[str, Any] | None = None,
+    observations: dict[str, Any] | None = None,
+    action_id: UUID | None = None,
+    action_version: int | None = None,
+    provenance: dict[str, Any] | None = None,
+    transition: bool = True,
+    actor: str = "system",
+    commit: bool = True,
+) -> RecordValidationResultResult:
+    """Persist one ValidationResult per execution_attempt (J7).
+
+    Idempotent on ``execution_attempt_id``. Optionally transitions
+    ``VALIDATING → RECOVERED|DEGRADED`` from the outcome (compensation is J8).
+    """
+    allowed = {
+        "RECOVERED",
+        "STILL_DEGRADED",
+        "UNKNOWN",
+        "FAILED_VALIDATION",
+    }
+    if outcome not in allowed:
+        raise ValueError(f"invalid ValidationResult outcome: {outcome!r}")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, outcome FROM domain.validation_result
+            WHERE execution_attempt_id = %s
+            """,
+            (str(execution_attempt_id),),
+        )
+        existing = cur.fetchone()
+        if existing is not None:
+            if commit:
+                conn.commit()
+            return RecordValidationResultResult(
+                validation_result_id=UUID(str(existing[0])),
+                incident_id=incident_id,
+                execution_attempt_id=execution_attempt_id,
+                outcome=str(existing[1]),
+                inserted=False,
+            )
+
+        result_id = uuid4()
+        cur.execute(
+            """
+            INSERT INTO domain.validation_result (
+                id, incident_id, execution_attempt_id, action_id, action_version,
+                outcome, criteria, observations, provenance
+            ) VALUES (
+                %s, %s, %s, %s, %s,
+                %s, %s::jsonb, %s::jsonb, %s::jsonb
+            )
+            """,
+            (
+                str(result_id),
+                str(incident_id),
+                str(execution_attempt_id),
+                str(action_id) if action_id is not None else None,
+                action_version,
+                outcome,
+                json.dumps(criteria or {}),
+                json.dumps(observations or {}),
+                json.dumps(
+                    provenance
+                    or {
+                        "writer": "system",
+                        "source": "validation_window",
+                        "layer": "DETERMINISTIC_DERIVED",
+                    }
+                ),
+            ),
+        )
+
+    incident_state: str | None = None
+    incident_revision: int | None = None
+    if transition:
+        to_state: IncidentState | None = None
+        if outcome == "RECOVERED":
+            to_state = IncidentState.RECOVERED
+        elif outcome in {"STILL_DEGRADED", "FAILED_VALIDATION", "UNKNOWN"}:
+            to_state = IncidentState.DEGRADED
+        if to_state is not None:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT state, incident_revision FROM domain.incident
+                    WHERE id = %s
+                    """,
+                    (str(incident_id),),
+                )
+                row = cur.fetchone()
+                if row is None:
+                    raise LookupError(f"incident {incident_id} not found")
+                current = str(row[0])
+                revision = int(row[1])
+            if current == IncidentState.VALIDATING.value:
+                transitioned = transition_incident_command(
+                    conn,
+                    incident_id=incident_id,
+                    expected_revision=revision,
+                    to_state=to_state,
+                    actor=actor,
+                    commit=False,
+                )
+                incident_state = (
+                    transitioned.to_state.value
+                    if hasattr(transitioned.to_state, "value")
+                    else str(transitioned.to_state)
+                )
+                incident_revision = transitioned.new_revision
+            else:
+                incident_state = current
+                incident_revision = revision
+
+    if commit:
+        conn.commit()
+    return RecordValidationResultResult(
+        validation_result_id=result_id,
+        incident_id=incident_id,
+        execution_attempt_id=execution_attempt_id,
+        outcome=outcome,
+        inserted=True,
+        incident_state=incident_state,
+        incident_revision=incident_revision,
+    )
+
+
 def upsert_alert_command(
     conn: Connection,
     *,

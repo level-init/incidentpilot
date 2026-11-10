@@ -108,7 +108,7 @@ After `INVESTIGATING`, `IncidentWorkflow` can arm three Temporal durable timers
 | --- | --- | --- |
 | `investigation_deadline` | 4h | Bound investigation window (handler stub) |
 | `approval_timeout` | 30m | I5: race vs `approval_decision`; timeout never executes |
-| `validation_window` | 15m | Post-remediation validation wait (J7) |
+| `validation_window` | 15m | Post-remediation validation wait → `handle_validation_window` (J7) |
 
 Timers use `workflow.sleep` and survive worker kill/restart; each name fires
 **once** per arming. Queries: `timers_armed`, `timer_fire_count(name)`.
@@ -126,3 +126,10 @@ for signal `approval_decision` (`ApprovalDecisionSignal`).
 - **I6 harness:** `POST /eval/approvals/{id}/decide` (eval entitlement) calls the same
   domain decide + signals immediately; **reject** runs `handle_approval_rejected`
   → `DIAGNOSED` (replan), never execute.
+
+## Validation wait (J7)
+
+`IncidentWorkflowInput.wait_for_validation=True` + `execution_attempt_id` arms
+`validation_window`, then `handle_validation_window` writes one `ValidationResult`
+(`checkout_recovery.v1`) and transitions `VALIDATING → RECOVERED|DEGRADED`.
+See [docs/validation.md](validation.md).
