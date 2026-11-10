@@ -13,6 +13,9 @@ Smoke: `python -m incidentpilot_worker smoke` (or `make temporal-queue-smoke`).
 
 Outbox dispatcher (D4): `python -m incidentpilot_worker dispatch once`
 
+Slack notifier (K1, BEST_EFFORT): `python -m incidentpilot_worker notify once`
+— holds `SLACK_BOT_TOKEN` when live; never on the AI/general reasoning path.
+
 **Owns:** `IncidentWorkflow` on `incidentpilot-general` (D2 early path),
 transition activities, `trigger_collect_cycle` (G7 — schedules evidence jobs).
 

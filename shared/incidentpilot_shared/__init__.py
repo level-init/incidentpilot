@@ -172,6 +172,11 @@ from incidentpilot_shared.runbooks import (
     retrieve_runbooks,
     runbook_searcher_for_broker,
 )
+from incidentpilot_shared.slack_notify import (
+    AI_FORBIDDEN_SLACK_ENV,
+    SLACK_NOTIFY_EVENT,
+    enqueue_slack_notify,
+)
 from incidentpilot_shared.temporal_queues import (
     ALL_TASK_QUEUES,
     GENERAL_FORBIDDEN_ENV,
@@ -188,6 +193,7 @@ from incidentpilot_shared.tool_scope import (
 __version__ = "0.0.0"
 
 __all__ = [
+    "AI_FORBIDDEN_SLACK_ENV",
     "AI_SANDBOX_IDENTITY",
     "ALL_TASK_QUEUES",
     "ALLOWED_CHANGE_TYPES",
@@ -198,6 +204,7 @@ __all__ = [
     "INCIDENT_WORKFLOW_NAME",
     "QUEUE_CONSUMER_CONTRACTS",
     "REGISTERED_EVIDENCE_PRODUCERS",
+    "SLACK_NOTIFY_EVENT",
     "AiToolBroker",
     "AiToolRegistry",
     "AppendEvidenceResult",
@@ -290,6 +297,7 @@ __all__ = [
     "diagnose_incident_command",
     "enforce_tool_scope",
     "enqueue_outbox",
+    "enqueue_slack_notify",
     "ensure_collect_cycle_started",
     "ensure_incident_workflow_started",
     "fetch_pending_outbox",

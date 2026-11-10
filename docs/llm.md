@@ -59,7 +59,9 @@ Full S3 prompt packages (`artifact_uri`) are L3 / out of scope for H2.
 | `OPENAI_API_KEY` / `LLM_API_KEY` | reserved for vendor adapters |
 
 Keep keys **off** evidence-worker and remediation-worker (same privilege split
-as G7 inverted: reasoning on general, telemetry creds on evidence).
+as G7 inverted: reasoning on general, telemetry creds on evidence). Slack bot
+token is also forbidden on the AI worker (`AI_FORBIDDEN_SLACK_ENV`) — use
+`python -m incidentpilot_worker notify` ([slack.md](slack.md)).
 
 ## AI tool broker (H3)
 

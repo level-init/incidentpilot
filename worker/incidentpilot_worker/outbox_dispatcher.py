@@ -20,8 +20,10 @@ from incidentpilot_shared.domain.outbox import (
     fetch_pending_outbox,
     mark_outbox_published,
     mark_outbox_retry,
+    release_outbox_lease,
 )
 from incidentpilot_shared.incident_workflow import incident_workflow_id
+from incidentpilot_shared.slack_notify import SLACK_NOTIFY_EVENT
 from incidentpilot_shared.temporal_queues import TaskQueue
 from incidentpilot_worker.db import connect
 from incidentpilot_worker.domain_events import DomainEventEnvelope
@@ -92,6 +94,12 @@ async def dispatch_once(
 
     published = 0
     for message in messages:
+        # K1: Slack notifies are delivered by the notify process (dedicated cred).
+        if message.event_type == SLACK_NOTIFY_EVENT:
+            with connect() as conn:
+                release_outbox_lease(conn, message.id)
+                conn.commit()
+            continue
         try:
             await deliver_outbox_signal(client, message)
         except RPCError as exc:

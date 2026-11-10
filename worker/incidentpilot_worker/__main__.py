@@ -40,20 +40,35 @@ async def _run_dispatcher(*, once: bool) -> None:
     await dispatch_loop(client)
 
 
+async def _run_notifier(*, once: bool) -> None:
+    """K1: outbox → Slack (BEST_EFFORT). Holds SLACK_BOT_TOKEN; no LLM keys."""
+    from incidentpilot_worker.slack_notifier import notify_loop, notify_once
+
+    if once:
+        n = await asyncio.to_thread(notify_once)
+        print(f"ok slack notify once: published={n}")
+        return
+    print("starting slack notifier loop", file=sys.stderr)
+    await notify_loop()
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="incidentpilot_worker")
     parser.add_argument(
         "role",
         nargs="?",
         default="general",
-        choices=("general", "evidence", "smoke", "dispatch"),
-        help="general (default), evidence, smoke, or dispatch (outbox→signals)",
+        choices=("general", "evidence", "smoke", "dispatch", "notify"),
+        help=(
+            "general (default), evidence, smoke, dispatch (outbox→signals), "
+            "or notify (outbox→Slack BEST_EFFORT)"
+        ),
     )
     parser.add_argument(
         "smoke_flag",
         nargs="?",
         choices=("smoke", "once"),
-        help="with role general|evidence: smoke; with dispatch: once",
+        help="with role general|evidence: smoke; with dispatch|notify: once",
     )
     args = parser.parse_args(argv)
 
@@ -69,6 +84,10 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.role == "dispatch":
         asyncio.run(_run_dispatcher(once=args.smoke_flag == "once"))
+        return
+
+    if args.role == "notify":
+        asyncio.run(_run_notifier(once=args.smoke_flag == "once"))
         return
 
     queues = _queues_for_role(args.role)
