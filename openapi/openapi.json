@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "IncidentPilot API",
-    "description": "Evidence-driven incident-response control plane HTTP surface. Session identity: Bearer stub tokens (see docs/auth.md); client-supplied actor_id is rejected. GroundTruth requires eval entitlement (C3), separate from ops RBAC. Alertmanager webhooks: /webhooks/alerts/alertmanager (F1\u2013F5). Slack interactions: /webhooks/slack/interactions (K2 HMAC).",
+    "description": "Evidence-driven incident-response control plane HTTP surface. Session identity: Bearer stub tokens (see docs/auth.md); client-supplied actor_id is rejected. GroundTruth requires eval entitlement (C3), separate from ops RBAC. Alertmanager webhooks: /webhooks/alerts/alertmanager (F1\u2013F5). Slack interactions: /webhooks/slack/interactions (K2/K3 HMAC); slash commands: /webhooks/slack/commands (K6).",
     "version": "0.1.0"
   },
   "paths": {
@@ -2268,6 +2268,28 @@
           }
         }
       }
+    },
+    "/webhooks/slack/commands": {
+      "post": {
+        "tags": [
+          "webhooks"
+        ],
+        "summary": "Slack slash commands (/ip \u2026)",
+        "description": "Handle `/ip` slash commands (K6). BEST_EFFORT \u2014 never blocks remediation.\n\nForm body (Slack): ``command``, ``text``, ``user_id``, \u2026",
+        "operationId": "slack_slash_commands_webhooks_slack_commands_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlackSlashResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3910,6 +3932,40 @@
         ],
         "title": "SlackInteractionAccepted",
         "description": "HTTP body for tests + Slack ephemeral ack (``text`` / ``response_type``)."
+      },
+      "SlackSlashResponse": {
+        "properties": {
+          "response_type": {
+            "type": "string",
+            "title": "Response Type",
+            "default": "ephemeral"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "SlackSlashResponse"
       },
       "SloBurnOut": {
         "properties": {

@@ -1,4 +1,4 @@
-"""Slack interactive webhook ingress (K2/K3) — verify, persist, map approvals."""
+"""Slack interactive + slash-command ingress (K2/K3/K6)."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ from incidentpilot_api.temporal import get_temporal_client
 from incidentpilot_api.webhook_auth import new_ingress_id
 from incidentpilot_shared import try_begin_idempotent
 from incidentpilot_shared.slack_approval import map_slack_interaction_to_approval
+from incidentpilot_shared.slack_commands import handle_slash_command, slash_form_to_dict
 from incidentpilot_shared.slack_ingress import persist_slack_interaction_command
 
 router = APIRouter(prefix="/webhooks/slack", tags=["webhooks"])
@@ -174,4 +175,52 @@ async def slack_interactions(
         approval_mapped=mapped.interaction_status == "MAPPED",
         workflow_signaled=mapped.workflow_signaled,
         code=mapped.code,
+    )
+
+
+class SlackSlashResponse(BaseModel):
+    response_type: str = "ephemeral"
+    text: str
+    ok: bool = True
+    code: str | None = None
+
+
+@router.post(
+    "/commands",
+    response_model=SlackSlashResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Slack slash commands (/ip …)",
+)
+async def slack_slash_commands(
+    verified: Annotated[VerifiedSlackBody, Depends(require_slack_signature)],
+) -> SlackSlashResponse | JSONResponse:
+    """Handle `/ip` slash commands (K6). BEST_EFFORT — never blocks remediation.
+
+    Form body (Slack): ``command``, ``text``, ``user_id``, …
+    """
+    try:
+        form = parse_qs(verified.raw.decode("utf-8"), keep_blank_values=True)
+        fields = slash_form_to_dict(form)
+    except Exception:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": "invalid Slack slash form body"},
+        )
+
+    text = fields.get("text") or ""
+    user_id = fields.get("user_id") or "unknown"
+
+    with psycopg.connect(database_url()) as conn:
+        result = handle_slash_command(
+            conn,
+            text=text,
+            slack_user_id=user_id,
+            commit=True,
+        )
+
+    return SlackSlashResponse(
+        response_type=result.response_type,
+        text=result.text,
+        ok=result.ok,
+        code=result.code,
     )
