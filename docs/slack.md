@@ -1,4 +1,4 @@
-# Slack notifier (K1)
+# Slack notifier (K1–K4)
 
 Outbound incident briefs/updates are **BEST_EFFORT**: domain commits first
 (with a transactional outbox row); Slack delivery failures **never** roll back
@@ -46,6 +46,45 @@ curl -s -X POST http://localhost:8000/webhooks/slack/interactions \
   --data-urlencode 'payload={"type":"block_actions","trigger_id":"…"}'
 ```
 
+## Lifecycle thread updates (K4)
+
+Coherent Slack thread across the incident:
+
+| Template | Role |
+| --- | --- |
+| `brief` | Root message (opens thread) |
+| `evidence` | Thread reply — evidence highlight |
+| `status` / `update` | Thread reply — state change |
+| `recovery` | Thread reply — validation / recovery |
+| `postmortem` | Thread reply — postmortem link |
+
+- Root `ts` stored in `domain.slack_incident_thread`
+- Replies resolve `thread_ts` at deliver time if omitted
+- UI deep link: `INCIDENTPILOT_WEB_BASE_URL` + `/incidents/{public_id}`
+  (default `http://localhost:3000`)
+
+```python
+from incidentpilot_shared import enqueue_slack_lifecycle_thread, enqueue_slack_notify
+
+enqueue_slack_lifecycle_thread(
+    conn,
+    incident_id=…,
+    channel="#incidents",
+    public_id="INC-…",
+    title="checkout 5xx",
+    commit=True,
+)
+# then: python -m incidentpilot_worker notify once
+```
+
+### Demo checklist
+
+1. `make migrate` (includes `0017_k4_slack_incident_thread`)
+2. Seed / pick an incident `public_id`
+3. `enqueue_slack_lifecycle_thread(...)` + `notify once`
+4. Confirm Slack (or `FakeSlackNotifier.posts`): one root + four replies with
+   same `thread_ts`, each kind present, UI link in every message
+
 ## Privilege split
 
 | Process | Cred | Role |
@@ -60,38 +99,15 @@ curl -s -X POST http://localhost:8000/webhooks/slack/interactions \
 
 | `event_type` | Payload (high level) | Delivered by |
 | --- | --- | --- |
-| `slack.notify` | `channel`, `template` (`brief`\|`update`), rendered `text`/`blocks`, `side_effect=BEST_EFFORT` | notify process |
+| `slack.notify` | `channel`, `template`, rendered `text`/`blocks`, optional `thread_ts`, `ui_url`, `side_effect=BEST_EFFORT` | notify process |
 
 Temporal outbox dispatch (`dispatch`) **skips** `slack.notify` (releases lease)
 so Slack stays off the signal path.
-
-```python
-from incidentpilot_shared import enqueue_slack_notify
-
-enqueue_slack_notify(
-    conn,
-    incident_id=…,
-    channel="#incidents",
-    template="brief",  # or "update"
-    public_id="INC-…",
-    title="…",
-    state="MITIGATING",
-    summary="Rolling back checkout",
-)
-conn.commit()
-```
 
 ```bash
 python -m incidentpilot_worker notify once
 python -m incidentpilot_worker notify
 ```
-
-## Templates
-
-| Template | Use |
-| --- | --- |
-| `brief` | High-signal incident brief (header + state + summary) |
-| `update` | Status / recovery note |
 
 ## Fault inject
 
@@ -110,3 +126,4 @@ set_fake_slack_notifier(fake)
 | `SLACK_SIGNING_SECRET` | — | **api only** — inbound HMAC (K2) |
 | `SLACK_NOTIFIER` | `fake` | `fake` / `http` |
 | `SLACK_BOT_TOKEN` | — | required for `http`; notify process only |
+| `INCIDENTPILOT_WEB_BASE_URL` | `http://localhost:3000` | UI deep links in templates (K4) |
