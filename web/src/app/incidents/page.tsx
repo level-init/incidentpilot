@@ -182,7 +182,7 @@ export default function IncidentsPage() {
                   <td>
                     <Link
                       className="mono-link"
-                      href={`/incidents/${row.id}`}
+                      href={`/incidents/${row.public_id}`}
                     >
                       {row.public_id}
                     </Link>

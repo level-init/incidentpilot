@@ -35,6 +35,21 @@ curl -s -H 'Authorization: Bearer local-dev' \
 `IncidentOut.service_keys` comes from `domain.incident_service`. Duration is
 computed in the UI from `opened_at` → `resolved_at` / `closed_at` / now.
 
+## Incident detail skeleton (M3)
+
+Open `/incidents/{public_id}` (UUID also works). Header shows incident id,
+live **state**, **severity**, **env** (from linked services), services, and
+duration. Timeline pane loads `GET /incidents/{id}/timeline?order=asc`.
+
+```bash
+curl -s -H 'Authorization: Bearer local-dev' \
+  http://localhost:8000/incidents/<public_id_or_uuid>
+curl -s -H 'Authorization: Bearer local-dev' \
+  'http://localhost:8000/incidents/<uuid>/timeline?order=asc'
+```
+
+Evidence / remediation panes are out of scope (M4 / M5).
+
 ## Nav model
 
 | Section | Who sees it | Routes |

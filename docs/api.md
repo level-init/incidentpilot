@@ -34,8 +34,9 @@ curl -s -X POST -H 'Authorization: Bearer local-dev' \
   http://localhost:8000/incidents
 ```
 
-`GET /incidents` returns `service_keys[]` and accepts `state` / `severity` /
-`service` query filters (M2).
+`GET /incidents` returns `service_keys[]` / `environments[]` and accepts
+`state` / `severity` / `service` query filters (M2). `GET /incidents/{id}`
+accepts UUID or `public_id` (M3 header + Slack deep links).
 
 Dashboard: [web.md](web.md) (`make web-dev`).
 

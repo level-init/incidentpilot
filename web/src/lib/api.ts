@@ -12,6 +12,17 @@ export type Incident = {
   resolved_at: string | null;
   closed_at: string | null;
   service_keys: string[];
+  environments: string[];
+};
+
+export type TimelineEvent = {
+  id: string;
+  incident_id: string;
+  event_type: string;
+  summary: string;
+  actor: string;
+  occurred_at: string;
+  payload: Record<string, unknown>;
 };
 
 export type IncidentListFilters = {
@@ -46,6 +57,27 @@ export async function listIncidents(
     throw new Error((await res.text()) || `list failed (${res.status})`);
   }
   return (await res.json()) as Incident[];
+}
+
+export async function getIncident(ref: string): Promise<Incident> {
+  const res = await apiFetch(`/incidents/${encodeURIComponent(ref)}`);
+  if (!res.ok) {
+    throw new Error((await res.text()) || `incident failed (${res.status})`);
+  }
+  return (await res.json()) as Incident;
+}
+
+export async function listTimeline(
+  incidentId: string,
+  order: "asc" | "desc" = "asc",
+): Promise<TimelineEvent[]> {
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/timeline?order=${order}`,
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `timeline failed (${res.status})`);
+  }
+  return (await res.json()) as TimelineEvent[];
 }
 
 /** Open duration: now − opened_at, or resolved/closed − opened_at when terminal. */
