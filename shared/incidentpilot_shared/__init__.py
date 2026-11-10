@@ -172,6 +172,10 @@ from incidentpilot_shared.runbooks import (
     retrieve_runbooks,
     runbook_searcher_for_broker,
 )
+from incidentpilot_shared.slack_ingress import (
+    PersistSlackInteractionResult,
+    persist_slack_interaction_command,
+)
 from incidentpilot_shared.slack_notify import (
     AI_FORBIDDEN_SLACK_ENV,
     SLACK_NOTIFY_EVENT,
@@ -254,6 +258,7 @@ __all__ = [
     "BindingMismatchError",
     "ExecutionVerificationError",
     "ParamMismatchError",
+    "PersistSlackInteractionResult",
     "UnverifiedExecutionError",
     "VerifiedExecution",
     "ScopeViolationError",
@@ -298,6 +303,7 @@ __all__ = [
     "enforce_tool_scope",
     "enqueue_outbox",
     "enqueue_slack_notify",
+    "persist_slack_interaction_command",
     "ensure_collect_cycle_started",
     "ensure_incident_workflow_started",
     "fetch_pending_outbox",
