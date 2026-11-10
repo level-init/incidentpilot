@@ -17,11 +17,14 @@ from incidentpilot_api.commands import (
     PinnedRunbookRequired,
     PolicyActorDenied,
     PolicyDecisionExists,
+    PostmortemFinalImmutableError,
+    PostmortemNotReadyError,
     SeverityActorDenied,
     activate_policy_version_command,
     compute_impact_snapshot_command,
     compute_slo_burn_command,
     confirm_hypothesis_command,
+    create_postmortem_draft_command,
     evaluate_policy_command,
     list_policy_definitions,
     propose_action_command,
@@ -49,11 +52,14 @@ from incidentpilot_api.schemas import (
     PolicyEvaluateBody,
     PolicyVersionOut,
     PolicyVersionPublish,
+    PostmortemDraftCreate,
+    PostmortemDraftOut,
     PostmortemOut,
     SeverityUpdateOut,
     SloBurnOut,
     TimelineEventOut,
 )
+from incidentpilot_shared.postmortem import UnsupportedClaimError
 
 router = APIRouter(tags=["resources"])
 
@@ -625,6 +631,51 @@ def update_incident_severity(
         explanation=result.explanation,
         quality_rule_id=result.quality_rule_id,
         inputs=result.inputs,
+    )
+
+
+@router.post(
+    "/incidents/{incident_id}/postmortem/draft",
+    response_model=PostmortemDraftOut,
+    status_code=201,
+)
+def create_postmortem_draft(
+    incident_id: UUID,
+    body: PostmortemDraftCreate,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> PostmortemDraftOut:
+    """L4: grounded DRAFT after RESOLVED; uncited claims → 400."""
+    require_permission(principal, Permission.INCIDENT_WRITE)
+    claims = None
+    if body.claims is not None:
+        claims = [c.model_dump() for c in body.claims]
+    try:
+        result = create_postmortem_draft_command(
+            conn,
+            incident_id=incident_id,
+            claims=claims,
+            title=body.title,
+            body_markdown=body.body_markdown,
+            author=principal.actor_id,
+            commit=True,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PostmortemNotReadyError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PostmortemFinalImmutableError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except UnsupportedClaimError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return PostmortemDraftOut(
+        postmortem_id=result.postmortem_id,
+        incident_id=result.incident_id,
+        status=result.status,
+        title=result.title,
+        claim_count=result.claim_count,
+        cited_evidence_ids=list(result.cited_evidence_ids),
+        inserted=result.inserted,
     )
 
 

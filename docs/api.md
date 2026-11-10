@@ -91,6 +91,20 @@ Authorization: Bearer local-dev
 - Cap 200; requires `incident:read`
 - See [timeline.md](timeline.md)
 
+## Postmortem draft (L4)
+
+```http
+POST /incidents/{incident_id}/postmortem/draft
+Authorization: Bearer local-dev
+Content-Type: application/json
+
+{}
+```
+
+- Requires incident **RESOLVED**; uncited/unsupported claims → **400**
+- Auto-generates grounded claims from Evidence/Timeline/Action/ValidationResult
+- See [postmortem.md](postmortem.md)
+
 ## AIInvocation provenance (L3)
 
 ```http

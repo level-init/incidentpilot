@@ -114,6 +114,25 @@ class RecordAiInvocationResult:
 
 
 @dataclass(frozen=True, slots=True)
+class CreatePostmortemDraftResult:
+    postmortem_id: UUID
+    incident_id: UUID
+    status: str
+    title: str
+    claim_count: int
+    cited_evidence_ids: tuple[UUID, ...]
+    inserted: bool
+
+
+class PostmortemNotReadyError(ValueError):
+    """Raised when draft is requested before the incident is RESOLVED (L4)."""
+
+
+class PostmortemFinalImmutableError(ValueError):
+    """Raised when attempting to rewrite a FINAL postmortem."""
+
+
+@dataclass(frozen=True, slots=True)
 class ProposeHypothesisResult:
     hypothesis_id: UUID
     incident_id: UUID
@@ -1975,6 +1994,148 @@ def create_incident_command(
     if commit:
         conn.commit()
     return CreateIncidentResult(incident_id=incident_id, public_id=public_id)
+
+
+def create_postmortem_draft_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    claims: list[dict[str, Any]] | None = None,
+    title: str | None = None,
+    body_markdown: str | None = None,
+    author: str = "system",
+    commit: bool = True,
+) -> CreatePostmortemDraftResult:
+    """Create or refresh a DRAFT postmortem after RESOLVED (L4).
+
+    Claims must cite Evidence / Timeline / Action / ValidationResult on this
+    incident. Uncited or unknown citations raise ``UnsupportedClaimError``.
+    When ``claims`` is omitted, a deterministic draft is generated from SoR.
+    """
+    from incidentpilot_shared.postmortem import (
+        UnsupportedClaimError,
+        build_draft_claims_from_incident,
+        claims_to_json,
+        parse_claim_dict,
+        render_draft_markdown,
+        validate_postmortem_claims,
+    )
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT public_id, title, state
+            FROM domain.incident
+            WHERE id = %s
+            """,
+            (str(incident_id),),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise LookupError(f"incident {incident_id} not found")
+        public_id, incident_title, state = str(row[0]), str(row[1]), str(row[2])
+        if state != IncidentState.RESOLVED.value:
+            raise PostmortemNotReadyError(
+                f"postmortem draft requires RESOLVED (got {state})"
+            )
+        cur.execute(
+            """
+            SELECT id, status FROM domain.postmortem
+            WHERE incident_id = %s
+            """,
+            (str(incident_id),),
+        )
+        existing = cur.fetchone()
+        if existing is not None and str(existing[1]) == "FINAL":
+            raise PostmortemFinalImmutableError(
+                f"postmortem for {incident_id} is FINAL and immutable"
+            )
+
+    if claims is None:
+        parsed = build_draft_claims_from_incident(conn, incident_id=incident_id)
+        if not parsed:
+            raise UnsupportedClaimError(
+                "cannot generate draft: no Evidence/Timeline/Action/ValidationResult "
+                f"on incident {incident_id}"
+            )
+    else:
+        parsed = [parse_claim_dict(c) for c in claims]
+
+    cited_evidence = validate_postmortem_claims(
+        conn, incident_id=incident_id, claims=parsed
+    )
+    draft_title = (title or f"Postmortem draft — {public_id}").strip()
+    body = body_markdown or render_draft_markdown(
+        public_id=public_id,
+        title=incident_title,
+        claims=parsed,
+    )
+    provenance = {
+        "writer": author,
+        "source": "postmortem_draft",
+        "layer": "DETERMINISTIC_DERIVED",
+        "claims": claims_to_json(parsed),
+        "quality_rule_id": "postmortem_citations.v1",
+    }
+    postmortem_id = uuid4()
+    inserted = True
+    with conn.cursor() as cur:
+        if existing is not None:
+            postmortem_id = UUID(str(existing[0]))
+            inserted = False
+            cur.execute(
+                """
+                UPDATE domain.postmortem
+                SET title = %s,
+                    body_markdown = %s,
+                    cited_evidence_ids = %s::uuid[],
+                    author = %s,
+                    provenance = %s::jsonb,
+                    status = 'DRAFT',
+                    updated_at = now()
+                WHERE id = %s AND status = 'DRAFT'
+                """,
+                (
+                    draft_title,
+                    body,
+                    [str(u) for u in cited_evidence],
+                    author,
+                    json.dumps(provenance),
+                    str(postmortem_id),
+                ),
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO domain.postmortem (
+                    id, incident_id, status, title, body_markdown,
+                    corrective_actions, cited_evidence_ids, author, provenance
+                ) VALUES (
+                    %s, %s, 'DRAFT', %s, %s,
+                    '[]'::jsonb, %s::uuid[], %s, %s::jsonb
+                )
+                """,
+                (
+                    str(postmortem_id),
+                    str(incident_id),
+                    draft_title,
+                    body,
+                    [str(u) for u in cited_evidence],
+                    author,
+                    json.dumps(provenance),
+                ),
+            )
+    if commit:
+        conn.commit()
+    return CreatePostmortemDraftResult(
+        postmortem_id=postmortem_id,
+        incident_id=incident_id,
+        status="DRAFT",
+        title=draft_title,
+        claim_count=len(parsed),
+        cited_evidence_ids=cited_evidence,
+        inserted=inserted,
+    )
 
 
 def attach_alert_command(

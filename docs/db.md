@@ -97,7 +97,7 @@ Migrations are recorded in `public.schema_migrations`.
 | `domain.slack_interaction` | Verified Slack interactive ingress (K2); `RECEIVED` before HTTP 200 |
 | `domain.slack_incident_thread` | Slack root `thread_ts` per incident (K4 lifecycle replies) |
 | `domain.ai_invocation` | AI provenance (H2) + optional `artifact_uri` S3 package (L3; [llm.md](llm.md)) |
-| `domain.postmortem` | DRAFT/FINAL; `corrective_actions` JSON array |
+| `domain.postmortem` | DRAFT/FINAL; `corrective_actions` JSON array ([postmortem.md](postmortem.md) L4+) |
 
 ## Incident transitions (B5)
 
