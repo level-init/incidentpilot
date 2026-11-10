@@ -15,6 +15,7 @@ from incidentpilot_api.routes import (
     resources,
     runbooks,
     webhooks_alerts,
+    webhooks_slack,
 )
 
 app = FastAPI(
@@ -25,7 +26,9 @@ app = FastAPI(
         "Session identity: Bearer stub tokens (see docs/auth.md); "
         "client-supplied actor_id is rejected. "
         "GroundTruth requires eval entitlement (C3), separate from ops RBAC. "
-        "Alertmanager webhooks: /webhooks/alerts/alertmanager (F1–F5)."
+        "Alertmanager webhooks: /webhooks/alerts/alertmanager (F1–F5). "
+        "Slack interactions: /webhooks/slack/interactions (K2/K3 HMAC); "
+        "slash commands: /webhooks/slack/commands (K6)."
     ),
     dependencies=[Depends(reject_spoofed_identity)],
 )
@@ -39,3 +42,4 @@ app.include_router(history.router)
 app.include_router(human.router)
 app.include_router(eval_routes.router)
 app.include_router(webhooks_alerts.router)
+app.include_router(webhooks_slack.router)

@@ -51,11 +51,18 @@ Process placement is flexible (local: `incidentpilot-worker`). Mapping:
 | --- | --- | --- |
 | `incident.transitioned` | `incident-{aggregate_id}` | `domain_event` |
 | `incident.created` | `incident-{aggregate_id}` | `domain_event` |
+| `approval.decided` | `incident-{…}` | `approval_decision` |
+| `slack.notify` | — | **not** a Temporal signal (K1 notify process) |
 
 ```bash
-python -m incidentpilot_worker dispatch once   # one poll batch
+python -m incidentpilot_worker dispatch once   # one poll batch (Temporal signals)
 python -m incidentpilot_worker dispatch        # loop
+python -m incidentpilot_worker notify once     # Slack BEST_EFFORT (K1)
+python -m incidentpilot_worker notify
 ```
+
+`slack.notify` delivery: [slack.md](slack.md). Temporal `dispatch` releases
+those rows without signaling so Slack creds stay off the AI worker.
 
 Crash mid-flight: row stays `pending` under a visibility lease; a later poll
 re-signals. `IncidentWorkflow.domain_event` ignores duplicate `message_id`s and

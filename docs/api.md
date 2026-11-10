@@ -65,6 +65,33 @@ curl -s -H 'Authorization: Bearer local-dev' \
 
 Past `PolicyDecision` rows keep their stamped `policy_version`; definitions are append-only.
 
+## HUMAN_OBSERVATION (K5)
+
+```bash
+curl -s -X POST -H 'Authorization: Bearer local-dev' \
+  -H 'Content-Type: application/json' \
+  -d '{"summary":"saw elevated errors in checkout"}' \
+  http://localhost:8000/incidents/<id>/observations
+```
+
+- Requires Responder+ (`observation:write`); Viewer → **403**
+- `kind=HUMAN_OBSERVATION`, `producer=session:<actor_id>`
+- `provenance.actor_id` from session only; client `actor_id` → **400**
+- Notes are `truthfulness=human_note` (not absolute truth)
+
+## Slack slash commands (K6)
+
+`POST /webhooks/slack/commands` — HMAC-verified `/ip` ChatOps
+(status/evidence/hypotheses/timeline/impact/approve/reject/escalate/resolve).
+See [slack.md](slack.md). Does **not** block the remediation path.
+
+## Slack interactions (K2)
+
+`POST /webhooks/slack/interactions` — Slack signing-secret HMAC on **api** only.
+Persist `domain.slack_interaction` before **200**, then map approve/reject to
+`ApprovalDecision` (K3; stale versions visible in ephemeral `text`).
+See [slack.md](slack.md).
+
 ## Alertmanager webhook (F1–F5)
 
 Separate ingress (not Slack HMAC): `POST /webhooks/alerts/alertmanager`.

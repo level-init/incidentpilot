@@ -129,6 +129,9 @@ for signal `approval_decision` (`ApprovalDecisionSignal`).
 - **I6 harness:** `POST /eval/approvals/{id}/decide` (eval entitlement) calls the same
   domain decide + signals immediately; **reject** runs `handle_approval_rejected`
   → `DIAGNOSED` (replan), never execute.
+- **K3 Slack:** `POST /webhooks/slack/interactions` maps Block Kit approve/reject to
+  the same decide + immediate signal; stale `action_version` returns visible
+  `STALE_ACTION_VERSION` (no decide).
 
 ## Validation wait (J7)
 

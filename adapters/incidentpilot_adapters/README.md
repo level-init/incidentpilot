@@ -73,3 +73,14 @@ fields / invented Evidence ids are rejected — prose cannot mutate domain.
 Env (general `incidentpilot-worker` only): `LLM_PROVIDER` (default `fake`),
 `LLM_MODEL`, later `OPENAI_API_KEY` / `LLM_API_KEY`. Do **not** put LLM keys on
 evidence- or remediation-worker.
+
+## Slack notifier (K1)
+
+| Adapter | Role | Module |
+| --- | --- | --- |
+| `SlackNotifier` / `FakeSlackNotifier` / `HttpSlackNotifier` | Outbound `chat.postMessage` | `incidentpilot_adapters.slack` |
+| `render_incident_*` | brief / evidence / status / recovery / postmortem templates | `incidentpilot_adapters.slack` |
+
+**BEST_EFFORT** via outbox `slack.notify`. Cred (`SLACK_BOT_TOKEN`) belongs on
+`python -m incidentpilot_worker notify` only — **not** in the AI worker env.
+K4 threads replies under `domain.slack_incident_thread`. See [docs/slack.md](../docs/slack.md).

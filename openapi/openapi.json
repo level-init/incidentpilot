@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "IncidentPilot API",
-    "description": "Evidence-driven incident-response control plane HTTP surface. Session identity: Bearer stub tokens (see docs/auth.md); client-supplied actor_id is rejected. GroundTruth requires eval entitlement (C3), separate from ops RBAC. Alertmanager webhooks: /webhooks/alerts/alertmanager (F1\u2013F5).",
+    "description": "Evidence-driven incident-response control plane HTTP surface. Session identity: Bearer stub tokens (see docs/auth.md); client-supplied actor_id is rejected. GroundTruth requires eval entitlement (C3), separate from ops RBAC. Alertmanager webhooks: /webhooks/alerts/alertmanager (F1\u2013F5). Slack interactions: /webhooks/slack/interactions (K2/K3 HMAC); slash commands: /webhooks/slack/commands (K6).",
     "version": "0.1.0"
   },
   "paths": {
@@ -1890,8 +1890,8 @@
         "tags": [
           "human"
         ],
-        "summary": "Create Human Observation",
-        "description": "HUMAN_OBSERVATION evidence \u2014 actor_id from session, never from body.",
+        "summary": "Create HUMAN_OBSERVATION evidence (session actor)",
+        "description": "HUMAN_OBSERVATION evidence \u2014 actor_id from session only (K5).\n\nNotes are human observations, not absolute truth. Provenance stamps\n``truthfulness=human_note``. Client-supplied ``actor_id`` is rejected by\nglobal spoof middleware (C1).",
         "operationId": "create_human_observation_incidents__incident_id__observations_post",
         "parameters": [
           {
@@ -2240,6 +2240,50 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/slack/interactions": {
+      "post": {
+        "tags": [
+          "webhooks"
+        ],
+        "summary": "Slack interactive component ingress",
+        "description": "Verify Slack signature, persist interaction, map approve/reject (K3).\n\nInvalid signatures never reach persistence (401). Valid payloads are written\nto ``domain.slack_interaction`` **before** the 200 response. Stale action\nversions return a visible ``STALE_ACTION_VERSION`` message (still HTTP 200\nso Slack shows the ephemeral text).",
+        "operationId": "slack_interactions_webhooks_slack_interactions_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlackInteractionAccepted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/slack/commands": {
+      "post": {
+        "tags": [
+          "webhooks"
+        ],
+        "summary": "Slack slash commands (/ip \u2026)",
+        "description": "Handle `/ip` slash commands (K6). BEST_EFFORT \u2014 never blocks remediation.\n\nForm body (Slack): ``command``, ``text``, ``user_id``, \u2026",
+        "operationId": "slack_slash_commands_webhooks_slack_commands_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlackSlashResponse"
                 }
               }
             }
@@ -3808,6 +3852,120 @@
           "quality_rule_id"
         ],
         "title": "SeverityUpdateOut"
+      },
+      "SlackInteractionAccepted": {
+        "properties": {
+          "response_type": {
+            "type": "string",
+            "title": "Response Type",
+            "default": "ephemeral"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Visible Slack UX message"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "accepted | duplicate | mapped | stale | failed"
+          },
+          "ingress_id": {
+            "type": "string",
+            "title": "Ingress Id"
+          },
+          "interaction_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interaction Id"
+          },
+          "idempotent": {
+            "type": "boolean",
+            "title": "Idempotent",
+            "default": false
+          },
+          "interaction_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interaction Type"
+          },
+          "approval_mapped": {
+            "type": "boolean",
+            "title": "Approval Mapped",
+            "default": false
+          },
+          "workflow_signaled": {
+            "type": "boolean",
+            "title": "Workflow Signaled",
+            "default": false
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "status",
+          "ingress_id"
+        ],
+        "title": "SlackInteractionAccepted",
+        "description": "HTTP body for tests + Slack ephemeral ack (``text`` / ``response_type``)."
+      },
+      "SlackSlashResponse": {
+        "properties": {
+          "response_type": {
+            "type": "string",
+            "title": "Response Type",
+            "default": "ephemeral"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "SlackSlashResponse"
       },
       "SloBurnOut": {
         "properties": {
