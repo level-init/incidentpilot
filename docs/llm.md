@@ -266,6 +266,26 @@ verified, result = verify_reconcile_and_execute(
 - `UNKNOWN` / `PARTIAL` → `BlindRetryForbidden` (no blind full retry)
 - Params: `deployment` + `revision` (SoR); sim only — K8s RBAC is J11
 
+## RESTART_WORKLOAD + SCALE_WORKLOAD (J3)
+
+```python
+from incidentpilot_adapters.remediation import (
+    SimWorkloadWorld, SimRestartAdapter, SimScaleAdapter,
+)
+from incidentpilot_remediation.execute import verify_reconcile_and_execute
+
+world = SimWorkloadWorld()
+world.seed("checkout-api", generation=1, replicas=2)
+verify_reconcile_and_execute(conn, SimRestartAdapter(world), attempt_id=…,
+                              parameters={"workload": "checkout-api"})
+verify_reconcile_and_execute(conn, SimScaleAdapter(world), attempt_id=…,
+                              parameters={"workload": "checkout-api", "replicas": 4})
+```
+
+- Same reconcile contract as J2 (`NOT_APPLIED`/`APPLIED`/`PARTIAL`/`UNKNOWN`)
+- Restart bumps generation; scale sets desired replicas; attempt_id is idempotency key
+- Lost-ACK retry skips re-mutate; `UNKNOWN` → `BlindRetryForbidden`
+
 ## ProposeAction (I1)
 
 ```python
