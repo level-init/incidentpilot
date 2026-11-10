@@ -27,6 +27,56 @@
         }
       }
     },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Current session principal (ops role + eval flag)",
+        "description": "Return the authenticated principal. No login endpoint \u2014 Bearer only.",
+        "operationId": "auth_me_auth_me_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/incidents": {
       "get": {
         "tags": [
@@ -4604,6 +4654,46 @@
           "allowed_action_types"
         ],
         "title": "RunbookPinOut"
+      },
+      "SessionOut": {
+        "properties": {
+          "actor_id": {
+            "type": "string",
+            "title": "Actor Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "auth_mode": {
+            "type": "string",
+            "title": "Auth Mode"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "eval_entitled": {
+            "type": "boolean",
+            "title": "Eval Entitled",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "actor_id",
+          "role",
+          "auth_mode"
+        ],
+        "title": "SessionOut",
+        "description": "Authenticated principal from Bearer (C1/C2) \u2014 used by the web shell."
       },
       "SeverityUpdateOut": {
         "properties": {

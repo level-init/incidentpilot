@@ -14,6 +14,16 @@ class HealthResponse(BaseModel):
     service: str = "incidentpilot-api"
 
 
+class SessionOut(BaseModel):
+    """Authenticated principal from Bearer (C1/C2) — used by the web shell."""
+
+    actor_id: str
+    role: str
+    auth_mode: str
+    email: str | None = None
+    eval_entitled: bool = False
+
+
 class IncidentCreate(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     severity: str | None = None

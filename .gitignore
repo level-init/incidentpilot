@@ -14,6 +14,7 @@ build/
 .env
 .env.*
 !.env.example
+!web/.env.example
 
 # IDE / OS
 .idea/
@@ -24,3 +25,10 @@ build/
 # Coverage
 .coverage
 htmlcov/
+
+# Node / Next.js (web/)
+node_modules/
+web/node_modules/
+web/.next/
+web/out/
+web/.env.local
