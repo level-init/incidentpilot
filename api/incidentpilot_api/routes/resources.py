@@ -37,6 +37,7 @@ from incidentpilot_api.schemas import (
     ActionProposeOut,
     AlertOut,
     ApprovalOut,
+    AuditEventOut,
     AutonomyConfigOut,
     AutonomyConfigUpsert,
     EvidenceOut,
@@ -277,6 +278,7 @@ def upsert_autonomy_config(
             environment=body.environment,
             severity=body.severity,
             notes=body.notes,
+            actor=principal.actor_id,
             commit=True,
         )
     except ValueError as exc:
@@ -423,6 +425,34 @@ def list_timeline(
             (str(incident_id),),
         )
         return [TimelineEventOut(**row) for row in cur.fetchall()]
+
+
+@router.get("/incidents/{incident_id}/audit", response_model=list[AuditEventOut])
+def list_audit(
+    incident_id: UUID,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+    order: Literal["asc", "desc"] = Query(
+        default="desc",
+        description="Chronological order: asc = oldest first.",
+    ),
+) -> list[AuditEventOut]:
+    """L2: privileged who/what/when trail (not Timeline)."""
+    require_permission(principal, Permission.INCIDENT_READ)
+    order_sql = "ASC" if order == "asc" else "DESC"
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            SELECT id, incident_id, action, actor, resource_type, resource_id,
+                   outcome, occurred_at, details
+            FROM domain.audit_event
+            WHERE incident_id = %s
+            ORDER BY occurred_at {order_sql}, created_at {order_sql}
+            LIMIT 200
+            """,
+            (str(incident_id),),
+        )
+        return [AuditEventOut(**row) for row in cur.fetchall()]
 
 
 @router.get(

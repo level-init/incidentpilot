@@ -185,6 +185,18 @@ class TimelineEventOut(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class AuditEventOut(BaseModel):
+    id: UUID
+    incident_id: UUID | None = None
+    action: str
+    actor: str
+    resource_type: str
+    resource_id: str | None = None
+    outcome: str
+    occurred_at: datetime
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
 class PostmortemOut(BaseModel):
     id: UUID
     incident_id: UUID
