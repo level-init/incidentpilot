@@ -35,6 +35,9 @@ class IncidentWorkflowInput:
     wait_for_timer: str | None = None
     # I5: durable AWAITING_APPROVAL wait (signal vs approval_timeout).
     wait_for_approval: bool = False
+    # J7: durable validation_window then deterministic ValidationResult.
+    wait_for_validation: bool = False
+    execution_attempt_id: str | None = None
 
 
 def incident_workflow_id(incident_id: str | UUID) -> str:

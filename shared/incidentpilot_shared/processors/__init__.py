@@ -33,9 +33,17 @@ from incidentpilot_shared.processors.top_errors import (
     RULE_TOP_ERRORS,
     top_errors,
 )
+from incidentpilot_shared.processors.validation import (
+    ERROR_RATE_MAX,
+    RULE_CHECKOUT_RECOVERY,
+    ValidationCriteriaVerdict,
+    evaluate_checkout_recovery,
+)
 
 __all__ = [
+    "ERROR_RATE_MAX",
     "RULE_BASELINE_COMPARE",
+    "RULE_CHECKOUT_RECOVERY",
     "RULE_CONFIRMATION_V1",
     "RULE_IMPACT_FROM_METRICS",
     "RULE_POLICY_V1",
@@ -48,8 +56,10 @@ __all__ = [
     "PolicyVerdict",
     "SeverityDecision",
     "SloBurnEstimate",
+    "ValidationCriteriaVerdict",
     "assert_not_blocked",
     "baseline_compare",
+    "evaluate_checkout_recovery",
     "evaluate_confirmation_rules",
     "evaluate_policy",
     "impact_from_metrics",

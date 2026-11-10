@@ -87,7 +87,7 @@ Migrations are recorded in `public.schema_migrations`.
 | `domain.policy_active` | Active `(policy_key → version)` pointer (I7) |
 | `domain.approval` | Unique per `(action_id, action_version)`; PENDING→APPROVED/REJECTED→CONSUMED (I4 single-use) |
 | `domain.execution_attempt` | `RESERVED` before MITIGATING allowed |
-| `domain.validation_result` | Post-remediation validation outcome |
+| `domain.validation_result` | Post-remediation validation outcome (J7: ≤1 row per `execution_attempt`) |
 | `domain.autonomy_config` | Levels 1–3 by service/action/env/severity wildcards (I3); default Level 2 |
 
 | `domain.impact_snapshot` | Point-in-time impact estimate (H7; cites Evidence in `provenance`) |

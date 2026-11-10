@@ -26,6 +26,7 @@ from incidentpilot_worker.activities.incident_transitions import (
     apply_diagnosed_gate,
     load_incident_snapshot,
 )
+from incidentpilot_worker.activities.validation_window import handle_validation_window
 from incidentpilot_worker.workflows.incident_workflow import IncidentWorkflow
 
 # Sync (psycopg) activities require a thread pool executor.
@@ -47,6 +48,7 @@ def build_worker(client: Client, task_queue: TaskQueue | str) -> Worker:
                 apply_diagnosed_gate,
                 handle_approval_timeout,
                 handle_approval_rejected,
+                handle_validation_window,
                 trigger_collect_cycle,
                 kickoff_collect_cycle,
             ],

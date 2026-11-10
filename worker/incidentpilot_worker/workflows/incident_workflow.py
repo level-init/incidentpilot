@@ -5,6 +5,7 @@ D4: idempotent domain_event signals from the outbox dispatcher.
 D5: investigation / approval / validation durable timers.
 G6: idempotent EvidenceUpdated signals from CollectCycleWorkflow.
 I5: AWAITING_APPROVAL wait — signal vs approval_timeout; timeout never executes.
+J7: VALIDATING wait — durable validation_window → ValidationResult (one per attempt).
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ with workflow.unsafe.imports_passed_through():
     from incidentpilot_worker.workflows.timers import (
         ALL_TIMER_NAMES,
         TIMER_APPROVAL_TIMEOUT,
+        TIMER_VALIDATION_WINDOW,
         WorkflowTimerConfig,
     )
 
@@ -66,6 +68,9 @@ class IncidentWorkflow:
         self._approval_timed_out: bool = False
         self._approval_wait_result: str | None = None
         self._remediation_executed: bool = False
+        # J7 validation window
+        self._validation_outcome: str | None = None
+        self._validation_result_id: str | None = None
 
     @workflow.signal
     def proceed_after_triaging(self) -> None:
@@ -135,6 +140,15 @@ class IncidentWorkflow:
     def remediation_executed(self) -> bool:
         """I5 guarantee: approval timeout never flips this true."""
         return self._remediation_executed
+
+    @workflow.query
+    def validation_outcome(self) -> str | None:
+        """J7 ValidationResult outcome after validation_window."""
+        return self._validation_outcome
+
+    @workflow.query
+    def validation_result_id(self) -> str | None:
+        return self._validation_result_id
 
     async def _load(self, incident_id: str) -> dict[str, Any]:
         result = await workflow.execute_activity(
@@ -304,6 +318,40 @@ class IncidentWorkflow:
             )
         self._remediation_executed = False
 
+    async def _wait_validation_window(self, timeout: timedelta) -> None:
+        """Durable validation_window sleep — survives worker kill (J7)."""
+        if TIMER_VALIDATION_WINDOW not in self._timers_armed:
+            self._timers_armed.append(TIMER_VALIDATION_WINDOW)
+        await workflow.sleep(timeout)
+        self._timer_fire_counts[TIMER_VALIDATION_WINDOW] = (
+            self._timer_fire_counts.get(TIMER_VALIDATION_WINDOW, 0) + 1
+        )
+        workflow.logger.info(
+            "durable timer fired: %s (J7 validation window)",
+            TIMER_VALIDATION_WINDOW,
+        )
+
+    async def _on_validation_window(
+        self, incident_id: str, execution_attempt_id: str
+    ) -> None:
+        result = await workflow.execute_activity(
+            "handle_validation_window",
+            {"incident_id": incident_id, "execution_attempt_id": execution_attempt_id},
+            result_type=dict[str, Any],
+            start_to_close_timeout=timedelta(seconds=60),
+            retry_policy=RetryPolicy(
+                initial_interval=timedelta(milliseconds=200),
+                maximum_attempts=5,
+                non_retryable_error_types=[STALE_REVISION_ERROR_TYPE],
+            ),
+        )
+        self._validation_outcome = str(result.get("outcome") or "")
+        self._validation_result_id = (
+            str(result["validation_result_id"])
+            if result.get("validation_result_id")
+            else None
+        )
+
     @workflow.run
     async def run(self, input: IncidentWorkflowInput) -> str:
         self._wait_for_domain_event = input.wait_for_domain_event
@@ -342,7 +390,11 @@ class IncidentWorkflow:
 
         timer_config = self._coerce_timer_config(input.timers)
 
-        if timer_config is not None and not input.wait_for_approval:
+        if (
+            timer_config is not None
+            and not input.wait_for_approval
+            and not input.wait_for_validation
+        ):
             if input.wait_for_timer is not None:
                 # Arm all timers in background; wait for the named one (kill-resume).
                 for name, delay in timer_config.as_named_delays():
@@ -370,6 +422,23 @@ class IncidentWorkflow:
                 # I6: reject → replan (DIAGNOSED); never execute.
                 await self._on_approval_rejected(input.incident_id)
             # APPROVED: domain decided; remediation execute is Epic J.
+
+        if input.wait_for_validation:
+            if not input.execution_attempt_id:
+                raise ApplicationError(
+                    "wait_for_validation requires execution_attempt_id",
+                    type="ValidationAttemptRequired",
+                    non_retryable=True,
+                )
+            timeout_seconds = (
+                float(timer_config.validation_window_seconds)
+                if timer_config is not None
+                else 15 * 60.0
+            )
+            await self._wait_validation_window(timedelta(seconds=timeout_seconds))
+            await self._on_validation_window(
+                input.incident_id, str(input.execution_attempt_id)
+            )
 
         final = await self._load(input.incident_id)
         return str(final["state"])
