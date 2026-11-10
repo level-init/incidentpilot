@@ -10,7 +10,10 @@ from uuid import UUID
 from temporalio import activity
 
 from incidentpilot_shared.processors.validation import evaluate_checkout_recovery
-from incidentpilot_worker.commands import record_validation_result_command
+from incidentpilot_worker.commands import (
+    record_validation_result_command,
+    route_validation_outcome_command,
+)
 from incidentpilot_worker.db import connect
 
 
@@ -109,6 +112,13 @@ def handle_validation_window(payload: ValidationWindowInput | dict[str, Any]) ->
             actor="incident-workflow",
             commit=False,
         )
+        routed = route_validation_outcome_command(
+            conn,
+            incident_id=iid,
+            execution_attempt_id=eid,
+            actor="incident-workflow",
+            commit=False,
+        )
         conn.commit()
 
     return {
@@ -117,8 +127,10 @@ def handle_validation_window(payload: ValidationWindowInput | dict[str, Any]) ->
         "validation_result_id": str(recorded.validation_result_id),
         "outcome": recorded.outcome,
         "inserted": recorded.inserted,
-        "incident_state": recorded.incident_state,
-        "incident_revision": recorded.incident_revision,
+        "route": routed.route,
+        "incident_state": routed.to_state,
+        "incident_revision": routed.revision,
+        "route_steps": list(routed.steps),
         "reason": verdict.reason,
         "quality_rule_id": verdict.quality_rule_id,
     }

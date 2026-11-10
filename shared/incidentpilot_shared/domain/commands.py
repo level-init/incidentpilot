@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 
 from incidentpilot_shared.domain.outbox import UnitOfWork
 from incidentpilot_shared.domain.transitions import (
+    IllegalTransitionError,
     IncidentState,
     TransitionResult,
     apply_transition,
@@ -1212,7 +1213,9 @@ def record_validation_result_command(
     """Persist one ValidationResult per execution_attempt (J7).
 
     Idempotent on ``execution_attempt_id``. Optionally transitions
-    ``VALIDATING → RECOVERED|DEGRADED`` from the outcome (compensation is J8).
+    ``VALIDATING → RECOVERED|DEGRADED``; canonical post-validation routing
+    (RESOLVED / replan / stay DEGRADED) is :func:`route_validation_outcome_command`
+    (J8).
     """
     allowed = {
         "RECOVERED",
@@ -1280,7 +1283,7 @@ def record_validation_result_command(
         to_state: IncidentState | None = None
         if outcome == "RECOVERED":
             to_state = IncidentState.RECOVERED
-        elif outcome in {"STILL_DEGRADED", "FAILED_VALIDATION", "UNKNOWN"}:
+        elif outcome in {"STILL_DEGRADED", "UNKNOWN", "FAILED_VALIDATION"}:
             to_state = IncidentState.DEGRADED
         if to_state is not None:
             with conn.cursor() as cur:
@@ -1325,6 +1328,170 @@ def record_validation_result_command(
         inserted=True,
         incident_state=incident_state,
         incident_revision=incident_revision,
+    )
+
+
+# J8 route names (product language). PLANNING_REMEDIATION maps to DIAGNOSED.
+ROUTE_RESOLVED = "RESOLVED"
+ROUTE_PLANNING_REMEDIATION = "PLANNING_REMEDIATION"
+ROUTE_DEGRADED = "DEGRADED"
+
+
+@dataclass(frozen=True, slots=True)
+class RouteValidationOutcomeResult:
+    incident_id: UUID
+    execution_attempt_id: UUID
+    validation_outcome: str
+    route: str
+    from_state: str
+    to_state: str
+    revision: int
+    steps: tuple[str, ...]
+
+
+def _validation_route_for_outcome(outcome: str) -> str:
+    """Map ValidationResult outcome → J8 route name.
+
+    Product aliases: PARTIAL/NO_IMPROVEMENT ← STILL_DEGRADED|UNKNOWN;
+    REGRESSION ← FAILED_VALIDATION. ``PLANNING_REMEDIATION`` is the route
+    name; the incident state used is ``DIAGNOSED`` (Freeze-2).
+    """
+    if outcome == "RECOVERED":
+        return ROUTE_RESOLVED
+    if outcome in {"STILL_DEGRADED", "UNKNOWN"}:
+        return ROUTE_PLANNING_REMEDIATION
+    if outcome == "FAILED_VALIDATION":
+        return ROUTE_DEGRADED
+    raise ValueError(f"no J8 route for ValidationResult outcome {outcome!r}")
+
+
+def route_validation_outcome_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    execution_attempt_id: UUID,
+    actor: str = "system",
+    commit: bool = True,
+) -> RouteValidationOutcomeResult:
+    """Canonical post-validation routing (J8).
+
+    - ``RECOVERED`` → ``RECOVERED`` then ``RESOLVED``
+    - ``PARTIAL`` / ``NO_IMPROVEMENT`` / ``STILL_DEGRADED`` / ``UNKNOWN``
+      → ``DEGRADED`` then ``DIAGNOSED`` (``PLANNING_REMEDIATION``)
+    - ``REGRESSION`` / ``FAILED_VALIDATION`` → ``DEGRADED`` (stay)
+
+    Never takes ``VALIDATING → MITIGATING`` (illegal shortcut).
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT outcome FROM domain.validation_result
+            WHERE execution_attempt_id = %s
+            """,
+            (str(execution_attempt_id),),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise LookupError(
+                f"ValidationResult for attempt {execution_attempt_id} not found"
+            )
+        outcome = str(row[0])
+        cur.execute(
+            """
+            SELECT state, incident_revision FROM domain.incident
+            WHERE id = %s
+            """,
+            (str(incident_id),),
+        )
+        inc = cur.fetchone()
+        if inc is None:
+            raise LookupError(f"incident {incident_id} not found")
+        current = str(inc[0])
+        revision = int(inc[1])
+
+    route = _validation_route_for_outcome(outcome)
+    start_state = current
+    steps: list[str] = []
+
+    def _advance(to: IncidentState) -> None:
+        nonlocal current, revision
+        if current == to.value:
+            return
+        # Defense: never allow the illegal shortcut even if a caller invents it.
+        if current == IncidentState.VALIDATING.value and to is IncidentState.MITIGATING:
+            raise IllegalTransitionError(
+                incident_id=incident_id,
+                from_state=IncidentState.VALIDATING,
+                to_state=IncidentState.MITIGATING,
+            )
+        result = transition_incident_command(
+            conn,
+            incident_id=incident_id,
+            expected_revision=revision,
+            to_state=to,
+            actor=actor,
+            commit=False,
+        )
+        steps.append(f"{current}→{to.value}")
+        current = (
+            result.to_state.value
+            if hasattr(result.to_state, "value")
+            else str(result.to_state)
+        )
+        revision = result.new_revision
+
+    if route == ROUTE_RESOLVED:
+        if current == IncidentState.VALIDATING.value:
+            _advance(IncidentState.RECOVERED)
+        if current == IncidentState.RECOVERED.value:
+            _advance(IncidentState.RESOLVED)
+    elif route == ROUTE_PLANNING_REMEDIATION:
+        if current == IncidentState.VALIDATING.value:
+            _advance(IncidentState.DEGRADED)
+        if current == IncidentState.DEGRADED.value:
+            _advance(IncidentState.DIAGNOSED)
+    elif route == ROUTE_DEGRADED:
+        if current == IncidentState.VALIDATING.value:
+            _advance(IncidentState.DEGRADED)
+        # Already DEGRADED / other: stay; do not replan.
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.timeline_event (
+                incident_id, event_type, summary, actor, payload
+            ) VALUES (
+                %s, 'VALIDATION_ROUTED', %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                f"validation route {route} from outcome {outcome}",
+                actor,
+                json.dumps(
+                    {
+                        "execution_attempt_id": str(execution_attempt_id),
+                        "validation_outcome": outcome,
+                        "route": route,
+                        "from_state": start_state,
+                        "to_state": current,
+                        "steps": steps,
+                    }
+                ),
+            ),
+        )
+
+    if commit:
+        conn.commit()
+    return RouteValidationOutcomeResult(
+        incident_id=incident_id,
+        execution_attempt_id=execution_attempt_id,
+        validation_outcome=outcome,
+        route=route,
+        from_state=start_state,
+        to_state=current,
+        revision=revision,
+        steps=tuple(steps),
     )
 
 

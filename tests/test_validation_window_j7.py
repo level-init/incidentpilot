@@ -175,7 +175,8 @@ async def test_validation_window_recovers(incident_bundle: tuple[uuid.UUID, uuid
                 task_queue=task_queue,
             )
             result = await handle.result()
-            assert result == "RECOVERED"
+            # J8 routes RECOVERED → RESOLVED after ValidationResult.
+            assert result == "RESOLVED"
             assert await handle.query(IncidentWorkflow.validation_outcome) == "RECOVERED"
             assert (
                 await handle.query(
@@ -233,7 +234,7 @@ async def test_validation_window_survives_worker_kill() -> None:
             worker2_task = asyncio.create_task(worker2.run())
             try:
                 result = await asyncio.wait_for(handle.result(), timeout=20)
-                assert result == "RECOVERED"
+                assert result == "RESOLVED"
                 assert await handle.query(IncidentWorkflow.validation_outcome) == "RECOVERED"
                 assert (
                     await handle.query(

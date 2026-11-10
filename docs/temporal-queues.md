@@ -131,5 +131,6 @@ for signal `approval_decision` (`ApprovalDecisionSignal`).
 
 `IncidentWorkflowInput.wait_for_validation=True` + `execution_attempt_id` arms
 `validation_window`, then `handle_validation_window` writes one `ValidationResult`
-(`checkout_recovery.v1`) and transitions `VALIDATING → RECOVERED|DEGRADED`.
+(`checkout_recovery.v1`) and applies J8 routing (`RESOLVED` /
+`PLANNING_REMEDIATION`→`DIAGNOSED` / stay `DEGRADED`).
 See [docs/validation.md](validation.md).
