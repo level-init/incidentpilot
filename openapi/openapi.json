@@ -248,6 +248,7 @@
           "incidents"
         ],
         "summary": "Get Incident",
+        "description": "Resolve by UUID or public_id (Slack deep links use public_id).",
         "operationId": "get_incident_incidents__incident_id__get",
         "parameters": [
           {
@@ -256,7 +257,6 @@
             "required": true,
             "schema": {
               "type": "string",
-              "format": "uuid",
               "title": "Incident Id"
             }
           },
@@ -4117,6 +4117,13 @@
             },
             "type": "array",
             "title": "Service Keys"
+          },
+          "environments": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Environments"
           }
         },
         "type": "object",

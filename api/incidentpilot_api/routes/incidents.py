@@ -32,23 +32,30 @@ _INCIDENT_SELECT = """
 SELECT i.id, i.public_id, i.state, i.title, i.severity, i.incident_revision,
        i.summary, i.opened_at, i.resolved_at, i.closed_at,
        COALESCE(
-         array_agg(s.key ORDER BY s.key) FILTER (WHERE s.key IS NOT NULL),
+         array_agg(DISTINCT s.key) FILTER (WHERE s.key IS NOT NULL),
          '{}'::text[]
-       ) AS service_keys
+       ) AS service_keys,
+       COALESCE(
+         array_agg(DISTINCT s.environment) FILTER (WHERE s.environment IS NOT NULL),
+         '{}'::text[]
+       ) AS environments
 FROM domain.incident i
 LEFT JOIN domain.incident_service isv ON isv.incident_id = i.id
 LEFT JOIN domain.service s ON s.id = isv.service_id
 """
 
 
+def _as_str_list(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value] if value else []
+    return [str(v) for v in list(value)]
+
+
 def _row_to_incident(row: dict[str, object]) -> IncidentOut:
     severity = row["severity"]
     summary = row["summary"]
-    raw_keys = row.get("service_keys") or []
-    if isinstance(raw_keys, str):
-        service_keys = [raw_keys] if raw_keys else []
-    else:
-        service_keys = [str(k) for k in list(raw_keys)]
     return IncidentOut.model_validate(
         {
             "id": row["id"],
@@ -61,9 +68,24 @@ def _row_to_incident(row: dict[str, object]) -> IncidentOut:
             "opened_at": row["opened_at"],
             "resolved_at": row["resolved_at"],
             "closed_at": row["closed_at"],
-            "service_keys": service_keys,
+            "service_keys": _as_str_list(row.get("service_keys")),
+            "environments": sorted(_as_str_list(row.get("environments"))),
         }
     )
+
+
+def _fetch_incident(conn: Connection, *, where_sql: str, param: str) -> IncidentOut | None:
+    sql = f"""
+        {_INCIDENT_SELECT}
+        WHERE {where_sql}
+        GROUP BY i.id
+        """
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(sql, (param,))
+        row = cur.fetchone()
+    if row is None:
+        return None
+    return _row_to_incident(row)
 
 
 @router.get("", response_model=list[IncidentOut])
@@ -124,27 +146,26 @@ def create_incident(
         actor=principal.actor_id,
         commit=True,
     )
-    return get_incident(created.incident_id, principal, conn)
+    return get_incident(str(created.incident_id), principal, conn)
 
 
 @router.get("/{incident_id}", response_model=IncidentOut)
 def get_incident(
-    incident_id: UUID,
+    incident_id: str,
     principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn)],
 ) -> IncidentOut:
+    """Resolve by UUID or public_id (Slack deep links use public_id)."""
     require_permission(principal, Permission.INCIDENT_READ)
-    sql = f"""
-        {_INCIDENT_SELECT}
-        WHERE i.id = %s
-        GROUP BY i.id
-        """
-    with conn.cursor(row_factory=dict_row) as cur:
-        cur.execute(sql, (str(incident_id),))
-        row = cur.fetchone()
-    if row is None:
+    ref = incident_id.strip()
+    try:
+        UUID(ref)
+        found = _fetch_incident(conn, where_sql="i.id = %s", param=ref)
+    except ValueError:
+        found = _fetch_incident(conn, where_sql="i.public_id = %s", param=ref)
+    if found is None:
         raise HTTPException(status_code=404, detail="incident not found")
-    return _row_to_incident(row)
+    return found
 
 
 @router.post("/{incident_id}/transitions", response_model=IncidentOut)
@@ -176,4 +197,4 @@ def transition_incident(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return get_incident(incident_id, principal, conn)
+    return get_incident(str(incident_id), principal, conn)

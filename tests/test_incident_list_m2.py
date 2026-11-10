@@ -66,6 +66,7 @@ def test_list_shows_service_and_filters(client: TestClient) -> None:
     assert body["severity"] == "SEV2"
     assert body["state"] == "DETECTED"
     assert svc in body["service_keys"]
+    assert "local" in body["environments"]
 
     listed = client.get("/incidents", headers=headers)
     assert listed.status_code == 200
@@ -73,6 +74,7 @@ def test_list_shows_service_and_filters(client: TestClient) -> None:
     assert row["severity"] == "SEV2"
     assert row["state"] == "DETECTED"
     assert svc in row["service_keys"]
+    assert "local" in row["environments"]
     assert row["opened_at"]
 
     by_state = client.get("/incidents", headers=headers, params={"state": "DETECTED"})

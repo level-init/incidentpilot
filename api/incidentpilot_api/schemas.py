@@ -48,6 +48,7 @@ class IncidentOut(BaseModel):
     resolved_at: datetime | None
     closed_at: datetime | None
     service_keys: list[str] = Field(default_factory=list)
+    environments: list[str] = Field(default_factory=list)
 
 
 class AlertOut(BaseModel):
