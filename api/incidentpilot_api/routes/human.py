@@ -1,4 +1,4 @@
-"""Human session-bound actions: observations + approval decisions (C1/C2)."""
+"""Human session-bound actions: observations + approval decisions (C1/C2/K5)."""
 
 from __future__ import annotations
 
@@ -15,11 +15,10 @@ from incidentpilot_api.commands import (
     append_evidence_command,
     decide_approval_command,
 )
-from incidentpilot_api.db import get_conn, get_conn_with_permission
+from incidentpilot_api.db import get_conn_with_permission
 from incidentpilot_api.rbac import (
     Permission,
     assert_approval_allowed_by_policy,
-    require_permission,
 )
 from incidentpilot_api.schemas import ApprovalOut, EvidenceOut
 
@@ -39,15 +38,27 @@ class ApprovalDecideBody(BaseModel):
     "/incidents/{incident_id}/observations",
     response_model=EvidenceOut,
     status_code=status.HTTP_201_CREATED,
+    summary="Create HUMAN_OBSERVATION evidence (session actor)",
 )
 def create_human_observation(
     incident_id: UUID,
     body: HumanObservationCreate,
     principal: Annotated[Principal, Depends(get_principal)],
-    conn: Annotated[Connection, Depends(get_conn)],
+    conn: Annotated[
+        Connection, Depends(get_conn_with_permission(Permission.OBSERVATION_WRITE))
+    ],
 ) -> EvidenceOut:
-    """HUMAN_OBSERVATION evidence — actor_id from session, never from body."""
-    require_permission(principal, Permission.OBSERVATION_WRITE)
+    """HUMAN_OBSERVATION evidence — actor_id from session only (K5).
+
+    Notes are human observations, not absolute truth. Provenance stamps
+    ``truthfulness=human_note``. Client-supplied ``actor_id`` is rejected by
+    global spoof middleware (C1).
+    """
+    with conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM domain.incident WHERE id = %s", (str(incident_id),))
+        if cur.fetchone() is None:
+            raise HTTPException(status_code=404, detail="incident not found")
+
     result = append_evidence_command(
         conn,
         incident_id=incident_id,
@@ -60,6 +71,8 @@ def create_human_observation(
             "actor_id": principal.actor_id,
             "auth_mode": principal.auth_mode,
             "source": "HUMAN_OBSERVATION",
+            "truthfulness": "human_note",
+            "absolute_truth": False,
         },
         commit=True,
     )
@@ -82,7 +95,9 @@ def decide_approval(
     approval_id: UUID,
     body: ApprovalDecideBody,
     principal: Annotated[Principal, Depends(get_principal)],
-    conn: Annotated[Connection, Depends(get_conn_with_permission(Permission.APPROVAL_DECIDE))],
+    conn: Annotated[
+        Connection, Depends(get_conn_with_permission(Permission.APPROVAL_DECIDE))
+    ],
 ) -> ApprovalOut:
     """Approval decision — session actor; gated by RBAC + PolicyDecision."""
     if body.status not in {"APPROVED", "REJECTED"}:
