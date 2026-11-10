@@ -70,6 +70,15 @@ class HypothesisOut(BaseModel):
     score_kind: str = "heuristic"
 
 
+class ActionPropose(BaseModel):
+    action_type: str = Field(min_length=1, max_length=128)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    target_ref: dict[str, Any] = Field(default_factory=dict)
+    action_id: UUID | None = None
+    hypothesis_id: UUID | None = None
+    rationale: str | None = None
+
+
 class ActionOut(BaseModel):
     id: UUID
     incident_id: UUID
@@ -77,6 +86,85 @@ class ActionOut(BaseModel):
     status: str
     current_version: int
     is_reversible: bool
+
+
+class ActionProposeOut(BaseModel):
+    action_id: UUID
+    incident_id: UUID
+    action_type: str
+    version: int
+    current_version: int
+    status: str
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    runbook_version_id: UUID
+    allowed_action_types: list[str]
+    bumped: bool
+    is_reversible: bool
+    reverse_action_type: str | None = None
+
+
+class PolicyEvaluateBody(BaseModel):
+    action_version: int | None = Field(default=None, ge=1)
+    # Omit to resolve from domain.autonomy_config (I3).
+    autonomy_level: int | None = Field(default=None, ge=1, le=3)
+
+
+class PolicyDecisionOut(BaseModel):
+    policy_decision_id: UUID
+    action_id: UUID
+    action_version: int
+    incident_id: UUID
+    decision: str
+    reason: str
+    policy_key: str
+    policy_version: str
+    action_status: str
+    autonomy_level: int
+    autonomy_source: str
+
+
+class AutonomyConfigUpsert(BaseModel):
+    autonomy_level: int = Field(ge=1, le=3)
+    service_key: str | None = None
+    action_type: str | None = None
+    environment: str | None = None
+    severity: str | None = None
+    notes: str | None = None
+
+
+class PolicyVersionPublish(BaseModel):
+    body: dict[str, object] = Field(default_factory=dict)
+    notes: str | None = None
+    activate: bool = True
+
+
+class PolicyVersionOut(BaseModel):
+    policy_definition_id: UUID
+    policy_key: str
+    version: int
+    version_label: str
+    body: dict[str, object] = Field(default_factory=dict)
+    notes: str | None = None
+    created_by: str
+    active: bool
+
+
+class PolicyActivateOut(BaseModel):
+    policy_key: str
+    version: int
+    version_label: str
+    activated_by: str
+
+
+class AutonomyConfigOut(BaseModel):
+    config_id: UUID
+    service_key: str | None = None
+    action_type: str | None = None
+    environment: str | None = None
+    severity: str | None = None
+    autonomy_level: int
+    notes: str | None = None
+    inserted: bool | None = None
 
 
 class ApprovalOut(BaseModel):

@@ -33,11 +33,50 @@ class AppendEvidenceResult:
 
 
 @dataclass(frozen=True, slots=True)
+class CreateApprovalResult:
+    approval_id: UUID
+    action_id: UUID
+    action_version: int
+    status: str
+    action_status: str
+    inserted: bool
+
+
+@dataclass(frozen=True, slots=True)
 class ApprovalDecisionResult:
     approval_id: UUID
     status: str
     action_id: UUID
     action_version: int
+    action_status: str
+    decided_by: str | None
+    noop: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class ConsumeApprovalResult:
+    approval_id: UUID
+    action_id: UUID
+    action_version: int
+    status: str
+    noop: bool = False
+
+
+class StaleActionVersion(Exception):
+    """Requested action_version is not authorized by the bound Approval."""
+
+    code = "STALE_ACTION_VERSION"
+
+    def __init__(self, message: str = "STALE_ACTION_VERSION") -> None:
+        super().__init__(message)
+
+
+class ApprovalPolicyRequired(Exception):
+    """Approval create requires REQUIRE_APPROVAL PolicyDecision for that version."""
+
+
+class ApprovalNotConsumable(Exception):
+    """Approval is not in APPROVED (or already CONSUMED) state for consume."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,6 +206,69 @@ class ConfirmHypothesisResult:
 
 
 @dataclass(frozen=True, slots=True)
+class ProposeActionResult:
+    action_id: UUID
+    incident_id: UUID
+    action_type: str
+    version: int
+    current_version: int
+    status: str
+    parameters: dict[str, Any]
+    runbook_version_id: UUID
+    allowed_action_types: tuple[str, ...]
+    bumped: bool
+    is_reversible: bool
+    reverse_action_type: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluatePolicyResult:
+    policy_decision_id: UUID
+    action_id: UUID
+    action_version: int
+    incident_id: UUID
+    decision: str
+    reason: str
+    policy_key: str
+    policy_version: str
+    action_status: str
+    autonomy_level: int
+    autonomy_source: str
+
+
+@dataclass(frozen=True, slots=True)
+class PolicyDefinitionResult:
+    policy_definition_id: UUID
+    policy_key: str
+    version: int
+    version_label: str
+    body: dict[str, Any]
+    notes: str | None
+    created_by: str
+    active: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ActivatePolicyResult:
+    policy_key: str
+    version: int
+    version_label: str
+    activated_by: str
+
+
+@dataclass(frozen=True, slots=True)
+class UpsertAutonomyConfigResult:
+    config_id: UUID
+    service_key: str | None
+    action_type: str | None
+    environment: str | None
+    severity: str | None
+    autonomy_level: int
+    notes: str | None
+    inserted: bool
+
+
+@dataclass(frozen=True, slots=True)
 class CreateIncidentResult:
     incident_id: UUID
     public_id: str
@@ -190,6 +292,8 @@ _DIAGNOSE_ACTORS = frozenset({"system", "incident-workflow"})
 _SEVERITY_ACTORS = frozenset({"system", "incident-workflow"})
 # H10: CONFIRM / CAUSED_BY are SYSTEM confirmation rules only.
 _CONFIRM_ACTORS = frozenset({"system", "incident-workflow"})
+# I2: EvaluatePolicy is SYSTEM-only (AI never binds POLICY_EVAL).
+_POLICY_ACTORS = frozenset({"system", "incident-workflow"})
 
 
 class DiagnosedGateError(PermissionError):
@@ -212,6 +316,45 @@ class ConfirmationRulesNotMet(ValueError):
     """Raised when class confirmation rules reject CONFIRM."""
 
 
+class ActionTypeNotAllowed(ValueError):
+    """Raised when ProposeAction type is outside pinned runbook allowlist (I1)."""
+
+
+class PinnedRunbookRequired(ValueError):
+    """Raised when ProposeAction runs without a pinned RunbookVersion."""
+
+
+class PolicyActorDenied(PermissionError):
+    """Raised when a non-SYSTEM actor attempts EvaluatePolicy (I2)."""
+
+
+class PolicyDecisionExists(ValueError):
+    """Raised when a PolicyDecision already exists for (action_id, version)."""
+
+
+_KNOWN_ACTION_TYPES = frozenset(
+    {
+        "ROLLBACK_DEPLOYMENT",
+        "RESTART_WORKLOAD",
+        "SCALE_WORKLOAD",
+        "DISABLE_FEATURE_FLAG",
+        "RESTORE_FEATURE_FLAG",
+        "RESTORE_CONFIG",
+        "PAUSE_CONSUMER",
+        "REROUTE_TRAFFIC",
+        "OTHER",
+    }
+)
+
+
+def _default_reversibility(action_type: str) -> tuple[bool, str | None]:
+    if action_type == "ROLLBACK_DEPLOYMENT":
+        return True, "OTHER"
+    if action_type in {"DISABLE_FEATURE_FLAG", "RESTORE_FEATURE_FLAG", "RESTORE_CONFIG"}:
+        return True, "OTHER"
+    return False, None
+
+
 def transition_incident_command(
     conn: Connection,
     *,
@@ -226,12 +369,22 @@ def transition_incident_command(
 
     ``INVESTIGATING → DIAGNOSED`` is blocked unless ``via_diagnose_gate=True``
     (H5 — only ``diagnose_incident_command`` may set that flag).
+    Replan paths (e.g. ``AWAITING_APPROVAL → DIAGNOSED`` on I5 timeout) are
+    allowed without the diagnose gate.
     """
     target = IncidentState(to_state) if not isinstance(to_state, IncidentState) else to_state
     if target is IncidentState.DIAGNOSED and not via_diagnose_gate:
-        raise DiagnosedGateError(
-            "DIAGNOSED is only allowed via diagnose_incident_command (SYSTEM gate)"
-        )
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT state FROM domain.incident WHERE id = %s",
+                (str(incident_id),),
+            )
+            row = cur.fetchone()
+            current = IncidentState(row[0]) if row is not None else None
+        if current is IncidentState.INVESTIGATING:
+            raise DiagnosedGateError(
+                "DIAGNOSED is only allowed via diagnose_incident_command (SYSTEM gate)"
+            )
     uow = UnitOfWork(conn, requires_outbox=True)
     result = apply_transition(
         conn,
@@ -479,6 +632,130 @@ def append_derived_evidence_command(
     return result
 
 
+def create_approval_command(
+    conn: Connection,
+    *,
+    action_id: UUID,
+    action_version: int | None = None,
+    expires_at: datetime | None = None,
+    commit: bool = True,
+) -> CreateApprovalResult:
+    """Create PENDING Approval bound to an exact action_version (I4).
+
+    Requires PolicyDecision = REQUIRE_APPROVAL for that version. Duplicate
+    create for the same ``(action_id, action_version)`` is a safe no-op.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT a.incident_id, a.current_version, a.status
+            FROM domain.action a
+            WHERE a.id = %s
+            """,
+            (str(action_id),),
+        )
+        action_row = cur.fetchone()
+        if action_row is None:
+            raise LookupError(f"action {action_id} not found")
+        incident_id = UUID(str(action_row[0]))
+        current_version = int(action_row[1])
+        version = int(action_version) if action_version is not None else current_version
+
+        cur.execute(
+            """
+            SELECT 1 FROM domain.action_version
+            WHERE action_id = %s AND version = %s
+            """,
+            (str(action_id), version),
+        )
+        if cur.fetchone() is None:
+            raise LookupError(f"action_version {action_id} v{version} not found")
+
+        cur.execute(
+            """
+            SELECT decision FROM domain.policy_decision
+            WHERE action_id = %s AND action_version = %s
+            """,
+            (str(action_id), version),
+        )
+        policy_row = cur.fetchone()
+        if policy_row is None or str(policy_row[0]) != "REQUIRE_APPROVAL":
+            raise ApprovalPolicyRequired(
+                f"REQUIRE_APPROVAL PolicyDecision required to create approval "
+                f"for action {action_id} v{version}"
+            )
+
+        cur.execute(
+            """
+            SELECT id, status FROM domain.approval
+            WHERE action_id = %s AND action_version = %s
+            """,
+            (str(action_id), version),
+        )
+        existing = cur.fetchone()
+        if existing is not None:
+            if commit:
+                conn.commit()
+            return CreateApprovalResult(
+                approval_id=UUID(str(existing[0])),
+                action_id=action_id,
+                action_version=version,
+                status=str(existing[1]),
+                action_status="AWAITING_APPROVAL"
+                if str(existing[1]) == "PENDING"
+                else str(action_row[2]),
+                inserted=False,
+            )
+
+        approval_id = uuid4()
+        cur.execute(
+            """
+            INSERT INTO domain.approval (
+                id, action_id, action_version, status, expires_at
+            ) VALUES (%s, %s, %s, 'PENDING', %s)
+            """,
+            (str(approval_id), str(action_id), version, expires_at),
+        )
+        cur.execute(
+            """
+            UPDATE domain.action
+            SET status = 'AWAITING_APPROVAL', updated_at = now()
+            WHERE id = %s
+            """,
+            (str(action_id),),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.timeline_event (
+                incident_id, event_type, summary, actor, payload
+            ) VALUES (
+                %s, 'APPROVAL_CREATED', %s, 'system', %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                f"approval pending for action {action_id} v{version}",
+                json.dumps(
+                    {
+                        "approval_id": str(approval_id),
+                        "action_id": str(action_id),
+                        "action_version": version,
+                    }
+                ),
+            ),
+        )
+    if commit:
+        conn.commit()
+    return CreateApprovalResult(
+        approval_id=approval_id,
+        action_id=action_id,
+        action_version=version,
+        status="PENDING",
+        action_status="AWAITING_APPROVAL",
+        inserted=True,
+    )
+
+
 def decide_approval_command(
     conn: Connection,
     *,
@@ -488,28 +765,128 @@ def decide_approval_command(
     decided_by: str,
     commit: bool = True,
 ) -> ApprovalDecisionResult:
-    """Record human/harness approval decision for a bound action version."""
+    """Record human/harness approval decision for a bound action version (I4).
+
+    Duplicate decide with the same status is a safe no-op. Reject is visible:
+    approval → REJECTED and action → CANCELLED.
+    """
     if status not in {"APPROVED", "REJECTED"}:
         raise ValueError("status must be APPROVED or REJECTED")
 
     with conn.cursor() as cur:
         cur.execute(
             """
+            SELECT id, status, decided_by
+            FROM domain.approval
+            WHERE action_id = %s AND action_version = %s
+            """,
+            (str(action_id), action_version),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise LookupError(f"no approval for action {action_id} v{action_version}")
+        approval_id = UUID(str(row[0]))
+        current_status = str(row[1])
+        prior_decided_by = None if row[2] is None else str(row[2])
+
+        if current_status == status:
+            cur.execute(
+                "SELECT status FROM domain.action WHERE id = %s",
+                (str(action_id),),
+            )
+            action_row = cur.fetchone()
+            action_status = str(action_row[0]) if action_row is not None else "UNKNOWN"
+            if commit:
+                conn.commit()
+            return ApprovalDecisionResult(
+                approval_id=approval_id,
+                status=status,
+                action_id=action_id,
+                action_version=action_version,
+                action_status=action_status,
+                decided_by=prior_decided_by or decided_by,
+                noop=True,
+            )
+
+        if current_status != "PENDING":
+            raise LookupError(
+                f"approval for action {action_id} v{action_version} "
+                f"is {current_status}, not PENDING"
+            )
+
+        action_status = "APPROVED" if status == "APPROVED" else "CANCELLED"
+        cur.execute(
+            """
             UPDATE domain.approval
             SET status = %s,
                 decided_by = %s,
                 decided_at = now()
-            WHERE action_id = %s
-              AND action_version = %s
-              AND status = 'PENDING'
+            WHERE id = %s AND status = 'PENDING'
             RETURNING id
             """,
-            (status, decided_by, str(action_id), action_version),
+            (status, decided_by, str(approval_id)),
         )
-        row = cur.fetchone()
-        if row is None:
+        if cur.fetchone() is None:
             raise LookupError(f"no PENDING approval for action {action_id} v{action_version}")
-        approval_id = UUID(str(row[0]))
+        cur.execute(
+            """
+            UPDATE domain.action
+            SET status = %s, updated_at = now()
+            WHERE id = %s
+            """,
+            (action_status, str(action_id)),
+        )
+        cur.execute(
+            """
+            SELECT incident_id FROM domain.action WHERE id = %s
+            """,
+            (str(action_id),),
+        )
+        incident_row = cur.fetchone()
+        incident_id: UUID | None = (
+            UUID(str(incident_row[0])) if incident_row is not None else None
+        )
+        if incident_id is not None:
+            cur.execute(
+                """
+                INSERT INTO domain.timeline_event (
+                    incident_id, event_type, summary, actor, payload
+                ) VALUES (
+                    %s, %s, %s, %s, %s::jsonb
+                )
+                """,
+                (
+                    str(incident_id),
+                    "APPROVAL_DECIDED",
+                    f"approval {status} for action {action_id} v{action_version}",
+                    decided_by,
+                    json.dumps(
+                        {
+                            "approval_id": str(approval_id),
+                            "action_id": str(action_id),
+                            "action_version": action_version,
+                            "status": status,
+                            "action_status": action_status,
+                        }
+                    ),
+                ),
+            )
+            # I5: wake IncidentWorkflow approval wait (outbox → signal).
+            from incidentpilot_shared.domain.outbox import enqueue_outbox
+
+            enqueue_outbox(
+                conn,
+                aggregate_type="incident",
+                aggregate_id=str(incident_id),
+                event_type="approval.decided",
+                payload={
+                    "approval_id": str(approval_id),
+                    "action_id": str(action_id),
+                    "action_version": action_version,
+                    "status": status,
+                    "decided_by": decided_by,
+                },
+            )
 
     if commit:
         conn.commit()
@@ -518,7 +895,207 @@ def decide_approval_command(
         status=status,
         action_id=action_id,
         action_version=action_version,
+        action_status=action_status,
+        decided_by=decided_by,
+        noop=False,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class ExpireApprovalsResult:
+    incident_id: UUID
+    expired_count: int
+    action_ids: tuple[UUID, ...]
+
+
+def expire_pending_approvals_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    reason: str = "approval_timeout",
+    commit: bool = True,
+) -> ExpireApprovalsResult:
+    """Mark PENDING approvals EXPIRED for an incident (I5 timeout; no execute)."""
+    expired: list[UUID] = []
+    action_ids: list[UUID] = []
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT ap.id, ap.action_id
+            FROM domain.approval ap
+            JOIN domain.action a ON a.id = ap.action_id
+            WHERE a.incident_id = %s
+              AND ap.status = 'PENDING'
+            FOR UPDATE OF ap
+            """,
+            (str(incident_id),),
+        )
+        rows = cur.fetchall()
+        for row in rows:
+            approval_id = UUID(str(row[0]))
+            action_id = UUID(str(row[1]))
+            cur.execute(
+                """
+                UPDATE domain.approval
+                SET status = 'EXPIRED', decided_at = now(),
+                    decided_by = 'system:approval_timeout'
+                WHERE id = %s AND status = 'PENDING'
+                """,
+                (str(approval_id),),
+            )
+            if cur.rowcount == 1:
+                expired.append(approval_id)
+                action_ids.append(action_id)
+                cur.execute(
+                    """
+                    UPDATE domain.action
+                    SET status = 'CANCELLED', updated_at = now()
+                    WHERE id = %s AND status = 'AWAITING_APPROVAL'
+                    """,
+                    (str(action_id),),
+                )
+        if expired:
+            cur.execute(
+                """
+                INSERT INTO domain.timeline_event (
+                    incident_id, event_type, summary, actor, payload
+                ) VALUES (
+                    %s, 'APPROVAL_TIMEOUT', %s, 'system', %s::jsonb
+                )
+                """,
+                (
+                    str(incident_id),
+                    f"approval timeout expired {len(expired)} pending approval(s)",
+                    json.dumps(
+                        {
+                            "reason": reason,
+                            "expired_approval_ids": [str(x) for x in expired],
+                            "action_ids": [str(x) for x in action_ids],
+                            "remediation_executed": False,
+                        }
+                    ),
+                ),
+            )
+    if commit:
+        conn.commit()
+    return ExpireApprovalsResult(
+        incident_id=incident_id,
+        expired_count=len(expired),
+        action_ids=tuple(action_ids),
+    )
+
+
+def consume_approval_command(
+    conn: Connection,
+    *,
+    action_id: UUID,
+    action_version: int,
+    commit: bool = True,
+) -> ConsumeApprovalResult:
+    """Single-use consume of an APPROVED approval for an exact version (I4).
+
+    vN approval cannot authorize vM (M≠N) — raises ``StaleActionVersion``
+    (``STALE_ACTION_VERSION``). Already-CONSUMED is a safe no-op.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, status FROM domain.approval
+            WHERE action_id = %s AND action_version = %s
+            """,
+            (str(action_id), action_version),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise StaleActionVersion(
+                f"STALE_ACTION_VERSION: no approval for action {action_id} v{action_version}"
+            )
+        approval_id = UUID(str(row[0]))
+        current_status = str(row[1])
+
+        if current_status == "CONSUMED":
+            if commit:
+                conn.commit()
+            return ConsumeApprovalResult(
+                approval_id=approval_id,
+                action_id=action_id,
+                action_version=action_version,
+                status="CONSUMED",
+                noop=True,
+            )
+
+        if current_status != "APPROVED":
+            raise ApprovalNotConsumable(
+                f"approval for action {action_id} v{action_version} "
+                f"is {current_status}, not APPROVED"
+            )
+
+        cur.execute(
+            """
+            UPDATE domain.approval
+            SET status = 'CONSUMED', consumed_at = now()
+            WHERE id = %s AND status = 'APPROVED'
+            RETURNING id
+            """,
+            (str(approval_id),),
+        )
+        if cur.fetchone() is None:
+            raise ApprovalNotConsumable(
+                f"approval for action {action_id} v{action_version} could not be consumed"
+            )
+
+    if commit:
+        conn.commit()
+    return ConsumeApprovalResult(
+        approval_id=approval_id,
+        action_id=action_id,
+        action_version=action_version,
+        status="CONSUMED",
+        noop=False,
+    )
+
+
+def assert_approval_authorizes(
+    conn: Connection,
+    *,
+    action_id: UUID,
+    action_version: int,
+) -> UUID:
+    """Return approval_id if APPROVED/CONSUMED for the exact version (I4).
+
+    Raises ``StaleActionVersion`` when a different version's approval exists
+    but the requested version is not authorized.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, status FROM domain.approval
+            WHERE action_id = %s AND action_version = %s
+            """,
+            (str(action_id), action_version),
+        )
+        row = cur.fetchone()
+        if row is not None and str(row[1]) in {"APPROVED", "CONSUMED"}:
+            return UUID(str(row[0]))
+
+        cur.execute(
+            """
+            SELECT action_version, status FROM domain.approval
+            WHERE action_id = %s
+            ORDER BY action_version DESC
+            """,
+            (str(action_id),),
+        )
+        others = cur.fetchall()
+        if others:
+            versions = ", ".join(f"v{int(r[0])}={r[1]}" for r in others)
+            raise StaleActionVersion(
+                f"STALE_ACTION_VERSION: approval does not authorize "
+                f"action {action_id} v{action_version} (have {versions})"
+            )
+        raise StaleActionVersion(
+            f"STALE_ACTION_VERSION: no approval for action {action_id} v{action_version}"
+        )
 
 
 def reserve_execution_attempt_command(
@@ -1250,9 +1827,7 @@ def diagnose_incident_command(
         )
         row = cur.fetchone()
         if row is None:
-            raise ValueError(
-                f"hypothesis {hypothesis_id} not found on incident {incident_id}"
-            )
+            raise ValueError(f"hypothesis {hypothesis_id} not found on incident {incident_id}")
         status, cite_count = str(row[0]), int(row[1] or 0)
         if status != "PROPOSED":
             raise ValueError(
@@ -1630,9 +2205,7 @@ def record_impact_snapshot_command(
     commit: bool = True,
 ) -> RecordImpactSnapshotResult:
     """SYSTEM insert of an impact snapshot citing Evidence (H7)."""
-    cited = resolve_incident_evidence_refs(
-        conn, incident_id=incident_id, refs=cited_evidence_ids
-    )
+    cited = resolve_incident_evidence_refs(conn, incident_id=incident_id, refs=cited_evidence_ids)
     snapshot_id = uuid4()
     provenance = {
         "writer": "system",
@@ -1690,9 +2263,7 @@ def record_slo_burn_command(
     commit: bool = True,
 ) -> RecordSloBurnResult:
     """SYSTEM insert of an SLO burn observation citing Evidence (H7)."""
-    cited = resolve_incident_evidence_refs(
-        conn, incident_id=incident_id, refs=cited_evidence_ids
-    )
+    cited = resolve_incident_evidence_refs(conn, incident_id=incident_id, refs=cited_evidence_ids)
     burn_id = uuid4()
     provenance = {
         "writer": "system",
@@ -1914,11 +2485,11 @@ def update_incident_severity_command(
             (str(incident_id),),
         )
         burn_row = cur.fetchone()
-        burn_rate = None if burn_row is None else (
-            float(burn_row[0]) if burn_row[0] is not None else None
+        burn_rate = (
+            None if burn_row is None else (float(burn_row[0]) if burn_row[0] is not None else None)
         )
-        budget = None if burn_row is None else (
-            float(burn_row[1]) if burn_row[1] is not None else None
+        budget = (
+            None if burn_row is None else (float(burn_row[1]) if burn_row[1] is not None else None)
         )
 
         # Highest criticality among linked services (default MEDIUM).
@@ -2026,6 +2597,850 @@ def update_incident_severity_command(
     )
 
 
+def propose_action_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    action_type: str,
+    parameters: dict[str, Any] | None = None,
+    target_ref: dict[str, Any] | None = None,
+    action_id: UUID | None = None,
+    hypothesis_id: UUID | None = None,
+    proposed_by: str = "system",
+    rationale: str | None = None,
+    commit: bool = True,
+) -> ProposeActionResult:
+    """Propose a remediation Action bound to the pinned RunbookVersion (I1).
+
+    ``action_type`` must be ∈ pinned ``allowed_action_types``. New parameters on
+    an existing action insert an immutable ``action_version`` and bump
+    ``current_version``. Adapter execute is out of scope.
+    """
+    atype = str(action_type).strip()
+    if atype not in _KNOWN_ACTION_TYPES:
+        raise ValueError(f"invalid action_type: {atype!r}")
+    params = dict(parameters or {})
+    target = dict(target_ref or {})
+    is_rev, reverse_type = _default_reversibility(atype)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT pinned_runbook_version_id
+            FROM domain.incident
+            WHERE id = %s
+            """,
+            (str(incident_id),),
+        )
+        inc = cur.fetchone()
+        if inc is None:
+            raise LookupError(f"incident {incident_id} not found")
+        pinned_id = inc[0]
+        if pinned_id is None:
+            raise PinnedRunbookRequired(
+                "ProposeAction requires a pinned RunbookVersion on the incident"
+            )
+        pinned_uuid = UUID(str(pinned_id))
+        cur.execute(
+            """
+            SELECT allowed_action_types, status
+            FROM domain.runbook_version
+            WHERE id = %s
+            """,
+            (str(pinned_uuid),),
+        )
+        rv = cur.fetchone()
+        if rv is None:
+            raise ValueError(f"pinned runbook_version not found: {pinned_uuid}")
+        if str(rv[1]) != "published":
+            raise ValueError("pinned runbook_version must be published")
+        allowed = tuple(str(x) for x in (rv[0] or []))
+        if atype not in allowed:
+            raise ActionTypeNotAllowed(
+                f"action_type {atype!r} not in pinned allowed_action_types {list(allowed)}"
+            )
+
+    if action_id is not None:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT incident_id, action_type, current_version, status,
+                       is_reversible, reverse_action_type
+                FROM domain.action
+                WHERE id = %s
+                """,
+                (str(action_id),),
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise LookupError(f"action {action_id} not found")
+            if UUID(str(row[0])) != incident_id:
+                raise ValueError("action does not belong to incident")
+            if str(row[1]) != atype:
+                raise ValueError("cannot change action_type on an existing action")
+            current_version = int(row[2])
+            status = str(row[3])
+            is_rev = bool(row[4])
+            reverse_type = str(row[5]) if row[5] is not None else None
+            cur.execute(
+                """
+                SELECT parameters, target_ref
+                FROM domain.action_version
+                WHERE action_id = %s AND version = %s
+                """,
+                (str(action_id), current_version),
+            )
+            ver_row = cur.fetchone()
+            assert ver_row is not None
+            prev_params = (
+                ver_row[0] if isinstance(ver_row[0], dict) else json.loads(ver_row[0] or "{}")
+            )
+            prev_target = (
+                ver_row[1] if isinstance(ver_row[1], dict) else json.loads(ver_row[1] or "{}")
+            )
+            if prev_params == params and prev_target == target:
+                if commit:
+                    conn.commit()
+                return ProposeActionResult(
+                    action_id=action_id,
+                    incident_id=incident_id,
+                    action_type=atype,
+                    version=current_version,
+                    current_version=current_version,
+                    status=status,
+                    parameters=params,
+                    runbook_version_id=pinned_uuid,
+                    allowed_action_types=allowed,
+                    bumped=False,
+                    is_reversible=is_rev,
+                    reverse_action_type=reverse_type,
+                )
+            new_version = current_version + 1
+            cur.execute(
+                """
+                INSERT INTO domain.action_version (
+                    action_id, version, action_type, parameters, target_ref,
+                    is_reversible, reverse_action_type, proposed_by, provenance
+                ) VALUES (
+                    %s, %s, %s, %s::jsonb, %s::jsonb,
+                    %s, %s, %s, %s::jsonb
+                )
+                """,
+                (
+                    str(action_id),
+                    new_version,
+                    atype,
+                    json.dumps(params),
+                    json.dumps(target),
+                    is_rev,
+                    reverse_type,
+                    proposed_by,
+                    json.dumps(
+                        {
+                            "writer": "system",
+                            "source": "propose_action",
+                            "runbook_version_id": str(pinned_uuid),
+                            "rationale": rationale,
+                            "bumped_from": current_version,
+                        }
+                    ),
+                ),
+            )
+            cur.execute(
+                """
+                UPDATE domain.action
+                SET current_version = %s,
+                    status = 'PROPOSED',
+                    runbook_version_id = %s,
+                    updated_at = now()
+                WHERE id = %s
+                """,
+                (new_version, str(pinned_uuid), str(action_id)),
+            )
+            cur.execute(
+                """
+                INSERT INTO domain.timeline_event (
+                    incident_id, event_type, summary, actor, payload
+                ) VALUES (
+                    %s, 'ACTION_PROPOSED', %s, %s, %s::jsonb
+                )
+                """,
+                (
+                    str(incident_id),
+                    f"action {action_id} bumped to v{new_version} ({atype})",
+                    proposed_by,
+                    json.dumps(
+                        {
+                            "action_id": str(action_id),
+                            "version": new_version,
+                            "action_type": atype,
+                            "bumped": True,
+                        }
+                    ),
+                ),
+            )
+        if commit:
+            conn.commit()
+        return ProposeActionResult(
+            action_id=action_id,
+            incident_id=incident_id,
+            action_type=atype,
+            version=new_version,
+            current_version=new_version,
+            status="PROPOSED",
+            parameters=params,
+            runbook_version_id=pinned_uuid,
+            allowed_action_types=allowed,
+            bumped=True,
+            is_reversible=is_rev,
+            reverse_action_type=reverse_type,
+        )
+
+    new_id = uuid4()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.action (
+                id, incident_id, action_type, current_version,
+                hypothesis_id, runbook_version_id,
+                is_reversible, reverse_action_type, status, proposed_by, provenance
+            ) VALUES (
+                %s, %s, %s, 1,
+                %s, %s,
+                %s, %s, 'PROPOSED', %s, %s::jsonb
+            )
+            """,
+            (
+                str(new_id),
+                str(incident_id),
+                atype,
+                str(hypothesis_id) if hypothesis_id else None,
+                str(pinned_uuid),
+                is_rev,
+                reverse_type,
+                proposed_by,
+                json.dumps(
+                    {
+                        "writer": "system",
+                        "source": "propose_action",
+                        "runbook_version_id": str(pinned_uuid),
+                        "rationale": rationale,
+                    }
+                ),
+            ),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.action_version (
+                action_id, version, action_type, parameters, target_ref,
+                is_reversible, reverse_action_type, proposed_by, provenance
+            ) VALUES (
+                %s, 1, %s, %s::jsonb, %s::jsonb,
+                %s, %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(new_id),
+                atype,
+                json.dumps(params),
+                json.dumps(target),
+                is_rev,
+                reverse_type,
+                proposed_by,
+                json.dumps(
+                    {
+                        "writer": "system",
+                        "source": "propose_action",
+                        "runbook_version_id": str(pinned_uuid),
+                        "rationale": rationale,
+                    }
+                ),
+            ),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.timeline_event (
+                incident_id, event_type, summary, actor, payload
+            ) VALUES (
+                %s, 'ACTION_PROPOSED', %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                f"action {new_id} proposed ({atype}) v1",
+                proposed_by,
+                json.dumps(
+                    {
+                        "action_id": str(new_id),
+                        "version": 1,
+                        "action_type": atype,
+                        "bumped": False,
+                    }
+                ),
+            ),
+        )
+    if commit:
+        conn.commit()
+    return ProposeActionResult(
+        action_id=new_id,
+        incident_id=incident_id,
+        action_type=atype,
+        version=1,
+        current_version=1,
+        status="PROPOSED",
+        parameters=params,
+        runbook_version_id=pinned_uuid,
+        allowed_action_types=allowed,
+        bumped=False,
+        is_reversible=is_rev,
+        reverse_action_type=reverse_type,
+    )
+
+
+def load_active_policy_definition(
+    conn: Connection,
+    *,
+    policy_key: str = "default",
+) -> PolicyDefinitionResult:
+    """Load the active policy_definition for EvaluatePolicy (I7)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT d.id, d.policy_key, d.version, d.version_label, d.body,
+                   d.notes, d.created_by
+            FROM domain.policy_active a
+            JOIN domain.policy_definition d
+              ON d.policy_key = a.policy_key AND d.version = a.version
+            WHERE a.policy_key = %s
+            """,
+            (policy_key,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            # Fallback before migration / empty DB — match I2 defaults.
+            return PolicyDefinitionResult(
+                policy_definition_id=uuid4(),
+                policy_key=policy_key,
+                version=1,
+                version_label="v1",
+                body={},
+                notes=None,
+                created_by="system",
+                active=True,
+            )
+        body = row[4] if isinstance(row[4], dict) else json.loads(row[4] or "{}")
+        return PolicyDefinitionResult(
+            policy_definition_id=UUID(str(row[0])),
+            policy_key=str(row[1]),
+            version=int(row[2]),
+            version_label=str(row[3]),
+            body=body,
+            notes=None if row[5] is None else str(row[5]),
+            created_by=str(row[6]),
+            active=True,
+        )
+
+
+def list_policy_definitions(
+    conn: Connection,
+    *,
+    policy_key: str = "default",
+) -> list[PolicyDefinitionResult]:
+    """History of policy versions for a key (I7)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT d.id, d.policy_key, d.version, d.version_label, d.body,
+                   d.notes, d.created_by,
+                   (a.version IS NOT NULL) AS is_active
+            FROM domain.policy_definition d
+            LEFT JOIN domain.policy_active a
+              ON a.policy_key = d.policy_key AND a.version = d.version
+            WHERE d.policy_key = %s
+            ORDER BY d.version DESC
+            """,
+            (policy_key,),
+        )
+        rows = cur.fetchall()
+    out: list[PolicyDefinitionResult] = []
+    for row in rows:
+        body = row[4] if isinstance(row[4], dict) else json.loads(row[4] or "{}")
+        out.append(
+            PolicyDefinitionResult(
+                policy_definition_id=UUID(str(row[0])),
+                policy_key=str(row[1]),
+                version=int(row[2]),
+                version_label=str(row[3]),
+                body=body,
+                notes=None if row[5] is None else str(row[5]),
+                created_by=str(row[6]),
+                active=bool(row[7]),
+            )
+        )
+    return out
+
+
+def publish_policy_version_command(
+    conn: Connection,
+    *,
+    policy_key: str = "default",
+    body: dict[str, Any] | None = None,
+    notes: str | None = None,
+    created_by: str = "admin",
+    activate: bool = True,
+    commit: bool = True,
+) -> PolicyDefinitionResult:
+    """Append a new immutable policy version (I7). Never rewrites past rows."""
+    key = (policy_key or "default").strip() or "default"
+    payload = dict(body or {})
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT COALESCE(MAX(version), 0) FROM domain.policy_definition
+            WHERE policy_key = %s
+            """,
+            (key,),
+        )
+        next_version = int(cur.fetchone()[0]) + 1
+        version_label = f"v{next_version}"
+        definition_id = uuid4()
+        cur.execute(
+            """
+            INSERT INTO domain.policy_definition (
+                id, policy_key, version, version_label, body, notes, created_by
+            ) VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s)
+            """,
+            (
+                str(definition_id),
+                key,
+                next_version,
+                version_label,
+                json.dumps(payload),
+                notes,
+                created_by,
+            ),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.audit_event (
+                incident_id, action, actor, resource_type, resource_id, details
+            ) VALUES (
+                NULL, 'policy.publish', %s, 'policy_definition', %s, %s::jsonb
+            )
+            """,
+            (
+                created_by,
+                str(definition_id),
+                json.dumps(
+                    {
+                        "policy_key": key,
+                        "version": next_version,
+                        "version_label": version_label,
+                        "activate": activate,
+                        "notes": notes,
+                    }
+                ),
+            ),
+        )
+    if activate:
+        activate_policy_version_command(
+            conn,
+            policy_key=key,
+            version=next_version,
+            activated_by=created_by,
+            commit=False,
+        )
+    if commit:
+        conn.commit()
+    return PolicyDefinitionResult(
+        policy_definition_id=definition_id,
+        policy_key=key,
+        version=next_version,
+        version_label=version_label,
+        body=payload,
+        notes=notes,
+        created_by=created_by,
+        active=activate,
+    )
+
+
+def activate_policy_version_command(
+    conn: Connection,
+    *,
+    policy_key: str,
+    version: int,
+    activated_by: str = "admin",
+    commit: bool = True,
+) -> ActivatePolicyResult:
+    """Point policy_active at an existing immutable version (I7)."""
+    key = (policy_key or "default").strip() or "default"
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT version_label FROM domain.policy_definition
+            WHERE policy_key = %s AND version = %s
+            """,
+            (key, int(version)),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise LookupError(f"policy {key} version {version} not found")
+        version_label = str(row[0])
+        cur.execute(
+            """
+            INSERT INTO domain.policy_active (
+                policy_key, version, activated_at, activated_by
+            ) VALUES (%s, %s, now(), %s)
+            ON CONFLICT (policy_key) DO UPDATE
+            SET version = EXCLUDED.version,
+                activated_at = now(),
+                activated_by = EXCLUDED.activated_by
+            """,
+            (key, int(version), activated_by),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.audit_event (
+                incident_id, action, actor, resource_type, resource_id, details
+            ) VALUES (
+                NULL, 'policy.activate', %s, 'policy_active', %s, %s::jsonb
+            )
+            """,
+            (
+                activated_by,
+                key,
+                json.dumps(
+                    {
+                        "policy_key": key,
+                        "version": int(version),
+                        "version_label": version_label,
+                    }
+                ),
+            ),
+        )
+    if commit:
+        conn.commit()
+    return ActivatePolicyResult(
+        policy_key=key,
+        version=int(version),
+        version_label=version_label,
+        activated_by=activated_by,
+    )
+
+
+def upsert_autonomy_config_command(
+    conn: Connection,
+    *,
+    autonomy_level: int,
+    service_key: str | None = None,
+    action_type: str | None = None,
+    environment: str | None = None,
+    severity: str | None = None,
+    notes: str | None = None,
+    commit: bool = True,
+) -> UpsertAutonomyConfigResult:
+    """Insert or update an autonomy config row (I3). NULL dims = wildcards."""
+    level = int(autonomy_level)
+    if level not in {1, 2, 3}:
+        raise ValueError("autonomy_level must be 1, 2, or 3")
+    svc = (service_key or "").strip() or None
+    atype = (action_type or "").strip() or None
+    env = (environment or "").strip() or None
+    sev = (severity or "").strip() or None
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id
+            FROM domain.autonomy_config
+            WHERE COALESCE(service_key, '') = COALESCE(%s, '')
+              AND COALESCE(action_type, '') = COALESCE(%s, '')
+              AND COALESCE(environment, '') = COALESCE(%s, '')
+              AND COALESCE(severity, '') = COALESCE(%s, '')
+            LIMIT 1
+            """,
+            (svc, atype, env, sev),
+        )
+        existing = cur.fetchone()
+        if existing is not None:
+            returned_id = UUID(str(existing[0]))
+            cur.execute(
+                """
+                UPDATE domain.autonomy_config
+                SET autonomy_level = %s,
+                    notes = %s,
+                    updated_at = now()
+                WHERE id = %s
+                """,
+                (level, notes, str(returned_id)),
+            )
+            inserted = False
+        else:
+            returned_id = uuid4()
+            cur.execute(
+                """
+                INSERT INTO domain.autonomy_config (
+                    id, service_key, action_type, environment, severity,
+                    autonomy_level, notes
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s
+                )
+                """,
+                (str(returned_id), svc, atype, env, sev, level, notes),
+            )
+            inserted = True
+    if commit:
+        conn.commit()
+    return UpsertAutonomyConfigResult(
+        config_id=returned_id,
+        service_key=svc,
+        action_type=atype,
+        environment=env,
+        severity=sev,
+        autonomy_level=level,
+        notes=notes,
+        inserted=inserted,
+    )
+
+
+def evaluate_policy_command(
+    conn: Connection,
+    *,
+    action_id: UUID,
+    action_version: int | None = None,
+    autonomy_level: int | None = None,
+    actor: str = "system",
+    commit: bool = True,
+) -> EvaluatePolicyResult:
+    """SYSTEM EvaluatePolicy → immutable PolicyDecision (I2/I3).
+
+    When ``autonomy_level`` is omitted, resolve from ``domain.autonomy_config``
+    (I3). AI sandbox cannot invoke this. BLOCK is absolute.
+    """
+    if actor not in _POLICY_ACTORS or actor.startswith("ai_"):
+        raise PolicyActorDenied(f"actor {actor!r} cannot EvaluatePolicy (SYSTEM only)")
+
+    from incidentpilot_shared.autonomy import resolve_autonomy_level
+    from incidentpilot_shared.processors.policy import evaluate_policy
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT a.incident_id, a.action_type, a.current_version, a.status,
+                   i.severity
+            FROM domain.action a
+            JOIN domain.incident i ON i.id = a.incident_id
+            WHERE a.id = %s
+            """,
+            (str(action_id),),
+        )
+        action_row = cur.fetchone()
+        if action_row is None:
+            raise LookupError(f"action {action_id} not found")
+        incident_id = UUID(str(action_row[0]))
+        action_type = str(action_row[1])
+        current_version = int(action_row[2])
+        version = int(action_version) if action_version is not None else current_version
+        incident_severity = str(action_row[4]) if action_row[4] is not None else None
+
+        cur.execute(
+            """
+            SELECT parameters
+            FROM domain.action_version
+            WHERE action_id = %s AND version = %s
+            """,
+            (str(action_id), version),
+        )
+        ver = cur.fetchone()
+        if ver is None:
+            raise LookupError(f"action_version {action_id} v{version} not found")
+        parameters = ver[0] if isinstance(ver[0], dict) else json.loads(ver[0] or "{}")
+
+        cur.execute(
+            """
+            SELECT s.key, s.environment
+            FROM domain.incident_service isv
+            JOIN domain.service s ON s.id = isv.service_id
+            WHERE isv.incident_id = %s
+            ORDER BY isv.created_at ASC
+            LIMIT 1
+            """,
+            (str(incident_id),),
+        )
+        svc_row = cur.fetchone()
+        service_key = str(svc_row[0]) if svc_row is not None else None
+        environment = str(svc_row[1]) if svc_row is not None else "local"
+
+        cur.execute(
+            """
+            SELECT id FROM domain.policy_decision
+            WHERE action_id = %s AND action_version = %s
+            """,
+            (str(action_id), version),
+        )
+        if cur.fetchone() is not None:
+            raise PolicyDecisionExists(
+                f"PolicyDecision already exists for action {action_id} v{version}"
+            )
+
+    if autonomy_level is None:
+        match = resolve_autonomy_level(
+            conn,
+            service_key=service_key,
+            action_type=action_type,
+            environment=environment,
+            severity=incident_severity,
+        )
+        resolved_level = match.autonomy_level
+        autonomy_source = match.source
+        autonomy_meta = {
+            "config_id": match.config_id,
+            "specificity": match.specificity,
+            "notes": match.notes,
+            "matched": {
+                "service_key": match.service_key,
+                "action_type": match.action_type,
+                "environment": match.environment,
+                "severity": match.severity,
+            },
+        }
+    else:
+        resolved_level = int(autonomy_level)
+        autonomy_source = "explicit"
+        autonomy_meta = {"config_id": None}
+
+    active = load_active_policy_definition(conn, policy_key="default")
+    verdict = evaluate_policy(
+        action_type=action_type,
+        parameters=parameters,
+        autonomy_level=resolved_level,
+        policy_key=active.policy_key,
+        policy_version=active.version_label,
+        policy_body=active.body,
+    )
+    decision_id = uuid4()
+    if verdict.decision == "BLOCK":
+        new_status = "BLOCKED"
+    elif verdict.decision == "REQUIRE_APPROVAL":
+        new_status = "AWAITING_APPROVAL"
+    else:
+        new_status = "POLICY_EVALUATED"
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.policy_decision (
+                id, action_id, action_version, decision, reason,
+                policy_key, policy_version, provenance
+            ) VALUES (
+                %s, %s, %s, %s, %s,
+                %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(decision_id),
+                str(action_id),
+                version,
+                verdict.decision,
+                verdict.reason,
+                verdict.policy_key,
+                verdict.policy_version,
+                json.dumps(
+                    {
+                        "writer": "system",
+                        "source": "evaluate_policy",
+                        "quality_rule_id": verdict.quality_rule_id,
+                        "actor": actor,
+                        "inputs": verdict.inputs,
+                        "autonomy_level": resolved_level,
+                        "autonomy_source": autonomy_source,
+                        "autonomy": autonomy_meta,
+                        "context": {
+                            "service_key": service_key,
+                            "environment": environment,
+                            "severity": incident_severity,
+                        },
+                    }
+                ),
+            ),
+        )
+        cur.execute(
+            """
+            UPDATE domain.action
+            SET status = %s, updated_at = now()
+            WHERE id = %s
+            """,
+            (new_status, str(action_id)),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.timeline_event (
+                incident_id, event_type, summary, actor, payload
+            ) VALUES (
+                %s, 'POLICY_DECISION', %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                f"policy {verdict.decision} for action {action_id} v{version}",
+                actor,
+                json.dumps(
+                    {
+                        "action_id": str(action_id),
+                        "action_version": version,
+                        "decision": verdict.decision,
+                        "reason": verdict.reason,
+                        "policy_decision_id": str(decision_id),
+                    }
+                ),
+            ),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.audit_event (
+                incident_id, action, actor, resource_type, resource_id, details
+            ) VALUES (
+                %s, 'policy.evaluate', %s, 'policy_decision', %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                actor,
+                str(decision_id),
+                json.dumps(
+                    {
+                        "action_id": str(action_id),
+                        "action_version": version,
+                        "decision": verdict.decision,
+                        "reason": verdict.reason,
+                    }
+                ),
+            ),
+        )
+    if verdict.decision == "REQUIRE_APPROVAL":
+        # I4: PENDING approval bound to this exact version (idempotent).
+        create_approval_command(
+            conn,
+            action_id=action_id,
+            action_version=version,
+            commit=False,
+        )
+    if commit:
+        conn.commit()
+    return EvaluatePolicyResult(
+        policy_decision_id=decision_id,
+        action_id=action_id,
+        action_version=version,
+        incident_id=incident_id,
+        decision=verdict.decision,
+        reason=verdict.reason,
+        policy_key=verdict.policy_key,
+        policy_version=verdict.policy_version,
+        action_status=new_status,
+        autonomy_level=resolved_level,
+        autonomy_source=autonomy_source,
+    )
+
+
 def confirm_hypothesis_command(
     conn: Connection,
     *,
@@ -2040,9 +3455,7 @@ def confirm_hypothesis_command(
     confirms. AI / humans cannot CONFIRM or write CAUSED_BY directly.
     """
     if actor not in _CONFIRM_ACTORS or actor.startswith("ai_"):
-        raise ConfirmActorDenied(
-            f"actor {actor!r} cannot CONFIRM hypothesis (SYSTEM rules only)"
-        )
+        raise ConfirmActorDenied(f"actor {actor!r} cannot CONFIRM hypothesis (SYSTEM rules only)")
 
     from incidentpilot_shared.processors.confirmation import (
         ConfirmationSignals,
@@ -2060,9 +3473,7 @@ def confirm_hypothesis_command(
         )
         hypo = cur.fetchone()
         if hypo is None:
-            raise LookupError(
-                f"hypothesis {hypothesis_id} not found on incident {incident_id}"
-            )
+            raise LookupError(f"hypothesis {hypothesis_id} not found on incident {incident_id}")
         status = str(hypo[0])
         hypo_class = str(hypo[1]) if hypo[1] is not None else None
         cited = list(hypo[2] or [])
@@ -2210,4 +3621,3 @@ def confirm_hypothesis_command(
         quality_rule_id=decision.quality_rule_id,
         inputs=decision.inputs,
     )
-

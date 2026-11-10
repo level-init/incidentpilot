@@ -187,6 +187,69 @@ hits = retrieve_historical_assist(conn, query="checkout error rate")
 - AI tool `historical_search` (READ) carries the same disclaimer
 - Citing `HIST-…` in `propose_hypothesis_command` raises `MissingEvidenceCitationError`
 
+## EvaluatePolicy (I2) + Autonomy config (I3)
+
+```python
+from incidentpilot_shared.domain.commands import evaluate_policy_command
+
+# Omits autonomy_level → resolves from domain.autonomy_config
+evaluate_policy_command(conn, action_id=…, actor="system")
+```
+
+- SYSTEM-only; AI `POLICY_EVAL` tool remains denied; AI actors raise `PolicyActorDenied`
+- `BLOCK` is absolute (no emergency override); `assert_not_blocked` gates execute paths
+- HTTP: `POST /actions/{id}/policy/evaluate` (always runs as SYSTEM)
+- **I7:** Admin publishes versions via `POST /policies/{key}/versions` (`ADMIN_CONFIG`);
+  EvaluatePolicy stamps the **active** `policy_version` onto new PolicyDecision rows;
+  past decisions and `policy_definition` rows stay immutable
+- **First scored bad-deploy** (`checkout` + `ROLLBACK_DEPLOYMENT` + `local`) is **Level 2 → REQUIRE_APPROVAL**
+- Level 3 is configurable via `PUT /autonomy-config` — **not** a production default
+- Global default row is Level 2
+- `REQUIRE_APPROVAL` auto-creates a PENDING Approval and sets action `AWAITING_APPROVAL` (I4)
+
+## Approval create/consume (I4)
+
+```python
+from incidentpilot_shared.domain.commands import (
+    decide_approval_command,
+    consume_approval_command,
+    assert_approval_authorizes,
+)
+
+decide_approval_command(conn, action_id=…, action_version=1, status="APPROVED", decided_by="…")
+consume_approval_command(conn, action_id=…, action_version=1)
+assert_approval_authorizes(conn, action_id=…, action_version=1)
+```
+
+- Bound to exact `action_version` — v2 approval cannot authorize v3 (`STALE_ACTION_VERSION`)
+- Duplicate create / duplicate approve / re-consume are safe no-ops
+- Reject is visible: approval `REJECTED`, action `CANCELLED`
+- HTTP decide: `POST /approvals/{id}/decide` (session actor; BLOCK still un-overridable)
+- Decide enqueues outbox `approval.decided` → workflow signal `approval_decision` (I5)
+- Workflow `wait_for_approval`: durable `approval_timeout`; **timeout never executes** remediation (expires + replan to `DIAGNOSED`)
+- **I6 harness** (no Slack): `POST /eval/approvals/{id}/decide` with `local-dev-evaluator`
+  writes real Approval rows + signals the wait; reject → replan `DIAGNOSED`
+  CLI: `python scripts/approval_harness.py approve|reject <approval_id>`
+
+## ProposeAction (I1)
+
+```python
+from incidentpilot_shared.domain.commands import propose_action_command
+
+propose_action_command(
+    conn,
+    incident_id=…,
+    action_type="ROLLBACK_DEPLOYMENT",
+    parameters={"revision": "prev"},
+)
+# param change on same action_id → new immutable action_version
+```
+
+- Requires pinned RunbookVersion; `action_type` must be ∈ `allowed_action_types`
+- Invalid types (e.g. SCALE when only ROLLBACK allowed) raise `ActionTypeNotAllowed`
+- HTTP: `POST /incidents/{id}/actions`
+- AI `action_propose` remains propose-only — SYSTEM persists via this command
+
 ## Confirmation rules (H10)
 
 ```python

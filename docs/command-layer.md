@@ -20,7 +20,11 @@ transitions, and outbox rules cannot be bypassed.
 | `append_raw_evidence_with_blob` | Collector helper: S3/MinIO upload then append with honest RAW provenance (G5) |
 | `append_derived_evidence_command` | DETERMINISTIC_DERIVED + DERIVED_FROM parents (G4) |
 | `link_evidence_relation_command` | Evidence graph edges |
-| `decide_approval_command` | PENDING → APPROVED/REJECTED |
+| `create_approval_command` | PENDING Approval bound to exact `action_version` (I4); duplicate create no-op |
+| `decide_approval_command` | PENDING → APPROVED/REJECTED; duplicate same status no-op; reject → action CANCELLED (I4) |
+| `consume_approval_command` | Single-use APPROVED → CONSUMED; wrong version → `STALE_ACTION_VERSION` (I4) |
+| `assert_approval_authorizes` | Exact-version APPROVED/CONSUMED gate; vN cannot authorize vM (I4) |
+| `expire_pending_approvals_command` | TIMEOUT path: PENDING → EXPIRED; actions CANCELLED (I5; no execute) |
 | `reserve_execution_attempt_command` | Reserve attempt before MITIGATING |
 | `upsert_alert_command` | Insert/update `domain.alert` by fingerprint (F2) |
 | `upsert_change_command` | Idempotent `domain.change` by `(source, fingerprint)` (G8); `source_ref`→`external_ref` |
@@ -40,6 +44,12 @@ transitions, and outbox rules cannot be bypassed.
 | `update_incident_severity_command` | SYSTEM rules: hint + impact/SLO/criticality → `incident.severity` (H8); AI denied |
 | `retrieve_historical_assist` | Past incidents/postmortems as non-Evidence suggestions (H9; not a mutator) |
 | `confirm_hypothesis_command` | SYSTEM class rules → CONFIRMED + optional CAUSED_BY (H10); RECOVERED alone insufficient |
+| `propose_action_command` | ProposeAction + immutable `action_version`; type ∈ pinned allowlist (I1) |
+| `evaluate_policy_command` | SYSTEM EvaluatePolicy → immutable PolicyDecision; AI denied (I2); resolves autonomy via I3; stamps active policy version (I7) |
+| `upsert_autonomy_config_command` | Autonomy Levels 1–3 per service/action/env/severity (I3) |
+| `publish_policy_version_command` | Append immutable policy_definition version; optional activate (I7) |
+| `activate_policy_version_command` | Point `policy_active` at an existing version (I7) |
+| `list_policy_definitions` / `load_active_policy_definition` | Policy version history / active snapshot (I7) |
 
 `transition_incident_command(..., DIAGNOSED)` raises `DiagnosedGateError` unless
 `via_diagnose_gate=True` (only set by `diagnose_incident_command`).

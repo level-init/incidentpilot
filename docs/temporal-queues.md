@@ -104,11 +104,25 @@ signal `proceed_after_triaging` pauses after TRIAGING for kill/restart tests.
 After `INVESTIGATING`, `IncidentWorkflow` can arm three Temporal durable timers
 (`WorkflowTimerConfig`):
 
-| Timer name | Default | Purpose (handlers stubbed until I5/J7) |
+| Timer name | Default | Purpose |
 | --- | --- | --- |
-| `investigation_deadline` | 4h | Bound investigation window |
-| `approval_timeout` | 30m | Approval hanging approvals |
-| `validation_window` | 15m | Post-remediation validation wait |
+| `investigation_deadline` | 4h | Bound investigation window (handler stub) |
+| `approval_timeout` | 30m | I5: race vs `approval_decision`; timeout never executes |
+| `validation_window` | 15m | Post-remediation validation wait (J7) |
 
 Timers use `workflow.sleep` and survive worker kill/restart; each name fires
 **once** per arming. Queries: `timers_armed`, `timer_fire_count(name)`.
+
+## Approval wait (I5)
+
+`IncidentWorkflowInput.wait_for_approval=True` arms `approval_timeout` and waits
+for signal `approval_decision` (`ApprovalDecisionSignal`).
+
+- **APPROVED / REJECTED** — wait ends; remediation execute is **not** done here (Epic J).
+- **TIMEOUT** — `handle_approval_timeout` expires PENDING approvals, cancels awaiting
+  actions, transitions `AWAITING_APPROVAL → DIAGNOSED` (replan).
+  Query `remediation_executed` stays `false`; no `execution_attempt` is written.
+- Decide enqueues outbox `approval.decided` → dispatcher signals the workflow.
+- **I6 harness:** `POST /eval/approvals/{id}/decide` (eval entitlement) calls the same
+  domain decide + signals immediately; **reject** runs `handle_approval_rejected`
+  → `DIAGNOSED` (replan), never execute.

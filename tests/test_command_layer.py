@@ -54,6 +54,10 @@ def test_api_and_worker_share_same_command_callables() -> None:
     assert api_commands.append_evidence_command is shared_commands.append_evidence_command
     assert worker_commands.append_evidence_command is shared_commands.append_evidence_command
     assert api_commands.decide_approval_command is shared_commands.decide_approval_command
+    assert api_commands.create_approval_command is shared_commands.create_approval_command
+    assert worker_commands.consume_approval_command is (
+        shared_commands.consume_approval_command
+    )
     assert worker_commands.reserve_execution_attempt_command is (
         shared_commands.reserve_execution_attempt_command
     )

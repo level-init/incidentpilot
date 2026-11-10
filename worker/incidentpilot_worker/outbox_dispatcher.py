@@ -14,6 +14,7 @@ from uuid import UUID
 from temporalio.client import Client
 from temporalio.service import RPCError
 
+from incidentpilot_shared.approval_signals import ApprovalDecisionSignal
 from incidentpilot_shared.domain.outbox import (
     OutboxMessage,
     fetch_pending_outbox,
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 SIGNAL_MAP: Final[dict[str, str]] = {
     "incident.transitioned": "domain_event",
     "incident.created": "domain_event",
+    "approval.decided": "approval_decision",
 }
 
 
@@ -45,6 +47,22 @@ async def deliver_outbox_signal(client: Client, message: OutboxMessage) -> None:
     if signal_name is None:
         raise ValueError(f"no signal mapping for event_type={message.event_type!r}")
 
+    handle = client.get_workflow_handle(workflow_id_for(message))
+    if signal_name == "approval_decision":
+        payload = message.payload or {}
+        await handle.signal(
+            signal_name,
+            ApprovalDecisionSignal(
+                decision_id=str(message.id),
+                approval_id=str(payload.get("approval_id", "")),
+                action_id=str(payload.get("action_id", "")),
+                action_version=int(payload.get("action_version", 0)),
+                status=str(payload.get("status", "")),
+                decided_by=str(payload.get("decided_by", "")),
+            ),
+        )
+        return
+
     envelope = DomainEventEnvelope(
         message_id=str(message.id),
         event_type=message.event_type,
@@ -52,7 +70,6 @@ async def deliver_outbox_signal(client: Client, message: OutboxMessage) -> None:
         aggregate_id=message.aggregate_id,
         payload=message.payload,
     )
-    handle = client.get_workflow_handle(workflow_id_for(message))
     await handle.signal(signal_name, envelope)
 
 

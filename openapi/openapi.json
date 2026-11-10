@@ -545,6 +545,461 @@
         }
       }
     },
+    "/incidents/{incident_id}/actions": {
+      "post": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Propose Action",
+        "description": "ProposeAction bound to pinned runbook allowlist (I1).",
+        "operationId": "propose_action_incidents__incident_id__actions_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionPropose"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionProposeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/actions/{action_id}/policy/evaluate": {
+      "post": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Evaluate Action Policy",
+        "description": "SYSTEM EvaluatePolicy (I2). HTTP triggers SYSTEM \u2014 AI cannot POLICY_EVAL.",
+        "operationId": "evaluate_action_policy_actions__action_id__policy_evaluate_post",
+        "parameters": [
+          {
+            "name": "action_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Action Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PolicyEvaluateBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyDecisionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/autonomy-config": {
+      "get": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "List Autonomy Config",
+        "operationId": "list_autonomy_config_autonomy_config_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AutonomyConfigOut"
+                  },
+                  "title": "Response List Autonomy Config Autonomy Config Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Upsert Autonomy Config",
+        "operationId": "upsert_autonomy_config_autonomy_config_put",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutonomyConfigUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutonomyConfigOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/policies/{policy_key}/versions": {
+      "get": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "List Policy Versions",
+        "description": "I7: policy version history (immutable snapshots).",
+        "operationId": "list_policy_versions_policies__policy_key__versions_get",
+        "parameters": [
+          {
+            "name": "policy_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Policy Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PolicyVersionOut"
+                  },
+                  "title": "Response List Policy Versions Policies  Policy Key  Versions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Publish Policy Version",
+        "description": "I7 Admin: publish a new policy version (does not rewrite past decisions).",
+        "operationId": "publish_policy_version_policies__policy_key__versions_post",
+        "parameters": [
+          {
+            "name": "policy_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Policy Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyVersionPublish"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyVersionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/policies/{policy_key}/versions/{version}/activate": {
+      "post": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Activate Policy Version",
+        "description": "I7 Admin: activate an existing immutable policy version.",
+        "operationId": "activate_policy_version_policies__policy_key__versions__version__activate_post",
+        "parameters": [
+          {
+            "name": "policy_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Policy Key"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Version"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyActivateOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/approvals": {
       "get": {
         "tags": [
@@ -1640,6 +2095,76 @@
         }
       }
     },
+    "/eval/approvals/{approval_id}/decide": {
+      "post": {
+        "tags": [
+          "eval"
+        ],
+        "summary": "Harness Decide Approval Route",
+        "description": "I6 eval/test harness \u2014 real ApprovalDecision + workflow signal.\n\nRequires ``eval_entitled`` (ops Responder alone is not enough). Uses the\ndomain decide command (same rows as human decide) and signals\n``approval_decision`` so ``wait_for_approval`` resumes.",
+        "operationId": "harness_decide_approval_route_eval_approvals__approval_id__decide_post",
+        "parameters": [
+          {
+            "name": "approval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Approval Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HarnessDecideBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HarnessDecideOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/webhooks/alerts/alertmanager": {
       "post": {
         "tags": [
@@ -1764,6 +2289,146 @@
           "is_reversible"
         ],
         "title": "ActionOut"
+      },
+      "ActionPropose": {
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Action Type"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          },
+          "target_ref": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Target Ref"
+          },
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "hypothesis_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hypothesis Id"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action_type"
+        ],
+        "title": "ActionPropose"
+      },
+      "ActionProposeOut": {
+        "properties": {
+          "action_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Action Id"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "action_type": {
+            "type": "string",
+            "title": "Action Type"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "current_version": {
+            "type": "integer",
+            "title": "Current Version"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          },
+          "runbook_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Runbook Version Id"
+          },
+          "allowed_action_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Action Types"
+          },
+          "bumped": {
+            "type": "boolean",
+            "title": "Bumped"
+          },
+          "is_reversible": {
+            "type": "boolean",
+            "title": "Is Reversible"
+          },
+          "reverse_action_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reverse Action Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action_id",
+          "incident_id",
+          "action_type",
+          "version",
+          "current_version",
+          "status",
+          "runbook_version_id",
+          "allowed_action_types",
+          "bumped",
+          "is_reversible"
+        ],
+        "title": "ActionProposeOut"
       },
       "AlertIngressAccepted": {
         "properties": {
@@ -1915,6 +2580,161 @@
         ],
         "title": "ApprovalOut"
       },
+      "AutonomyConfigOut": {
+        "properties": {
+          "config_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Config Id"
+          },
+          "service_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Key"
+          },
+          "action_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Type"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "autonomy_level": {
+            "type": "integer",
+            "title": "Autonomy Level"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "inserted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inserted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "config_id",
+          "autonomy_level"
+        ],
+        "title": "AutonomyConfigOut"
+      },
+      "AutonomyConfigUpsert": {
+        "properties": {
+          "autonomy_level": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Autonomy Level"
+          },
+          "service_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Key"
+          },
+          "action_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Type"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "autonomy_level"
+        ],
+        "title": "AutonomyConfigUpsert"
+      },
       "EvidenceOut": {
         "properties": {
           "id": {
@@ -2045,6 +2865,69 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HarnessDecideBody": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "APPROVED or REJECTED"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "HarnessDecideBody"
+      },
+      "HarnessDecideOut": {
+        "properties": {
+          "approval": {
+            "$ref": "#/components/schemas/ApprovalOut"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "action_status": {
+            "type": "string",
+            "title": "Action Status"
+          },
+          "decided_by": {
+            "type": "string",
+            "title": "Decided By"
+          },
+          "noop": {
+            "type": "boolean",
+            "title": "Noop"
+          },
+          "workflow_signaled": {
+            "type": "boolean",
+            "title": "Workflow Signaled"
+          },
+          "signal_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "approval",
+          "incident_id",
+          "action_status",
+          "decided_by",
+          "noop",
+          "workflow_signaled"
+        ],
+        "title": "HarnessDecideOut"
       },
       "HealthResponse": {
         "properties": {
@@ -2521,6 +3404,213 @@
           "expected_revision"
         ],
         "title": "IncidentTransition"
+      },
+      "PolicyActivateOut": {
+        "properties": {
+          "policy_key": {
+            "type": "string",
+            "title": "Policy Key"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "version_label": {
+            "type": "string",
+            "title": "Version Label"
+          },
+          "activated_by": {
+            "type": "string",
+            "title": "Activated By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "policy_key",
+          "version",
+          "version_label",
+          "activated_by"
+        ],
+        "title": "PolicyActivateOut"
+      },
+      "PolicyDecisionOut": {
+        "properties": {
+          "policy_decision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Policy Decision Id"
+          },
+          "action_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Action Id"
+          },
+          "action_version": {
+            "type": "integer",
+            "title": "Action Version"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "decision": {
+            "type": "string",
+            "title": "Decision"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "policy_key": {
+            "type": "string",
+            "title": "Policy Key"
+          },
+          "policy_version": {
+            "type": "string",
+            "title": "Policy Version"
+          },
+          "action_status": {
+            "type": "string",
+            "title": "Action Status"
+          },
+          "autonomy_level": {
+            "type": "integer",
+            "title": "Autonomy Level"
+          },
+          "autonomy_source": {
+            "type": "string",
+            "title": "Autonomy Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "policy_decision_id",
+          "action_id",
+          "action_version",
+          "incident_id",
+          "decision",
+          "reason",
+          "policy_key",
+          "policy_version",
+          "action_status",
+          "autonomy_level",
+          "autonomy_source"
+        ],
+        "title": "PolicyDecisionOut"
+      },
+      "PolicyEvaluateBody": {
+        "properties": {
+          "action_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Version"
+          },
+          "autonomy_level": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Autonomy Level"
+          }
+        },
+        "type": "object",
+        "title": "PolicyEvaluateBody"
+      },
+      "PolicyVersionOut": {
+        "properties": {
+          "policy_definition_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Policy Definition Id"
+          },
+          "policy_key": {
+            "type": "string",
+            "title": "Policy Key"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "version_label": {
+            "type": "string",
+            "title": "Version Label"
+          },
+          "body": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Body"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "policy_definition_id",
+          "policy_key",
+          "version",
+          "version_label",
+          "created_by",
+          "active"
+        ],
+        "title": "PolicyVersionOut"
+      },
+      "PolicyVersionPublish": {
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Body"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "activate": {
+            "type": "boolean",
+            "title": "Activate",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "PolicyVersionPublish"
       },
       "PostmortemOut": {
         "properties": {
