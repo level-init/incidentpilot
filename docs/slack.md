@@ -85,6 +85,41 @@ enqueue_slack_lifecycle_thread(
 4. Confirm Slack (or `FakeSlackNotifier.posts`): one root + four replies with
    same `thread_ts`, each kind present, UI link in every message
 
+## Slash commands (K6)
+
+`POST /webhooks/slack/commands` — same HMAC as interactions. Point Slack
+`/ip` at this URL. ChatOps is **BEST_EFFORT** and never blocks remediation.
+
+| Command | Authz | Behavior |
+| --- | --- | --- |
+| `status` `evidence` `hypotheses` `timeline` `impact` | any verified Slack user | Read incident summary |
+| `approve` `reject` | responder allowlist | Decide PENDING approval |
+| `escalate` | responder allowlist | HUMAN_OBSERVATION note; DEGRADED when legal |
+| `resolve` | responder allowlist | `RECOVERED` → `RESOLVED` when legal |
+| `help` | any | Command list |
+
+```text
+/ip status INC-ABC123
+/ip evidence INC-ABC123
+/ip resolve INC-ABC123
+```
+
+Authz env:
+
+| Var | Meaning |
+| --- | --- |
+| `SLACK_COMMAND_RESPONDERS` | Comma-separated Slack user ids allowed to mutate |
+| `SLACK_COMMANDS_OPEN=1` | Local/demo: all users may mutate |
+
+### Manual verify list
+
+1. Configure Slack slash `/ip` → `https://<api>/webhooks/slack/commands`
+2. Set `SLACK_SIGNING_SECRET` on api; `SLACK_COMMANDS_OPEN=1` for demos
+3. `/ip status <public_id>` → state + UI link
+4. `/ip evidence <public_id>` → latest evidence rows
+5. `/ip resolve <public_id>` on a `RECOVERED` incident → `RESOLVED`
+6. Mutate as non-allowlisted user (without open mode) → Forbidden
+
 ## Privilege split
 
 | Process | Cred | Role |

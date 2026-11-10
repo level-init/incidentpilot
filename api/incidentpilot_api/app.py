@@ -27,7 +27,8 @@ app = FastAPI(
         "client-supplied actor_id is rejected. "
         "GroundTruth requires eval entitlement (C3), separate from ops RBAC. "
         "Alertmanager webhooks: /webhooks/alerts/alertmanager (F1–F5). "
-        "Slack interactions: /webhooks/slack/interactions (K2 HMAC)."
+        "Slack interactions: /webhooks/slack/interactions (K2/K3 HMAC); "
+        "slash commands: /webhooks/slack/commands (K6)."
     ),
     dependencies=[Depends(reject_spoofed_identity)],
 )

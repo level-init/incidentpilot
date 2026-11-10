@@ -79,6 +79,12 @@ curl -s -X POST -H 'Authorization: Bearer local-dev' \
 - `provenance.actor_id` from session only; client `actor_id` → **400**
 - Notes are `truthfulness=human_note` (not absolute truth)
 
+## Slack slash commands (K6)
+
+`POST /webhooks/slack/commands` — HMAC-verified `/ip` ChatOps
+(status/evidence/hypotheses/timeline/impact/approve/reject/escalate/resolve).
+See [slack.md](slack.md). Does **not** block the remediation path.
+
 ## Slack interactions (K2)
 
 `POST /webhooks/slack/interactions` — Slack signing-secret HMAC on **api** only.
