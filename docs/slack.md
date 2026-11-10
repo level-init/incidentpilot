@@ -14,7 +14,28 @@ Incident state (`MITIGATING` / `VALIDATING` stay intact).
 3. Then return **200** (`accepted` / `duplicate`)
 
 Idempotency scope: `webhook:slack_interaction` (Slack `trigger_id` or body hash).
-ApprovalDecision mapping is **K3**.
+
+## Approve / reject → ApprovalDecision (K3)
+
+Block Kit button `value` JSON (see `encode_slack_approval_value`):
+
+```json
+{
+  "approval_id": "<uuid>",
+  "action_id": "<uuid>",
+  "action_version": 1,
+  "decision": "APPROVED"
+}
+```
+
+`action_id` on the button may be `ip_approve` / `ip_reject`.
+
+After persist, the api maps the interaction:
+
+1. Version / action mismatch → ephemeral text includes `STALE_ACTION_VERSION`
+   (HTTP **200**, interaction `FAILED`, approval stays `PENDING`)
+2. Match + `REQUIRE_APPROVAL` → `decide_approval_command` (`decided_by=slack:<user>`),
+   mark interaction `MAPPED`, signal `approval_decision` (Level 2 wait resumes)
 
 ```bash
 # fixture: sign body with SLACK_SIGNING_SECRET (see tests/test_slack_verify_k2.py)

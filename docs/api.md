@@ -68,7 +68,9 @@ Past `PolicyDecision` rows keep their stamped `policy_version`; definitions are 
 ## Slack interactions (K2)
 
 `POST /webhooks/slack/interactions` — Slack signing-secret HMAC on **api** only.
-Persist `domain.slack_interaction` before **200**. See [slack.md](slack.md).
+Persist `domain.slack_interaction` before **200**, then map approve/reject to
+`ApprovalDecision` (K3; stale versions visible in ephemeral `text`).
+See [slack.md](slack.md).
 
 ## Alertmanager webhook (F1–F5)
 
