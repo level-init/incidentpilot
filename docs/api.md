@@ -33,6 +33,23 @@ curl -s -X POST -H 'Authorization: Bearer local-dev' \
 
 Published contract: [openapi/openapi.json](../openapi/openapi.json) (`make openapi-export`).
 
+## Approval harness (I6)
+
+Eval/test path for Level-2 approvals without Slack (real `domain.approval` rows):
+
+```bash
+# requires eval entitlement (local-dev-evaluator)
+curl -s -X POST -H 'Authorization: Bearer local-dev-evaluator' \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"APPROVED"}' \
+  http://localhost:8000/eval/approvals/<approval_id>/decide
+
+python scripts/approval_harness.py reject <approval_id>
+```
+
+Ops `/approvals/{id}/decide` remains the human/session path. Harness requires
+`eval_entitled`; approve resumes `wait_for_approval`, reject replans to `DIAGNOSED`.
+
 ## Alertmanager webhook (F1–F5)
 
 Separate ingress (not Slack HMAC): `POST /webhooks/alerts/alertmanager`.

@@ -123,3 +123,6 @@ for signal `approval_decision` (`ApprovalDecisionSignal`).
   actions, transitions `AWAITING_APPROVAL → DIAGNOSED` (replan).
   Query `remediation_executed` stays `false`; no `execution_attempt` is written.
 - Decide enqueues outbox `approval.decided` → dispatcher signals the workflow.
+- **I6 harness:** `POST /eval/approvals/{id}/decide` (eval entitlement) calls the same
+  domain decide + signals immediately; **reject** runs `handle_approval_rejected`
+  → `DIAGNOSED` (replan), never execute.

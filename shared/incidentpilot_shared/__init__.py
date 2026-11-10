@@ -25,6 +25,11 @@ from incidentpilot_shared.alerts import (
     normalize_alertmanager_webhook,
     normalize_cloudwatch_payload,
 )
+from incidentpilot_shared.approval_harness import (
+    HarnessDecideResult,
+    harness_actor_id,
+    harness_decide_approval,
+)
 from incidentpilot_shared.approval_signals import ApprovalDecisionSignal
 from incidentpilot_shared.autonomy import (
     AutonomyMatch,
@@ -182,6 +187,7 @@ __all__ = [
     "ApprovalNotConsumable",
     "ApprovalPolicyRequired",
     "AutonomyMatch",
+    "HarnessDecideResult",
     "CollectJob",
     "ConsumeApprovalResult",
     "CorrelateAlertResult",
@@ -253,6 +259,8 @@ __all__ = [
     "ensure_collect_cycle_started",
     "ensure_incident_workflow_started",
     "fetch_pending_outbox",
+    "harness_actor_id",
+    "harness_decide_approval",
     "heuristic_score_from_signals",
     "historical_searcher_for_broker",
     "incident_workflow_id",

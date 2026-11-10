@@ -1897,6 +1897,76 @@
         }
       }
     },
+    "/eval/approvals/{approval_id}/decide": {
+      "post": {
+        "tags": [
+          "eval"
+        ],
+        "summary": "Harness Decide Approval Route",
+        "description": "I6 eval/test harness \u2014 real ApprovalDecision + workflow signal.\n\nRequires ``eval_entitled`` (ops Responder alone is not enough). Uses the\ndomain decide command (same rows as human decide) and signals\n``approval_decision`` so ``wait_for_approval`` resumes.",
+        "operationId": "harness_decide_approval_route_eval_approvals__approval_id__decide_post",
+        "parameters": [
+          {
+            "name": "approval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Approval Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HarnessDecideBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HarnessDecideOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/webhooks/alerts/alertmanager": {
       "post": {
         "tags": [
@@ -2597,6 +2667,69 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HarnessDecideBody": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "APPROVED or REJECTED"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "HarnessDecideBody"
+      },
+      "HarnessDecideOut": {
+        "properties": {
+          "approval": {
+            "$ref": "#/components/schemas/ApprovalOut"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "action_status": {
+            "type": "string",
+            "title": "Action Status"
+          },
+          "decided_by": {
+            "type": "string",
+            "title": "Decided By"
+          },
+          "noop": {
+            "type": "boolean",
+            "title": "Noop"
+          },
+          "workflow_signaled": {
+            "type": "boolean",
+            "title": "Workflow Signaled"
+          },
+          "signal_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "approval",
+          "incident_id",
+          "action_status",
+          "decided_by",
+          "noop",
+          "workflow_signaled"
+        ],
+        "title": "HarnessDecideOut"
       },
       "HealthResponse": {
         "properties": {

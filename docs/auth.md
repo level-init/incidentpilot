@@ -44,6 +44,8 @@ Session identity on human actions:
 - `POST /incidents/{id}/observations` → Evidence `HUMAN_OBSERVATION` with
   `provenance.actor_id` = session
 - `POST /approvals/{id}/decide` → `decided_by` = session `actor_id`
+- `POST /eval/approvals/{id}/decide` (I6 harness) → `decided_by = harness:<actor_id>`;
+  requires `eval_entitled` (ops Responder alone → **403**)
 
 ## Ops RBAC (C2)
 
