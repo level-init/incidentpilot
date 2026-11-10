@@ -47,7 +47,13 @@ timer fires.
 | `FAILED_VALIDATION` (REGRESSION) | `DEGRADED` | stay `DEGRADED` |
 
 `PLANNING_REMEDIATION` is the product route name; Freeze-2 state is `DIAGNOSED`.
-Compensation Action (new Action + fresh policy) is **J9**.
+
+## Compensation Action (J9)
+
+Regression / reverse path proposes a **new** Action via
+`propose_compensation_action_command` with `compensates_action_id` pointing at
+the parent. Parent Approval/PolicyDecision **never** authorize the compensation
+(`ParentApprovalReuseDenied`). EvaluatePolicy + Approval must run again.
 
 ## One result per attempt
 

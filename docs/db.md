@@ -80,7 +80,7 @@ Migrations are recorded in `public.schema_migrations`.
 | `domain.runbook_version` | Versioned body + `allowed_action_types` (authority); FTS `search_tsv`; published = immutable |
 | `domain.incident.pinned_runbook_version_id` | H6 pin of published version |
 
-| `domain.action` | Remediation proposal; `is_reversible` / `reverse_action_type` |
+| `domain.action` | Remediation proposal; `is_reversible` / `reverse_action_type`; J9 `compensates_action_id` |
 | `domain.action_version` | Immutable snapshot; policy/approval/attempt bind here |
 | `domain.policy_decision` | Unique + immutable per `(action_id, action_version)` (I2); stamps `policy_key`/`policy_version` |
 | `domain.policy_definition` | Append-only versioned policy body (I7); never rewritten |

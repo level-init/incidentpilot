@@ -50,6 +50,7 @@ transitions, and outbox rules cannot be bypassed.
 | `retrieve_historical_assist` | Past incidents/postmortems as non-Evidence suggestions (H9; not a mutator) |
 | `confirm_hypothesis_command` | SYSTEM class rules → CONFIRMED + optional CAUSED_BY (H10); RECOVERED alone insufficient |
 | `propose_action_command` | ProposeAction + immutable `action_version`; type ∈ pinned allowlist (I1) |
+| `propose_compensation_action_command` | J9: new Action linked via `compensates_action_id`; fresh PolicyDecision/Approval required |
 | `evaluate_policy_command` | SYSTEM EvaluatePolicy → immutable PolicyDecision; AI denied (I2); resolves autonomy via I3; stamps active policy version (I7) |
 | `upsert_autonomy_config_command` | Autonomy Levels 1–3 per service/action/env/severity (I3) |
 | `publish_policy_version_command` | Append immutable policy_definition version; optional activate (I7) |

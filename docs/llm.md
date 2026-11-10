@@ -311,6 +311,18 @@ One `ValidationResult` per attempt; LLM explains only.
 J8 routes: `RECOVERED→RESOLVED`; NO_IMPROVEMENT→`DIAGNOSED`; REGRESSION→`DEGRADED`;
 no `VALIDATING→MITIGATING`.
 
+## Compensation Action (J9)
+
+```python
+from incidentpilot_shared.domain.commands import propose_compensation_action_command
+
+comp = propose_compensation_action_command(
+    conn, parent_action_id=…, parameters={…}
+)
+# comp.action_id is new; compensates_action_id → parent
+# Parent Approval cannot authorize comp — EvaluatePolicy + Approval again
+```
+
 ## RemediationResult → ACTION_RESULT Evidence (J6)
 
 ```python
