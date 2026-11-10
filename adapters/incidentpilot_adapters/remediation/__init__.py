@@ -1,4 +1,4 @@
-"""Remediation adapters — privileged outbound execute / reconcile (J1–J3)."""
+"""Remediation adapters — privileged outbound execute / reconcile (J1–J4)."""
 
 from incidentpilot_adapters.remediation.noop import (
     NoopRemediationAdapter,
@@ -16,6 +16,11 @@ from incidentpilot_adapters.remediation.protocol import (
     RemediationAdapter,
     RemediationRequest,
     RemediationResult,
+)
+from incidentpilot_adapters.remediation.sim_flag_config import (
+    SimConfigRestoreAdapter,
+    SimFeatureFlagAdapter,
+    SimFlagConfigWorld,
 )
 from incidentpilot_adapters.remediation.sim_rollback import (
     LostAckError,
@@ -40,7 +45,10 @@ __all__ = [
     "RemediationAdapter",
     "RemediationRequest",
     "RemediationResult",
+    "SimConfigRestoreAdapter",
     "SimDeploymentWorld",
+    "SimFeatureFlagAdapter",
+    "SimFlagConfigWorld",
     "SimRestartAdapter",
     "SimRollbackAdapter",
     "SimScaleAdapter",

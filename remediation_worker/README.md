@@ -13,7 +13,8 @@ See [docs/temporal-queues.md](../docs/temporal-queues.md).
 
 **Owns:** RemediationAdapter calls after **VerifyExecutionAttempt** (J1);
 `ROLLBACK_DEPLOYMENT` sim + reconcile (J2); `RESTART_WORKLOAD` /
-`SCALE_WORKLOAD` sim (J3); narrow identity later (J11).
+`SCALE_WORKLOAD` sim (J3); feature-flag disable/restore + config restore (J4);
+narrow identity later (J11).
 
 ```python
 from incidentpilot_remediation.execute import (

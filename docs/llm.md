@@ -286,6 +286,23 @@ verify_reconcile_and_execute(conn, SimScaleAdapter(world), attempt_id=…,
 - Restart bumps generation; scale sets desired replicas; attempt_id is idempotency key
 - Lost-ACK retry skips re-mutate; `UNKNOWN` → `BlindRetryForbidden`
 
+## Feature flag + config restore (J4)
+
+```python
+from incidentpilot_adapters.remediation import (
+    SimFlagConfigWorld, SimFeatureFlagAdapter, SimConfigRestoreAdapter,
+)
+
+world = SimFlagConfigWorld()
+world.seed_bad_flag_fault()       # auth:strict_jwt=true
+world.seed_bad_config_faults()    # jwt_skew_seconds=0, pool_size=4
+SimFeatureFlagAdapter(world).execute(...)   # DISABLE_FEATURE_FLAG / RESTORE_FEATURE_FLAG
+SimConfigRestoreAdapter(world).execute(...) # RESTORE_CONFIG
+```
+
+- Clears catalog-aligned sim faults (`strict_jwt`, `jwt_skew_seconds`, `pool_size`)
+- Same reconcile/idempotency contract; params: `flag`/`key` + optional `service` + desired `value`
+
 ## ProposeAction (I1)
 
 ```python
