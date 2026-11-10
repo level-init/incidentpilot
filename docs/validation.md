@@ -28,14 +28,26 @@ timer fires.
 
 ### Outcomes
 
-| Outcome | Meaning | Incident transition |
+| Outcome | Meaning | After ValidationResult (J7) |
 | --- | --- | --- |
 | `RECOVERED` | error_rate ≤ 0.05 (and no baseline breach) | `VALIDATING → RECOVERED` |
 | `STILL_DEGRADED` | error_rate > 0.05 or baseline breached | `VALIDATING → DEGRADED` |
 | `UNKNOWN` | missing ACTION_RESULT or METRIC | `VALIDATING → DEGRADED` |
-| `FAILED_VALIDATION` | reserved hard-fail | `VALIDATING → DEGRADED` |
+| `FAILED_VALIDATION` | reserved hard-fail / regression | `VALIDATING → DEGRADED` |
 
-Compensation / replan after `DEGRADED` is **J8**.
+## Post-validation routing (J8)
+
+`route_validation_outcome_command` applies canonical routes (never
+`VALIDATING → MITIGATING`):
+
+| Validation outcome | Route name | Incident path |
+| --- | --- | --- |
+| `RECOVERED` | `RESOLVED` | `RECOVERED → RESOLVED` |
+| `STILL_DEGRADED` / `UNKNOWN` (PARTIAL / NO_IMPROVEMENT) | `PLANNING_REMEDIATION` | `DEGRADED → DIAGNOSED` |
+| `FAILED_VALIDATION` (REGRESSION) | `DEGRADED` | stay `DEGRADED` |
+
+`PLANNING_REMEDIATION` is the product route name; Freeze-2 state is `DIAGNOSED`.
+Compensation Action (new Action + fresh policy) is **J9**.
 
 ## One result per attempt
 

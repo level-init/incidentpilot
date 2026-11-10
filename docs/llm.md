@@ -303,11 +303,13 @@ SimConfigRestoreAdapter(world).execute(...) # RESTORE_CONFIG
 - Clears catalog-aligned sim faults (`strict_jwt`, `jwt_skew_seconds`, `pool_size`)
 - Same reconcile/idempotency contract; params: `flag`/`key` + optional `service` + desired `value`
 
-## Validation window + ValidationResult (J7)
+## Validation window + ValidationResult (J7) + routing (J8)
 
 See [docs/validation.md](validation.md). Durable `validation_window` (15m default);
 `checkout_recovery.v1` thresholds: error_rate ≤ **0.05**, baseline ratio &lt; **2.0**.
 One `ValidationResult` per attempt; LLM explains only.
+J8 routes: `RECOVERED→RESOLVED`; NO_IMPROVEMENT→`DIAGNOSED`; REGRESSION→`DEGRADED`;
+no `VALIDATING→MITIGATING`.
 
 ## RemediationResult → ACTION_RESULT Evidence (J6)
 
