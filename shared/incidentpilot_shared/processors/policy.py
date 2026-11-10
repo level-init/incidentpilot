@@ -1,8 +1,9 @@
-"""Deterministic policy engine (I2).
+"""Deterministic policy engine (I2/I7).
 
 SYSTEM-only EvaluatePolicy. AI never binds POLICY_EVAL. Decisions:
 ALLOW_AUTONOMOUS | REQUIRE_APPROVAL | BLOCK. No emergency override.
 Autonomy levels are a simple input here; I3 owns durable config.
+I7 supplies versioned ``policy_key`` / ``policy_version`` + optional body.
 """
 
 from __future__ import annotations
@@ -15,6 +16,14 @@ RULE_POLICY_V1 = "policy_engine.v1"
 DECISION_ALLOW = "ALLOW_AUTONOMOUS"
 DECISION_REQUIRE = "REQUIRE_APPROVAL"
 DECISION_BLOCK = "BLOCK"
+
+DEFAULT_POLICY_KEY = "default"
+DEFAULT_POLICY_VERSION = "v1"
+DEFAULT_POLICY_BODY: dict[str, Any] = {
+    "engine": RULE_POLICY_V1,
+    "block_action_types": ["OTHER"],
+    "level3_autonomous_action_types": ["ROLLBACK_DEPLOYMENT"],
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,74 +41,90 @@ def evaluate_policy(
     action_type: str,
     parameters: dict[str, Any] | None = None,
     autonomy_level: int = 2,
+    policy_key: str = DEFAULT_POLICY_KEY,
+    policy_version: str = DEFAULT_POLICY_VERSION,
+    policy_body: dict[str, Any] | None = None,
 ) -> PolicyVerdict:
     """Map action + autonomy level to an immutable decision band."""
     params = dict(parameters or {})
     level = int(autonomy_level)
+    body = dict(DEFAULT_POLICY_BODY)
+    if policy_body:
+        body.update(policy_body)
+    block_types = {str(x) for x in body.get("block_action_types", ["OTHER"])}
+    level3_types = {
+        str(x) for x in body.get("level3_autonomous_action_types", ["ROLLBACK_DEPLOYMENT"])
+    }
+    quality_rule = str(body.get("engine") or RULE_POLICY_V1)
     inputs: dict[str, Any] = {
-        "rule": RULE_POLICY_V1,
+        "rule": quality_rule,
         "action_type": action_type,
         "autonomy_level": level,
         "parameters_keys": sorted(params.keys()),
+        "policy_key": policy_key,
+        "policy_version": policy_version,
     }
 
     # Explicit force-block for tests / ops kill-switch (not an emergency override of BLOCK).
     if str(params.get("policy_force", "")).upper() == "BLOCK":
         return PolicyVerdict(
-            quality_rule_id=RULE_POLICY_V1,
+            quality_rule_id=quality_rule,
             decision=DECISION_BLOCK,
             reason="policy_force=BLOCK",
-            policy_key="default",
-            policy_version="v1",
+            policy_key=policy_key,
+            policy_version=policy_version,
             inputs=inputs,
         )
 
-    if action_type == "OTHER":
+    if action_type in block_types:
         return PolicyVerdict(
-            quality_rule_id=RULE_POLICY_V1,
+            quality_rule_id=quality_rule,
             decision=DECISION_BLOCK,
-            reason="OTHER action_type is blocked by default policy",
-            policy_key="default",
-            policy_version="v1",
+            reason=f"{action_type} is blocked by policy {policy_key}/{policy_version}",
+            policy_key=policy_key,
+            policy_version=policy_version,
             inputs=inputs,
         )
 
     if level <= 1:
         return PolicyVerdict(
-            quality_rule_id=RULE_POLICY_V1,
+            quality_rule_id=quality_rule,
             decision=DECISION_BLOCK,
             reason="autonomy level 1 is observe-only (remediation blocked)",
-            policy_key="default",
-            policy_version="v1",
+            policy_key=policy_key,
+            policy_version=policy_version,
             inputs=inputs,
         )
 
     if level == 2:
         return PolicyVerdict(
-            quality_rule_id=RULE_POLICY_V1,
+            quality_rule_id=quality_rule,
             decision=DECISION_REQUIRE,
             reason="autonomy level 2 requires human/harness approval",
-            policy_key="default",
-            policy_version="v1",
+            policy_key=policy_key,
+            policy_version=policy_version,
             inputs=inputs,
         )
 
-    # Level 3+: autonomous only for well-known reversible remediations.
-    if action_type == "ROLLBACK_DEPLOYMENT":
+    # Level 3+: autonomous only for configured reversible remediations.
+    if action_type in level3_types:
         return PolicyVerdict(
-            quality_rule_id=RULE_POLICY_V1,
+            quality_rule_id=quality_rule,
             decision=DECISION_ALLOW,
-            reason="autonomy level 3 allows autonomous ROLLBACK_DEPLOYMENT",
-            policy_key="default",
-            policy_version="v1",
+            reason=(
+                f"autonomy level 3 allows autonomous {action_type} "
+                f"under {policy_key}/{policy_version}"
+            ),
+            policy_key=policy_key,
+            policy_version=policy_version,
             inputs=inputs,
         )
     return PolicyVerdict(
-        quality_rule_id=RULE_POLICY_V1,
+        quality_rule_id=quality_rule,
         decision=DECISION_REQUIRE,
         reason=f"autonomy level {level}: {action_type} still requires approval",
-        policy_key="default",
-        policy_version="v1",
+        policy_key=policy_key,
+        policy_version=policy_version,
         inputs=inputs,
     )
 

@@ -50,6 +50,21 @@ python scripts/approval_harness.py reject <approval_id>
 Ops `/approvals/{id}/decide` remains the human/session path. Harness requires
 `eval_entitled`; approve resumes `wait_for_approval`, reject replans to `DIAGNOSED`.
 
+## Policy versioning (I7)
+
+```bash
+# Admin publishes a new immutable version (optionally activates)
+curl -s -X POST -H 'Authorization: Bearer local-dev-admin' \
+  -H 'Content-Type: application/json' \
+  -d '{"body":{"block_action_types":["OTHER"]},"notes":"tighten","activate":true}' \
+  http://localhost:8000/policies/default/versions
+
+curl -s -H 'Authorization: Bearer local-dev' \
+  http://localhost:8000/policies/default/versions
+```
+
+Past `PolicyDecision` rows keep their stamped `policy_version`; definitions are append-only.
+
 ## Alertmanager webhook (F1–F5)
 
 Separate ingress (not Slack HMAC): `POST /webhooks/alerts/alertmanager`.

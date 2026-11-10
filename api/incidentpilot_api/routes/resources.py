@@ -18,11 +18,14 @@ from incidentpilot_api.commands import (
     PolicyActorDenied,
     PolicyDecisionExists,
     SeverityActorDenied,
+    activate_policy_version_command,
     compute_impact_snapshot_command,
     compute_slo_burn_command,
     confirm_hypothesis_command,
     evaluate_policy_command,
+    list_policy_definitions,
     propose_action_command,
+    publish_policy_version_command,
     update_incident_severity_command,
     upsert_autonomy_config_command,
 )
@@ -40,8 +43,11 @@ from incidentpilot_api.schemas import (
     HypothesisConfirmOut,
     HypothesisOut,
     ImpactSnapshotOut,
+    PolicyActivateOut,
     PolicyDecisionOut,
     PolicyEvaluateBody,
+    PolicyVersionOut,
+    PolicyVersionPublish,
     PostmortemOut,
     SeverityUpdateOut,
     SloBurnOut,
@@ -284,6 +290,94 @@ def upsert_autonomy_config(
         autonomy_level=result.autonomy_level,
         notes=result.notes,
         inserted=result.inserted,
+    )
+
+
+@router.get("/policies/{policy_key}/versions", response_model=list[PolicyVersionOut])
+def list_policy_versions(
+    policy_key: str,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> list[PolicyVersionOut]:
+    """I7: policy version history (immutable snapshots)."""
+    require_permission(principal, Permission.INCIDENT_READ)
+    rows = list_policy_definitions(conn, policy_key=policy_key)
+    return [
+        PolicyVersionOut(
+            policy_definition_id=r.policy_definition_id,
+            policy_key=r.policy_key,
+            version=r.version,
+            version_label=r.version_label,
+            body=r.body,
+            notes=r.notes,
+            created_by=r.created_by,
+            active=r.active,
+        )
+        for r in rows
+    ]
+
+
+@router.post(
+    "/policies/{policy_key}/versions",
+    response_model=PolicyVersionOut,
+    status_code=201,
+)
+def publish_policy_version(
+    policy_key: str,
+    body: PolicyVersionPublish,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> PolicyVersionOut:
+    """I7 Admin: publish a new policy version (does not rewrite past decisions)."""
+    require_permission(principal, Permission.ADMIN_CONFIG)
+    result = publish_policy_version_command(
+        conn,
+        policy_key=policy_key,
+        body=dict(body.body),
+        notes=body.notes,
+        created_by=principal.actor_id,
+        activate=body.activate,
+        commit=True,
+    )
+    return PolicyVersionOut(
+        policy_definition_id=result.policy_definition_id,
+        policy_key=result.policy_key,
+        version=result.version,
+        version_label=result.version_label,
+        body=result.body,
+        notes=result.notes,
+        created_by=result.created_by,
+        active=result.active,
+    )
+
+
+@router.post(
+    "/policies/{policy_key}/versions/{version}/activate",
+    response_model=PolicyActivateOut,
+)
+def activate_policy_version(
+    policy_key: str,
+    version: int,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> PolicyActivateOut:
+    """I7 Admin: activate an existing immutable policy version."""
+    require_permission(principal, Permission.ADMIN_CONFIG)
+    try:
+        result = activate_policy_version_command(
+            conn,
+            policy_key=policy_key,
+            version=version,
+            activated_by=principal.actor_id,
+            commit=True,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return PolicyActivateOut(
+        policy_key=result.policy_key,
+        version=result.version,
+        version_label=result.version_label,
+        activated_by=result.activated_by,
     )
 
 
