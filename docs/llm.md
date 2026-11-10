@@ -231,6 +231,21 @@ assert_approval_authorizes(conn, action_id=…, action_version=1)
   writes real Approval rows + signals the wait; reject → replan `DIAGNOSED`
   CLI: `python scripts/approval_harness.py approve|reject <approval_id>`
 
+## VerifyExecutionAttempt (J1)
+
+```python
+from incidentpilot_shared.remediation_verify import verify_execution_attempt
+from incidentpilot_adapters.remediation import execute_verified, NoopRemediationAdapter
+
+verified = verify_execution_attempt(conn, attempt_id=…, parameters={…})  # must match SoR
+execute_verified(NoopRemediationAdapter(), verified)
+```
+
+- Real `attempt_id` with **bogus params** → `ParamMismatchError`
+- Adapter execute without verify → `UnverifiedExecutionError`
+- Params always taken from immutable `action_version` after verify
+- remediation-worker entry: `incidentpilot_remediation.execute.verify_and_execute`
+
 ## ProposeAction (I1)
 
 ```python

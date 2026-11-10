@@ -28,6 +28,14 @@ from incidentpilot_adapters.llm import (
     complete_structured,
     resolve_llm_provider,
 )
+from incidentpilot_adapters.remediation import (
+    NoopRemediationAdapter,
+    RemediationAdapter,
+    RemediationRequest,
+    RemediationResult,
+    execute_verified,
+    request_from_verified,
+)
 from incidentpilot_adapters.telemetry import (
     LokiClient,
     PrometheusClient,
@@ -52,12 +60,18 @@ __all__ = [
     "LokiClient",
     "MemoryBlobStore",
     "MemoryChangeSource",
+    "NoopRemediationAdapter",
     "PrometheusClient",
+    "RemediationAdapter",
+    "RemediationRequest",
+    "RemediationResult",
     "SimChangeSource",
     "S3BlobStore",
     "StructuredOutputError",
     "TempoClient",
     "complete_structured",
+    "execute_verified",
+    "request_from_verified",
     "resolve_evidence_blob_store",
     "resolve_llm_provider",
     "__version__",
