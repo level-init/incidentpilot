@@ -188,6 +188,7 @@ def test_rollback_clears_bad_revision(conn: object) -> None:
     assert len(adapter.execute_calls) == 1
 
 
+@pytest.mark.temporal_d6
 @pytest.mark.skipif(not _db_available(), reason="Postgres not reachable")
 def test_retry_after_lost_ack_does_not_double_apply(conn: object) -> None:
     proposed, attempt, params = _approved_rollback_attempt(conn)

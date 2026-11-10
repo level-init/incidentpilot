@@ -156,6 +156,7 @@ def _worker(env: WorkflowEnvironment, task_queue: str) -> Worker:
     )
 
 
+@pytest.mark.temporal_d6
 async def test_validation_window_recovers(incident_bundle: tuple[uuid.UUID, uuid.UUID]) -> None:
     incident_id, attempt_id = incident_bundle
     task_queue = f"test-j7-{uuid.uuid4().hex[:8]}"

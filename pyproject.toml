@@ -79,3 +79,6 @@ pythonpath = [
 addopts = "-q"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "temporal_d6: D6 Temporal five-test regression suite (CI gate)",
+]

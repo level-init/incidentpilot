@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# Apply deploy/db/migrations/*.sql in order against local Compose Postgres.
+# Apply deploy/db/migrations/*.sql in order.
+#
+# Modes:
+#   Compose (default): exec into local profile=core postgres.
+#   Direct: set MIGRATE_DSN (e.g. CI) to a superuser URL and use host psql.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -10,17 +14,24 @@ MIGRATIONS_DIR="${ROOT}/deploy/db/migrations"
 
 cd "${ROOT}"
 
-if ! ${COMPOSE} --profile core ps --status running --services 2>/dev/null | grep -qx postgres; then
-  echo "postgres is not running. Start it with: make compose-core" >&2
-  exit 1
-fi
+if [[ -n "${MIGRATE_DSN:-}" ]]; then
+  psql_boot() {
+    psql -v ON_ERROR_STOP=1 "${MIGRATE_DSN}" "$@"
+  }
+else
+  if ! ${COMPOSE} --profile core ps --status running --services 2>/dev/null | grep -qx postgres; then
+    echo "postgres is not running. Start it with: make compose-core" >&2
+    echo "(or set MIGRATE_DSN for direct psql, e.g. CI)" >&2
+    exit 1
+  fi
 
-psql_boot() {
-  ${COMPOSE} --profile core exec -T \
-    -e PGPASSWORD="${POSTGRES_PASSWORD:-incidentpilot}" \
-    postgres \
-    psql -v ON_ERROR_STOP=1 -U "${DB_USER}" -d "${DB_NAME}" "$@"
-}
+  psql_boot() {
+    ${COMPOSE} --profile core exec -T \
+      -e PGPASSWORD="${POSTGRES_PASSWORD:-incidentpilot}" \
+      postgres \
+      psql -v ON_ERROR_STOP=1 -U "${DB_USER}" -d "${DB_NAME}" "$@"
+  }
+fi
 
 echo "Ensuring schema_migrations table…"
 psql_boot <<'SQL'
