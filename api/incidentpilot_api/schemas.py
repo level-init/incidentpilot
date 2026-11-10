@@ -132,6 +132,30 @@ class AutonomyConfigUpsert(BaseModel):
     notes: str | None = None
 
 
+class PolicyVersionPublish(BaseModel):
+    body: dict[str, object] = Field(default_factory=dict)
+    notes: str | None = None
+    activate: bool = True
+
+
+class PolicyVersionOut(BaseModel):
+    policy_definition_id: UUID
+    policy_key: str
+    version: int
+    version_label: str
+    body: dict[str, object] = Field(default_factory=dict)
+    notes: str | None = None
+    created_by: str
+    active: bool
+
+
+class PolicyActivateOut(BaseModel):
+    policy_key: str
+    version: int
+    version_label: str
+    activated_by: str
+
+
 class AutonomyConfigOut(BaseModel):
     config_id: UUID
     service_key: str | None = None

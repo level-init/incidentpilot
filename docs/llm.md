@@ -199,6 +199,9 @@ evaluate_policy_command(conn, action_id=…, actor="system")
 - SYSTEM-only; AI `POLICY_EVAL` tool remains denied; AI actors raise `PolicyActorDenied`
 - `BLOCK` is absolute (no emergency override); `assert_not_blocked` gates execute paths
 - HTTP: `POST /actions/{id}/policy/evaluate` (always runs as SYSTEM)
+- **I7:** Admin publishes versions via `POST /policies/{key}/versions` (`ADMIN_CONFIG`);
+  EvaluatePolicy stamps the **active** `policy_version` onto new PolicyDecision rows;
+  past decisions and `policy_definition` rows stay immutable
 - **First scored bad-deploy** (`checkout` + `ROLLBACK_DEPLOYMENT` + `local`) is **Level 2 → REQUIRE_APPROVAL**
 - Level 3 is configurable via `PUT /autonomy-config` — **not** a production default
 - Global default row is Level 2

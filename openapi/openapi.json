@@ -802,6 +802,204 @@
         }
       }
     },
+    "/policies/{policy_key}/versions": {
+      "get": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "List Policy Versions",
+        "description": "I7: policy version history (immutable snapshots).",
+        "operationId": "list_policy_versions_policies__policy_key__versions_get",
+        "parameters": [
+          {
+            "name": "policy_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Policy Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PolicyVersionOut"
+                  },
+                  "title": "Response List Policy Versions Policies  Policy Key  Versions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Publish Policy Version",
+        "description": "I7 Admin: publish a new policy version (does not rewrite past decisions).",
+        "operationId": "publish_policy_version_policies__policy_key__versions_post",
+        "parameters": [
+          {
+            "name": "policy_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Policy Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyVersionPublish"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyVersionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/policies/{policy_key}/versions/{version}/activate": {
+      "post": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Activate Policy Version",
+        "description": "I7 Admin: activate an existing immutable policy version.",
+        "operationId": "activate_policy_version_policies__policy_key__versions__version__activate_post",
+        "parameters": [
+          {
+            "name": "policy_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Policy Key"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Version"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyActivateOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/approvals": {
       "get": {
         "tags": [
@@ -3207,6 +3405,34 @@
         ],
         "title": "IncidentTransition"
       },
+      "PolicyActivateOut": {
+        "properties": {
+          "policy_key": {
+            "type": "string",
+            "title": "Policy Key"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "version_label": {
+            "type": "string",
+            "title": "Version Label"
+          },
+          "activated_by": {
+            "type": "string",
+            "title": "Activated By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "policy_key",
+          "version",
+          "version_label",
+          "activated_by"
+        ],
+        "title": "PolicyActivateOut"
+      },
       "PolicyDecisionOut": {
         "properties": {
           "policy_decision_id": {
@@ -3303,6 +3529,88 @@
         },
         "type": "object",
         "title": "PolicyEvaluateBody"
+      },
+      "PolicyVersionOut": {
+        "properties": {
+          "policy_definition_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Policy Definition Id"
+          },
+          "policy_key": {
+            "type": "string",
+            "title": "Policy Key"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "version_label": {
+            "type": "string",
+            "title": "Version Label"
+          },
+          "body": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Body"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "policy_definition_id",
+          "policy_key",
+          "version",
+          "version_label",
+          "created_by",
+          "active"
+        ],
+        "title": "PolicyVersionOut"
+      },
+      "PolicyVersionPublish": {
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Body"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "activate": {
+            "type": "boolean",
+            "title": "Activate",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "PolicyVersionPublish"
       },
       "PostmortemOut": {
         "properties": {

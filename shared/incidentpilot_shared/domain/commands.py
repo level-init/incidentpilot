@@ -237,6 +237,26 @@ class EvaluatePolicyResult:
 
 
 @dataclass(frozen=True, slots=True)
+class PolicyDefinitionResult:
+    policy_definition_id: UUID
+    policy_key: str
+    version: int
+    version_label: str
+    body: dict[str, Any]
+    notes: str | None
+    created_by: str
+    active: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ActivatePolicyResult:
+    policy_key: str
+    version: int
+    version_label: str
+    activated_by: str
+
+
+@dataclass(frozen=True, slots=True)
 class UpsertAutonomyConfigResult:
     config_id: UUID
     service_key: str | None
@@ -2877,6 +2897,237 @@ def propose_action_command(
     )
 
 
+def load_active_policy_definition(
+    conn: Connection,
+    *,
+    policy_key: str = "default",
+) -> PolicyDefinitionResult:
+    """Load the active policy_definition for EvaluatePolicy (I7)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT d.id, d.policy_key, d.version, d.version_label, d.body,
+                   d.notes, d.created_by
+            FROM domain.policy_active a
+            JOIN domain.policy_definition d
+              ON d.policy_key = a.policy_key AND d.version = a.version
+            WHERE a.policy_key = %s
+            """,
+            (policy_key,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            # Fallback before migration / empty DB — match I2 defaults.
+            return PolicyDefinitionResult(
+                policy_definition_id=uuid4(),
+                policy_key=policy_key,
+                version=1,
+                version_label="v1",
+                body={},
+                notes=None,
+                created_by="system",
+                active=True,
+            )
+        body = row[4] if isinstance(row[4], dict) else json.loads(row[4] or "{}")
+        return PolicyDefinitionResult(
+            policy_definition_id=UUID(str(row[0])),
+            policy_key=str(row[1]),
+            version=int(row[2]),
+            version_label=str(row[3]),
+            body=body,
+            notes=None if row[5] is None else str(row[5]),
+            created_by=str(row[6]),
+            active=True,
+        )
+
+
+def list_policy_definitions(
+    conn: Connection,
+    *,
+    policy_key: str = "default",
+) -> list[PolicyDefinitionResult]:
+    """History of policy versions for a key (I7)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT d.id, d.policy_key, d.version, d.version_label, d.body,
+                   d.notes, d.created_by,
+                   (a.version IS NOT NULL) AS is_active
+            FROM domain.policy_definition d
+            LEFT JOIN domain.policy_active a
+              ON a.policy_key = d.policy_key AND a.version = d.version
+            WHERE d.policy_key = %s
+            ORDER BY d.version DESC
+            """,
+            (policy_key,),
+        )
+        rows = cur.fetchall()
+    out: list[PolicyDefinitionResult] = []
+    for row in rows:
+        body = row[4] if isinstance(row[4], dict) else json.loads(row[4] or "{}")
+        out.append(
+            PolicyDefinitionResult(
+                policy_definition_id=UUID(str(row[0])),
+                policy_key=str(row[1]),
+                version=int(row[2]),
+                version_label=str(row[3]),
+                body=body,
+                notes=None if row[5] is None else str(row[5]),
+                created_by=str(row[6]),
+                active=bool(row[7]),
+            )
+        )
+    return out
+
+
+def publish_policy_version_command(
+    conn: Connection,
+    *,
+    policy_key: str = "default",
+    body: dict[str, Any] | None = None,
+    notes: str | None = None,
+    created_by: str = "admin",
+    activate: bool = True,
+    commit: bool = True,
+) -> PolicyDefinitionResult:
+    """Append a new immutable policy version (I7). Never rewrites past rows."""
+    key = (policy_key or "default").strip() or "default"
+    payload = dict(body or {})
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT COALESCE(MAX(version), 0) FROM domain.policy_definition
+            WHERE policy_key = %s
+            """,
+            (key,),
+        )
+        next_version = int(cur.fetchone()[0]) + 1
+        version_label = f"v{next_version}"
+        definition_id = uuid4()
+        cur.execute(
+            """
+            INSERT INTO domain.policy_definition (
+                id, policy_key, version, version_label, body, notes, created_by
+            ) VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s)
+            """,
+            (
+                str(definition_id),
+                key,
+                next_version,
+                version_label,
+                json.dumps(payload),
+                notes,
+                created_by,
+            ),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.audit_event (
+                incident_id, action, actor, resource_type, resource_id, details
+            ) VALUES (
+                NULL, 'policy.publish', %s, 'policy_definition', %s, %s::jsonb
+            )
+            """,
+            (
+                created_by,
+                str(definition_id),
+                json.dumps(
+                    {
+                        "policy_key": key,
+                        "version": next_version,
+                        "version_label": version_label,
+                        "activate": activate,
+                        "notes": notes,
+                    }
+                ),
+            ),
+        )
+    if activate:
+        activate_policy_version_command(
+            conn,
+            policy_key=key,
+            version=next_version,
+            activated_by=created_by,
+            commit=False,
+        )
+    if commit:
+        conn.commit()
+    return PolicyDefinitionResult(
+        policy_definition_id=definition_id,
+        policy_key=key,
+        version=next_version,
+        version_label=version_label,
+        body=payload,
+        notes=notes,
+        created_by=created_by,
+        active=activate,
+    )
+
+
+def activate_policy_version_command(
+    conn: Connection,
+    *,
+    policy_key: str,
+    version: int,
+    activated_by: str = "admin",
+    commit: bool = True,
+) -> ActivatePolicyResult:
+    """Point policy_active at an existing immutable version (I7)."""
+    key = (policy_key or "default").strip() or "default"
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT version_label FROM domain.policy_definition
+            WHERE policy_key = %s AND version = %s
+            """,
+            (key, int(version)),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise LookupError(f"policy {key} version {version} not found")
+        version_label = str(row[0])
+        cur.execute(
+            """
+            INSERT INTO domain.policy_active (
+                policy_key, version, activated_at, activated_by
+            ) VALUES (%s, %s, now(), %s)
+            ON CONFLICT (policy_key) DO UPDATE
+            SET version = EXCLUDED.version,
+                activated_at = now(),
+                activated_by = EXCLUDED.activated_by
+            """,
+            (key, int(version), activated_by),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.audit_event (
+                incident_id, action, actor, resource_type, resource_id, details
+            ) VALUES (
+                NULL, 'policy.activate', %s, 'policy_active', %s, %s::jsonb
+            )
+            """,
+            (
+                activated_by,
+                key,
+                json.dumps(
+                    {
+                        "policy_key": key,
+                        "version": int(version),
+                        "version_label": version_label,
+                    }
+                ),
+            ),
+        )
+    if commit:
+        conn.commit()
+    return ActivatePolicyResult(
+        policy_key=key,
+        version=int(version),
+        version_label=version_label,
+        activated_by=activated_by,
+    )
+
+
 def upsert_autonomy_config_command(
     conn: Connection,
     *,
@@ -3057,10 +3308,14 @@ def evaluate_policy_command(
         autonomy_source = "explicit"
         autonomy_meta = {"config_id": None}
 
+    active = load_active_policy_definition(conn, policy_key="default")
     verdict = evaluate_policy(
         action_type=action_type,
         parameters=parameters,
         autonomy_level=resolved_level,
+        policy_key=active.policy_key,
+        policy_version=active.version_label,
+        policy_body=active.body,
     )
     decision_id = uuid4()
     if verdict.decision == "BLOCK":
