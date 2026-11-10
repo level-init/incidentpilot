@@ -24,12 +24,15 @@ make api-run
 
 ```bash
 curl -s http://localhost:8000/health
+curl -s -H 'Authorization: Bearer local-dev' http://localhost:8000/auth/me
 curl -s -H 'Authorization: Bearer local-dev' http://localhost:8000/incidents
 curl -s -X POST -H 'Authorization: Bearer local-dev' \
   -H 'Content-Type: application/json' \
   -d '{"title":"demo"}' \
   http://localhost:8000/incidents
 ```
+
+Dashboard: [web.md](web.md) (`make web-dev`).
 
 Published contract: [openapi/openapi.json](../openapi/openapi.json) (`make openapi-export`).
 

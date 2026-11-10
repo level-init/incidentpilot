@@ -107,6 +107,7 @@ make format      # auto-fix lint + format (optional)
 | `make obs-smoke` | Prom / Loki / Tempo / Grafana / Alertmanager health |
 | `make openapi-export` | Write `openapi/openapi.json` from FastAPI app |
 | `make api-run` | Run local API on :8000 (`Bearer local-dev`) |
+| `make web-dev` | Next.js dashboard on :3000 (M1; needs API) |
 
 ### Compose profiles
 

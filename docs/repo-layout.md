@@ -37,8 +37,8 @@ unambiguous when installed editable (tooling lands in #2 / A3).
 
 ## Web
 
-`web/` holds the dashboard. Framework choice is deferred to the UI epic (M1);
-this folder is reserved so deployable layout is stable from day one.
+`web/` is **incidentpilot-web** (Next.js App Router, M1). Local: `make web-dev`
+→ http://localhost:3000. See [web.md](web.md).
 
 ## Simulation
 

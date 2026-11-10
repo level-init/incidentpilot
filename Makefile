@@ -18,7 +18,7 @@ RPS ?= 1
 
 .PHONY: bootstrap lint format typecheck test help \
 	compose-core compose-full compose-up compose-down compose-ps compose-config \
-	migrate db-verify-isolation verify-local-infra openapi-export api-run \
+	migrate db-verify-isolation verify-local-infra openapi-export api-run web-dev \
 	temporal-queue-smoke test-temporal-d6 sim-happy-path sim-contract-scan test-sim-contract \
 	obs-smoke sim-traffic sim-baseline-gate sim-inject
 
@@ -49,6 +49,7 @@ help:
 	@echo "  make obs-smoke             - Prom/Loki/Tempo/Grafana/AM health (evidence profile)"
 	@echo "  make openapi-export        - write openapi/openapi.json"
 	@echo "  make api-run               - run FastAPI on :8000"
+	@echo "  make web-dev               - Next.js dashboard on :3000 (M1)"
 
 bootstrap:
 	$(PYTHON) -m venv $(VENV)
@@ -139,6 +140,9 @@ openapi-export: $(VENV)
 api-run: $(VENV)
 	cd api && PYTHONPATH="$(CURDIR)/api:$(CURDIR)/shared:$$PYTHONPATH" \
 		../$(BIN)/python -m incidentpilot_api
+
+web-dev:
+	cd web && npm install && npm run dev
 
 $(VENV):
 	@echo "Missing $(VENV). Run: make bootstrap" >&2
