@@ -1,0 +1,51 @@
+# Approved remediation target namespaces (J11).
+# O3 owns the full privilege-class SA/IRSA set; these names are the allowlist
+# for remediation RoleBindings. Do not add kube-system / default here.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sim-checkout
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/remediation-target: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sim-payment
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/remediation-target: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sim-gateway
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/remediation-target: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sim-auth
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/remediation-target: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sim-inventory
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/remediation-target: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sim-notification
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/remediation-target: "true"

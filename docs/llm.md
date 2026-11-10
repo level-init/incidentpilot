@@ -264,7 +264,7 @@ verified, result = verify_reconcile_and_execute(
 - Rollback clears bad revision (`observed → parameters.revision`)
 - Retry after lost ACK: reconcile → `APPLIED` → **skip execute** (no double-apply)
 - `UNKNOWN` / `PARTIAL` → `BlindRetryForbidden` (no blind full retry)
-- Params: `deployment` + `revision` (SoR); sim only — K8s RBAC is J11
+- Params: `deployment` + `revision` (SoR); sim or K8s — narrow RBAC: [k8s-rbac.md](k8s-rbac.md) (J11)
 
 ## RESTART_WORKLOAD + SCALE_WORKLOAD (J3)
 
@@ -310,6 +310,12 @@ See [docs/validation.md](validation.md). Durable `validation_window` (15m defaul
 One `ValidationResult` per attempt; LLM explains only.
 J8 routes: `RECOVERED→RESOLVED`; NO_IMPROVEMENT→`DIAGNOSED`; REGRESSION→`DEGRADED`;
 no `VALIDATING→MITIGATING`.
+
+## Narrow K8s RBAC (J11)
+
+Remediation SA `incidentpilot-remediation` (ns `incidentpilot-system`) gets
+namespaced RoleBindings in approved `sim-*` namespaces only — never
+`cluster-admin`. Mapping + apply: [k8s-rbac.md](k8s-rbac.md).
 
 ## Policy ↔ remediation integration (J10)
 

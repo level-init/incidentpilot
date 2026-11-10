@@ -16,7 +16,7 @@ See [docs/temporal-queues.md](../docs/temporal-queues.md).
 `SCALE_WORKLOAD` sim (J3); feature-flag disable/restore + config restore (J4);
 `PAUSE_CONSUMER` + `REROUTE_TRAFFIC` (J5, PARTIAL includes observed_state);
 `RemediationResult` → `ACTION_RESULT` Evidence via Producer (J6);
-narrow identity later (J11).
+narrow K8s RBAC for remediation SA (J11 — see `docs/k8s-rbac.md`).
 
 ```python
 from incidentpilot_remediation.execute import (
