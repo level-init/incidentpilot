@@ -78,6 +78,7 @@ docker compose --profile core config
 | --- | --- | --- |
 | `incidentpilot-evidence` | `S3_BUCKET_EVIDENCE` | Raw evidence blobs |
 | `incidentpilot-ai-artifacts` | `S3_BUCKET_AI_ARTIFACTS` | AIInvocation artifacts |
+| `incidentpilot-postmortem-exports` | `S3_BUCKET_POSTMORTEM_EXPORTS` | Postmortem export packages (L6) |
 
 Postgres also creates empty `temporal` and `temporal_visibility` databases on first boot
 (`deploy/compose/postgres/init/`). After `make compose-core`, run `make migrate` for

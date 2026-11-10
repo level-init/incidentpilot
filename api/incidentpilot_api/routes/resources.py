@@ -27,6 +27,7 @@ from incidentpilot_api.commands import (
     confirm_hypothesis_command,
     create_postmortem_draft_command,
     evaluate_policy_command,
+    export_postmortem_package_command,
     finalize_postmortem_command,
     list_policy_definitions,
     propose_action_command,
@@ -56,6 +57,7 @@ from incidentpilot_api.schemas import (
     PolicyVersionPublish,
     PostmortemDraftCreate,
     PostmortemDraftOut,
+    PostmortemExportOut,
     PostmortemFinalize,
     PostmortemFinalizeOut,
     PostmortemOut,
@@ -719,6 +721,38 @@ def finalize_postmortem(
         corrective_actions=list(result.corrective_actions),
         incident_state=result.incident_state,
         incident_revision=result.incident_revision,
+    )
+
+
+@router.get(
+    "/incidents/{incident_id}/postmortem/export",
+    response_model=PostmortemExportOut,
+)
+def download_postmortem_export(
+    incident_id: UUID,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> PostmortemExportOut:
+    """L6: download export package (timeline + evidence refs + postmortem body)."""
+    require_permission(principal, Permission.INCIDENT_READ)
+    try:
+        result = export_postmortem_package_command(
+            conn,
+            incident_id=incident_id,
+            actor=principal.actor_id,
+            commit=True,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return PostmortemExportOut(
+        incident_id=result.incident_id,
+        postmortem_id=result.postmortem_id,
+        public_id=result.public_id,
+        export_uri=result.export_uri,
+        blob_status=result.blob_status,
+        package=result.package,
     )
 
 

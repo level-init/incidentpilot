@@ -126,11 +126,12 @@ services:
       S3_ENDPOINT: http://minio:9000
       EVIDENCE_BUCKET: ${S3_BUCKET_EVIDENCE:-incidentpilot-evidence}
       AI_ARTIFACTS_BUCKET: ${S3_BUCKET_AI_ARTIFACTS:-incidentpilot-ai-artifacts}
+      POSTMORTEM_EXPORTS_BUCKET: ${S3_BUCKET_POSTMORTEM_EXPORTS:-incidentpilot-postmortem-exports}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         set -eu
-        for b in "$${EVIDENCE_BUCKET}" "$${AI_ARTIFACTS_BUCKET}"; do
+        for b in "$${EVIDENCE_BUCKET}" "$${AI_ARTIFACTS_BUCKET}" "$${POSTMORTEM_EXPORTS_BUCKET}"; do
           aws --endpoint-url "$${S3_ENDPOINT}" s3 mb "s3://$${b}" 2>/dev/null || true
           aws --endpoint-url "$${S3_ENDPOINT}" s3api head-bucket --bucket "$${b}" >/dev/null
           echo "bucket ready: $${b}"

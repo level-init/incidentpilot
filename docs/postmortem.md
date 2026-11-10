@@ -86,3 +86,26 @@ Content-Type: application/json
 | 200 | FINAL; incident may be POSTMORTEM |
 | 400 | Empty / invalid corrective_actions |
 | 409 | Not ready, or already FINAL |
+
+## Export package (L6)
+
+Archive/demo artifact with **timeline**, **Evidence refs**, and **postmortem body**.
+Canonical data stays in Postgres; S3 (`S3_BUCKET_POSTMORTEM_EXPORTS`) is a
+best-effort snapshot (FINAL rows are immutable, so export URI is not rewritten
+onto the postmortem row).
+
+```python
+from incidentpilot_shared.domain.commands import export_postmortem_package_command
+
+result = export_postmortem_package_command(conn, incident_id=incident_id)
+assert "timeline" in result.package
+assert "evidence_refs" in result.package
+assert result.package["postmortem"]["body_markdown"]
+```
+
+```http
+GET /incidents/{incident_id}/postmortem/export
+Authorization: Bearer local-dev
+```
+
+Requires FINAL; returns `{ package, export_uri?, blob_status }`.

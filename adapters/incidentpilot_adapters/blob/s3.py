@@ -203,3 +203,17 @@ def resolve_ai_artifacts_blob_store() -> S3BlobStore | None:
     if not (os.environ.get("S3_ENDPOINT") or os.environ.get("AWS_ACCESS_KEY_ID")):
         return None
     return build_ai_artifacts_blob_store()
+
+
+def build_postmortem_export_blob_store() -> S3BlobStore:
+    bucket = os.environ.get(
+        "S3_BUCKET_POSTMORTEM_EXPORTS", "incidentpilot-postmortem-exports"
+    )
+    return S3BlobStore(bucket=bucket)
+
+
+def resolve_postmortem_export_blob_store() -> S3BlobStore | None:
+    """Postmortem export archive store (L6), or ``None`` when S3 is not configured."""
+    if not (os.environ.get("S3_ENDPOINT") or os.environ.get("AWS_ACCESS_KEY_ID")):
+        return None
+    return build_postmortem_export_blob_store()

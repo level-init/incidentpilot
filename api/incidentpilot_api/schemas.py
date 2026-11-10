@@ -242,6 +242,15 @@ class PostmortemFinalizeOut(BaseModel):
     incident_revision: int
 
 
+class PostmortemExportOut(BaseModel):
+    incident_id: UUID
+    postmortem_id: UUID
+    public_id: str
+    export_uri: str | None = None
+    blob_status: str
+    package: dict[str, Any]
+
+
 class ImpactSnapshotOut(BaseModel):
     id: UUID
     incident_id: UUID
