@@ -28,6 +28,7 @@ transitions, and outbox rules cannot be bypassed.
 | `reserve_execution_attempt_command` | Reserve attempt before MITIGATING |
 | `verify_execution_attempt` | J1: SoR param/binding + policy/approval gate before adapter execute |
 | `verify_reconcile_and_execute` | J2 remediation-worker: verify → reconcile → execute only if `NOT_APPLIED` |
+| `append_action_result_evidence_command` | J6: RemediationResult → `ACTION_RESULT` Evidence (`ACTION_OBSERVATION`; producer `remediation_worker`) |
 | `upsert_alert_command` | Insert/update `domain.alert` by fingerprint (F2) |
 | `upsert_change_command` | Idempotent `domain.change` by `(source, fingerprint)` (G8); `source_ref`→`external_ref` |
 | `create_incident_command` | Create DETECTED incident (+ optional service link) |

@@ -15,6 +15,7 @@ See [docs/temporal-queues.md](../docs/temporal-queues.md).
 `ROLLBACK_DEPLOYMENT` sim + reconcile (J2); `RESTART_WORKLOAD` /
 `SCALE_WORKLOAD` sim (J3); feature-flag disable/restore + config restore (J4);
 `PAUSE_CONSUMER` + `REROUTE_TRAFFIC` (J5, PARTIAL includes observed_state);
+`RemediationResult` → `ACTION_RESULT` Evidence via Producer (J6);
 narrow identity later (J11).
 
 ```python

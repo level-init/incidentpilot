@@ -1128,6 +1128,61 @@ def reserve_execution_attempt_command(
     )
 
 
+def append_action_result_evidence_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    attempt_id: UUID,
+    action_id: UUID,
+    action_version: int,
+    action_type: str,
+    summary: str,
+    ok: bool = True,
+    adapter_result: dict[str, Any] | None = None,
+    error_summary: str | None = None,
+    reconciliation_state: str | None = None,
+    skipped_execute: bool = False,
+    parameters: dict[str, Any] | None = None,
+    commit: bool = True,
+) -> AppendEvidenceResult:
+    """SYSTEM path: RemediationResult → ACTION_RESULT Evidence (J6).
+
+    Called only from remediation-worker after verify/execute. Adapters never
+    write Evidence. Fingerprint is attempt-scoped so lost-ACK retries are
+    idempotent. Provenance layer is ``ACTION_OBSERVATION``.
+    """
+    return append_evidence_command(
+        conn,
+        incident_id=incident_id,
+        kind="ACTION_RESULT",
+        fingerprint=f"remediation_worker:attempt:{attempt_id}",
+        summary=summary,
+        producer="remediation_worker",
+        payload={
+            "attempt_id": str(attempt_id),
+            "action_id": str(action_id),
+            "action_version": int(action_version),
+            "action_type": action_type,
+            "ok": bool(ok),
+            "adapter_result": dict(adapter_result or {}),
+            "error_summary": error_summary,
+            "reconciliation_state": reconciliation_state,
+            "skipped_execute": bool(skipped_execute),
+            "parameters": dict(parameters or {}),
+        },
+        provenance={
+            "layer": "ACTION_OBSERVATION",
+            "writer": "system",
+            "source": "remediation_execute",
+            "attempt_id": str(attempt_id),
+            "action_id": str(action_id),
+            "action_version": int(action_version),
+            "action_type": action_type,
+        },
+        commit=commit,
+    )
+
+
 def upsert_alert_command(
     conn: Connection,
     *,
