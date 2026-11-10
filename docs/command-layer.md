@@ -15,7 +15,7 @@ transitions, and outbox rules cannot be bypassed.
 
 | Command | Purpose |
 | --- | --- |
-| `transition_incident_command` | State machine + revision + timeline + outbox |
+| `transition_incident_command` | State machine + revision + timeline + outbox; CLOSED gated on FINAL postmortem (L5) |
 | `append_evidence_command` | Producer-gated Evidence insert; fingerprint dedup (G1); rejects fake HIGH RAW without `blob_uri` (G5) |
 | `append_raw_evidence_with_blob` | Collector helper: S3/MinIO upload then append with honest RAW provenance (G5) |
 | `append_derived_evidence_command` | DETERMINISTIC_DERIVED + DERIVED_FROM parents (G4) |
@@ -40,6 +40,7 @@ transitions, and outbox rules cannot be bypassed.
 | `complete_structured_recorded` | LLM complete + provenance + best-effort S3 artifact package (L3) |
 | `get_ai_invocation_provenance` | Read Evidence lineage + outputs for one invocation (L3) |
 | `create_postmortem_draft_command` | DRAFT after RESOLVED; citation validator (L4; [postmortem.md](postmortem.md)) |
+| `finalize_postmortem_command` | DRAFT→FINAL + corrective_actions[]; RESOLVED→POSTMORTEM (L5) |
 | `attach_alert_command` | Set `alert.incident_id` |
 | `correlate_alert_command` | Fingerprint/time/service match or create (F4) |
 | `propose_hypothesis_command` | SYSTEM insert PROPOSED hypothesis; resolve EV citations (H4) |

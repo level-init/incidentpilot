@@ -132,6 +132,24 @@ class PostmortemFinalImmutableError(ValueError):
     """Raised when attempting to rewrite a FINAL postmortem."""
 
 
+class PostmortemFinalRequiredError(ValueError):
+    """Raised when CLOSED is requested without a FINAL postmortem (L5)."""
+
+
+class PostmortemCorrectiveActionsError(ValueError):
+    """Raised when FINAL lacks a valid corrective_actions[] (L5)."""
+
+
+@dataclass(frozen=True, slots=True)
+class FinalizePostmortemResult:
+    postmortem_id: UUID
+    incident_id: UUID
+    status: str
+    corrective_actions: tuple[dict[str, Any], ...]
+    incident_state: str
+    incident_revision: int
+
+
 @dataclass(frozen=True, slots=True)
 class ProposeHypothesisResult:
     hypothesis_id: UUID
@@ -415,6 +433,8 @@ def transition_incident_command(
     (H5 — only ``diagnose_incident_command`` may set that flag).
     Replan paths (e.g. ``AWAITING_APPROVAL → DIAGNOSED`` on I5 timeout) are
     allowed without the diagnose gate.
+
+    ``POSTMORTEM → CLOSED`` requires a FINAL postmortem (L5) — no skip.
     """
     target = IncidentState(to_state) if not isinstance(to_state, IncidentState) else to_state
     if target is IncidentState.DIAGNOSED and not via_diagnose_gate:
@@ -429,6 +449,30 @@ def transition_incident_command(
             raise DiagnosedGateError(
                 "DIAGNOSED is only allowed via diagnose_incident_command (SYSTEM gate)"
             )
+    if target is IncidentState.CLOSED:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT state FROM domain.incident WHERE id = %s",
+                (str(incident_id),),
+            )
+            inc_row = cur.fetchone()
+            current_for_close = (
+                IncidentState(inc_row[0]) if inc_row is not None else None
+            )
+            if current_for_close is IncidentState.POSTMORTEM:
+                cur.execute(
+                    """
+                    SELECT status FROM domain.postmortem
+                    WHERE incident_id = %s
+                    """,
+                    (str(incident_id),),
+                )
+                pm = cur.fetchone()
+                if pm is None or str(pm[0]) != "FINAL":
+                    raise PostmortemFinalRequiredError(
+                        "CLOSED requires a FINAL postmortem "
+                        "(RESOLVED→POSTMORTEM→FINAL→CLOSED)"
+                    )
     uow = UnitOfWork(conn, requires_outbox=True)
     result = apply_transition(
         conn,
@@ -2135,6 +2179,142 @@ def create_postmortem_draft_command(
         claim_count=len(parsed),
         cited_evidence_ids=cited_evidence,
         inserted=inserted,
+    )
+
+
+def _normalize_corrective_actions(
+    corrective_actions: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None,
+) -> list[dict[str, Any]]:
+    if not corrective_actions:
+        raise PostmortemCorrectiveActionsError(
+            "FINAL postmortem requires non-empty corrective_actions[]"
+        )
+    normalized: list[dict[str, Any]] = []
+    for i, raw in enumerate(corrective_actions):
+        if not isinstance(raw, dict):
+            raise PostmortemCorrectiveActionsError(
+                f"corrective_actions[{i}] must be an object"
+            )
+        title = str(raw.get("title") or "").strip()
+        if not title:
+            raise PostmortemCorrectiveActionsError(
+                f"corrective_actions[{i}].title is required"
+            )
+        item: dict[str, Any] = {"title": title}
+        owner = raw.get("owner")
+        if owner is not None and str(owner).strip():
+            item["owner"] = str(owner).strip()
+        for key, value in raw.items():
+            if key in {"title", "owner"}:
+                continue
+            item[key] = value
+        normalized.append(item)
+    return normalized
+
+
+def finalize_postmortem_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    corrective_actions: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None,
+    actor: str = "system",
+    commit: bool = True,
+) -> FinalizePostmortemResult:
+    """DRAFT → FINAL with corrective_actions[]; enter POSTMORTEM if RESOLVED (L5).
+
+    CLOSED remains a separate transition and is gated on FINAL status.
+    """
+    actions = _normalize_corrective_actions(corrective_actions)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT state, incident_revision FROM domain.incident
+            WHERE id = %s
+            """,
+            (str(incident_id),),
+        )
+        inc = cur.fetchone()
+        if inc is None:
+            raise LookupError(f"incident {incident_id} not found")
+        state = str(inc[0])
+        revision = int(inc[1])
+        if state not in {
+            IncidentState.RESOLVED.value,
+            IncidentState.POSTMORTEM.value,
+        }:
+            raise PostmortemNotReadyError(
+                f"finalize requires RESOLVED or POSTMORTEM (got {state})"
+            )
+        cur.execute(
+            """
+            SELECT id, status FROM domain.postmortem
+            WHERE incident_id = %s
+            """,
+            (str(incident_id),),
+        )
+        pm = cur.fetchone()
+        if pm is None:
+            raise LookupError(f"postmortem draft not found for incident {incident_id}")
+        postmortem_id = UUID(str(pm[0]))
+        if str(pm[1]) == "FINAL":
+            raise PostmortemFinalImmutableError(
+                f"postmortem for {incident_id} is already FINAL"
+            )
+        if str(pm[1]) != "DRAFT":
+            raise PostmortemNotReadyError(f"postmortem status is {pm[1]}, expected DRAFT")
+        cur.execute(
+            """
+            UPDATE domain.postmortem
+            SET status = 'FINAL',
+                corrective_actions = %s::jsonb,
+                author = COALESCE(author, %s),
+                provenance = provenance || %s::jsonb
+            WHERE id = %s AND status = 'DRAFT'
+            """,
+            (
+                json.dumps(actions),
+                actor,
+                json.dumps(
+                    {
+                        "finalized_by": actor,
+                        "source": "postmortem_finalize",
+                    }
+                ),
+                str(postmortem_id),
+            ),
+        )
+        if cur.rowcount != 1:
+            raise PostmortemFinalImmutableError(
+                f"failed to finalize postmortem for {incident_id}"
+            )
+
+    incident_state = state
+    incident_revision = revision
+    if state == IncidentState.RESOLVED.value:
+        transitioned = transition_incident_command(
+            conn,
+            incident_id=incident_id,
+            expected_revision=revision,
+            to_state=IncidentState.POSTMORTEM,
+            actor=actor,
+            commit=False,
+        )
+        incident_state = (
+            transitioned.to_state.value
+            if hasattr(transitioned.to_state, "value")
+            else str(transitioned.to_state)
+        )
+        incident_revision = transitioned.new_revision
+
+    if commit:
+        conn.commit()
+    return FinalizePostmortemResult(
+        postmortem_id=postmortem_id,
+        incident_id=incident_id,
+        status="FINAL",
+        corrective_actions=tuple(actions),
+        incident_state=incident_state,
+        incident_revision=incident_revision,
     )
 
 

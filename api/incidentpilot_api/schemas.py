@@ -229,6 +229,19 @@ class PostmortemDraftOut(BaseModel):
     inserted: bool
 
 
+class PostmortemFinalize(BaseModel):
+    corrective_actions: list[dict[str, Any]] = Field(min_length=1)
+
+
+class PostmortemFinalizeOut(BaseModel):
+    postmortem_id: UUID
+    incident_id: UUID
+    status: str
+    corrective_actions: list[dict[str, Any]]
+    incident_state: str
+    incident_revision: int
+
+
 class ImpactSnapshotOut(BaseModel):
     id: UUID
     incident_id: UUID
