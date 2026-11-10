@@ -65,6 +65,11 @@ curl -s -H 'Authorization: Bearer local-dev' \
 
 Past `PolicyDecision` rows keep their stamped `policy_version`; definitions are append-only.
 
+## Slack interactions (K2)
+
+`POST /webhooks/slack/interactions` — Slack signing-secret HMAC on **api** only.
+Persist `domain.slack_interaction` before **200**. See [slack.md](slack.md).
+
 ## Alertmanager webhook (F1–F5)
 
 Separate ingress (not Slack HMAC): `POST /webhooks/alerts/alertmanager`.
