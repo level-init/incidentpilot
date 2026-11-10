@@ -1,0 +1,11 @@
+# Control-plane namespace for remediation-worker (J11 / O3 seed).
+# Workload identity lives here; mutate rights are RoleBindings in approved
+# target namespaces only — never cluster-admin.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: incidentpilot-system
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/privilege-class: remediation

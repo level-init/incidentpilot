@@ -1,0 +1,219 @@
+# Bind remediation SA into approved namespaces only (J11).
+# Subject is cluster-local SA in incidentpilot-system; rights stay namespaced.
+# There is intentionally no ClusterRole / ClusterRoleBinding for this identity.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: incidentpilot-remediation-mutate
+  namespace: sim-checkout
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/privilege-class: remediation
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale", "statefulsets", "statefulsets/scale"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: incidentpilot-remediation-mutate
+  namespace: sim-checkout
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/privilege-class: remediation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: incidentpilot-remediation-mutate
+subjects:
+  - kind: ServiceAccount
+    name: incidentpilot-remediation
+    namespace: incidentpilot-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: incidentpilot-remediation-mutate
+  namespace: sim-payment
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/privilege-class: remediation
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale", "statefulsets", "statefulsets/scale"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: incidentpilot-remediation-mutate
+  namespace: sim-payment
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/privilege-class: remediation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: incidentpilot-remediation-mutate
+subjects:
+  - kind: ServiceAccount
+    name: incidentpilot-remediation
+    namespace: incidentpilot-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: incidentpilot-remediation-mutate
+  namespace: sim-gateway
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/privilege-class: remediation
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale", "statefulsets", "statefulsets/scale"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: incidentpilot-remediation-mutate
+  namespace: sim-gateway
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/privilege-class: remediation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: incidentpilot-remediation-mutate
+subjects:
+  - kind: ServiceAccount
+    name: incidentpilot-remediation
+    namespace: incidentpilot-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: incidentpilot-remediation-mutate
+  namespace: sim-auth
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/privilege-class: remediation
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale", "statefulsets", "statefulsets/scale"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: incidentpilot-remediation-mutate
+  namespace: sim-auth
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/privilege-class: remediation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: incidentpilot-remediation-mutate
+subjects:
+  - kind: ServiceAccount
+    name: incidentpilot-remediation
+    namespace: incidentpilot-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: incidentpilot-remediation-mutate
+  namespace: sim-inventory
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/privilege-class: remediation
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale", "statefulsets", "statefulsets/scale"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: incidentpilot-remediation-mutate
+  namespace: sim-inventory
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/privilege-class: remediation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: incidentpilot-remediation-mutate
+subjects:
+  - kind: ServiceAccount
+    name: incidentpilot-remediation
+    namespace: incidentpilot-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: incidentpilot-remediation-mutate
+  namespace: sim-notification
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/privilege-class: remediation
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale", "statefulsets", "statefulsets/scale"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: incidentpilot-remediation-mutate
+  namespace: sim-notification
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/privilege-class: remediation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: incidentpilot-remediation-mutate
+subjects:
+  - kind: ServiceAccount
+    name: incidentpilot-remediation
+    namespace: incidentpilot-system
