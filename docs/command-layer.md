@@ -39,6 +39,7 @@ transitions, and outbox rules cannot be bypassed.
 | `record_ai_invocation_command` | AI provenance row; optional `artifact_uri` (L3) |
 | `complete_structured_recorded` | LLM complete + provenance + best-effort S3 artifact package (L3) |
 | `get_ai_invocation_provenance` | Read Evidence lineage + outputs for one invocation (L3) |
+| `create_postmortem_draft_command` | DRAFT after RESOLVED; citation validator (L4; [postmortem.md](postmortem.md)) |
 | `attach_alert_command` | Set `alert.incident_id` |
 | `correlate_alert_command` | Fingerprint/time/service match or create (F4) |
 | `propose_hypothesis_command` | SYSTEM insert PROPOSED hypothesis; resolve EV citations (H4) |

@@ -1072,6 +1072,22 @@
             }
           },
           {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "description": "Chronological order: asc = oldest first (readable chronicle).",
+              "default": "desc",
+              "title": "Order"
+            },
+            "description": "Chronological order: asc = oldest first (readable chronicle)."
+          },
+          {
             "name": "authorization",
             "in": "header",
             "required": false,
@@ -1099,6 +1115,86 @@
                     "$ref": "#/components/schemas/TimelineEventOut"
                   },
                   "title": "Response List Timeline Incidents  Incident Id  Timeline Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incidents/{incident_id}/audit": {
+      "get": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "List Audit",
+        "description": "L2: privileged who/what/when trail (not Timeline).",
+        "operationId": "list_audit_incidents__incident_id__audit_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "description": "Chronological order: asc = oldest first.",
+              "default": "desc",
+              "title": "Order"
+            },
+            "description": "Chronological order: asc = oldest first."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditEventOut"
+                  },
+                  "title": "Response List Audit Incidents  Incident Id  Audit Get"
                 }
               }
             }
@@ -1473,6 +1569,76 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SeverityUpdateOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incidents/{incident_id}/postmortem/draft": {
+      "post": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Create Postmortem Draft",
+        "description": "L4: grounded DRAFT after RESOLVED; uncited claims \u2192 400.",
+        "operationId": "create_postmortem_draft_incidents__incident_id__postmortem_draft_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostmortemDraftCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostmortemDraftOut"
                 }
               }
             }
@@ -2025,6 +2191,66 @@
         }
       }
     },
+    "/ai-invocations/{invocation_id}/provenance": {
+      "get": {
+        "tags": [
+          "ai-invocations"
+        ],
+        "summary": "Get Provenance",
+        "description": "Admin: what Evidence IDs were supplied + outputs / artifact URI (L3).",
+        "operationId": "get_provenance_ai_invocations__invocation_id__provenance_get",
+        "parameters": [
+          {
+            "name": "invocation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invocation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiInvocationProvenanceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/eval/ground-truth": {
       "get": {
         "tags": [
@@ -2474,6 +2700,163 @@
         ],
         "title": "ActionProposeOut"
       },
+      "AiInvocationProvenanceOut": {
+        "properties": {
+          "invocation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Invocation Id"
+          },
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "purpose": {
+            "type": "string",
+            "title": "Purpose"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "prompt_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Version"
+          },
+          "input_evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Input Evidence Ids"
+          },
+          "artifact_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Uri"
+          },
+          "request_metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Request Metadata"
+          },
+          "response_metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Response Metadata"
+          },
+          "error_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Summary"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "prompt_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Hash"
+          },
+          "response_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Hash"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "invocation_id",
+          "purpose",
+          "provider",
+          "model",
+          "status",
+          "created_at"
+        ],
+        "title": "AiInvocationProvenanceOut"
+      },
       "AlertIngressAccepted": {
         "properties": {
           "status": {
@@ -2623,6 +3006,74 @@
           "status"
         ],
         "title": "ApprovalOut"
+      },
+      "AuditEventOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "resource_type": {
+            "type": "string",
+            "title": "Resource Type"
+          },
+          "resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id"
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Occurred At"
+          },
+          "details": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "action",
+          "actor",
+          "resource_type",
+          "outcome",
+          "occurred_at"
+        ],
+        "title": "AuditEventOut"
       },
       "AutonomyConfigOut": {
         "properties": {
@@ -3655,6 +4106,118 @@
         },
         "type": "object",
         "title": "PolicyVersionPublish"
+      },
+      "PostmortemClaimIn": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "citations": {
+            "items": {},
+            "type": "array",
+            "title": "Citations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "PostmortemClaimIn"
+      },
+      "PostmortemDraftCreate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "body_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body Markdown"
+          },
+          "claims": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PostmortemClaimIn"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claims"
+          }
+        },
+        "type": "object",
+        "title": "PostmortemDraftCreate",
+        "description": "Optional explicit claims; omit to auto-generate from SoR (L4)."
+      },
+      "PostmortemDraftOut": {
+        "properties": {
+          "postmortem_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Postmortem Id"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "claim_count": {
+            "type": "integer",
+            "title": "Claim Count"
+          },
+          "cited_evidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Cited Evidence Ids"
+          },
+          "inserted": {
+            "type": "boolean",
+            "title": "Inserted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "postmortem_id",
+          "incident_id",
+          "status",
+          "title",
+          "claim_count",
+          "cited_evidence_ids",
+          "inserted"
+        ],
+        "title": "PostmortemDraftOut"
       },
       "PostmortemOut": {
         "properties": {

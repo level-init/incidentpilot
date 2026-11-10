@@ -206,6 +206,29 @@ class PostmortemOut(BaseModel):
     corrective_actions: list[Any]
 
 
+class PostmortemClaimIn(BaseModel):
+    text: str = Field(min_length=1)
+    citations: list[Any] = Field(default_factory=list)
+
+
+class PostmortemDraftCreate(BaseModel):
+    """Optional explicit claims; omit to auto-generate from SoR (L4)."""
+
+    title: str | None = Field(default=None, max_length=500)
+    body_markdown: str | None = None
+    claims: list[PostmortemClaimIn] | None = None
+
+
+class PostmortemDraftOut(BaseModel):
+    postmortem_id: UUID
+    incident_id: UUID
+    status: str
+    title: str
+    claim_count: int
+    cited_evidence_ids: list[UUID]
+    inserted: bool
+
+
 class ImpactSnapshotOut(BaseModel):
     id: UUID
     incident_id: UUID
