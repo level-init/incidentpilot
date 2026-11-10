@@ -303,6 +303,23 @@ SimConfigRestoreAdapter(world).execute(...) # RESTORE_CONFIG
 - Clears catalog-aligned sim faults (`strict_jwt`, `jwt_skew_seconds`, `pool_size`)
 - Same reconcile/idempotency contract; params: `flag`/`key` + optional `service` + desired `value`
 
+## PAUSE_CONSUMER + REROUTE_TRAFFIC (J5)
+
+```python
+from incidentpilot_adapters.remediation import (
+    SimTrafficWorld, SimPauseConsumerAdapter, SimRerouteTrafficAdapter,
+)
+
+world = SimTrafficWorld()
+world.seed_queue_backlog_fault()
+SimPauseConsumerAdapter(world).execute(...)  # pause notification-worker
+# Mid-shift weights → PARTIAL with adapter_result["observed_state"]
+SimRerouteTrafficAdapter(world).reconcile(...)
+```
+
+- Reroute `PARTIAL` always includes `observed_state` (current weights); no blind full retry
+- Params: pause `consumer`; reroute `service` + `weights` or `from`/`target`/`percent`
+
 ## ProposeAction (I1)
 
 ```python
