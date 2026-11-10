@@ -95,6 +95,7 @@ Migrations are recorded in `public.schema_migrations`.
 | `domain.timeline_event` | Append-only process chronicle |
 | `domain.audit_event` | Append-only privileged ops audit |
 | `domain.slack_interaction` | Verified Slack interactive ingress (K2); `RECEIVED` before HTTP 200 |
+| `domain.slack_incident_thread` | Slack root `thread_ts` per incident (K4 lifecycle replies) |
 | `domain.ai_invocation` | Minimum AI provenance (H2; S3 packages L3) |
 | `domain.postmortem` | DRAFT/FINAL; `corrective_actions` JSON array |
 

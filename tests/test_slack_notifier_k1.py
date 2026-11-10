@@ -67,8 +67,9 @@ def test_templates_brief_and_update() -> None:
         note="Validation window started",
     )
     assert "VALIDATING" in update.text
-    assert "update" in update.text.lower() or any(
-        "update" in str(b).lower() for b in update.blocks
+    # K4: update template aliases status.
+    assert "status" in update.text.lower() or any(
+        "status" in str(b).lower() for b in update.blocks
     )
 
 

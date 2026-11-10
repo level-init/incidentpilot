@@ -79,8 +79,8 @@ evidence- or remediation-worker.
 | Adapter | Role | Module |
 | --- | --- | --- |
 | `SlackNotifier` / `FakeSlackNotifier` / `HttpSlackNotifier` | Outbound `chat.postMessage` | `incidentpilot_adapters.slack` |
-| `render_incident_brief` / `render_incident_update` | Message templates | `incidentpilot_adapters.slack` |
+| `render_incident_*` | brief / evidence / status / recovery / postmortem templates | `incidentpilot_adapters.slack` |
 
 **BEST_EFFORT** via outbox `slack.notify`. Cred (`SLACK_BOT_TOKEN`) belongs on
 `python -m incidentpilot_worker notify` only — **not** in the AI worker env.
-See [docs/slack.md](../docs/slack.md).
+K4 threads replies under `domain.slack_incident_thread`. See [docs/slack.md](../docs/slack.md).

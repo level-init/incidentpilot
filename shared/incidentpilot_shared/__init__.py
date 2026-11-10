@@ -188,8 +188,13 @@ from incidentpilot_shared.slack_ingress import (
 )
 from incidentpilot_shared.slack_notify import (
     AI_FORBIDDEN_SLACK_ENV,
+    LIFECYCLE_TEMPLATES,
     SLACK_NOTIFY_EVENT,
+    enqueue_slack_lifecycle_thread,
     enqueue_slack_notify,
+    get_slack_incident_thread,
+    incident_ui_url,
+    upsert_slack_incident_thread,
 )
 from incidentpilot_shared.temporal_queues import (
     ALL_TASK_QUEUES,
@@ -216,6 +221,7 @@ __all__ = [
     "DENIED_TOOL_NAMES",
     "GENERAL_FORBIDDEN_ENV",
     "INCIDENT_WORKFLOW_NAME",
+    "LIFECYCLE_TEMPLATES",
     "QUEUE_CONSUMER_CONTRACTS",
     "REGISTERED_EVIDENCE_PRODUCERS",
     "SLACK_NOTIFY_EVENT",
@@ -316,7 +322,11 @@ __all__ = [
     "diagnose_incident_command",
     "enforce_tool_scope",
     "enqueue_outbox",
+    "enqueue_slack_lifecycle_thread",
     "enqueue_slack_notify",
+    "get_slack_incident_thread",
+    "incident_ui_url",
+    "upsert_slack_incident_thread",
     "persist_slack_interaction_command",
     "encode_slack_approval_value",
     "map_slack_interaction_to_approval",

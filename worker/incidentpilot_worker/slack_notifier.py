@@ -1,7 +1,7 @@
-"""Outbox → Slack delivery (K1). BEST_EFFORT: failures never touch Incident state.
+"""Outbox → Slack delivery (K1/K4). BEST_EFFORT: failures never touch Incident state.
 
 Runs as ``python -m incidentpilot_worker notify`` so ``SLACK_BOT_TOKEN`` stays
-off the general AI worker process.
+off the general AI worker process. K4: bind replies to ``slack_incident_thread``.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from incidentpilot_adapters.slack import (
     SlackDeliveryError,
     SlackMessage,
     SlackNotifier,
+    SlackPostResult,
     resolve_slack_notifier,
 )
 from incidentpilot_shared.domain.outbox import (
@@ -23,7 +24,11 @@ from incidentpilot_shared.domain.outbox import (
     mark_outbox_published,
     mark_outbox_retry,
 )
-from incidentpilot_shared.slack_notify import SLACK_NOTIFY_EVENT
+from incidentpilot_shared.slack_notify import (
+    SLACK_NOTIFY_EVENT,
+    get_slack_incident_thread,
+    upsert_slack_incident_thread,
+)
 from incidentpilot_worker.db import connect
 
 logger = logging.getLogger(__name__)
@@ -33,8 +38,12 @@ def deliver_slack_notify(
     message: OutboxMessage,
     *,
     notifier: SlackNotifier | None = None,
-) -> None:
-    """Post one ``slack.notify`` outbox payload. Raises ``SlackDeliveryError`` on fault."""
+) -> SlackPostResult:
+    """Post one ``slack.notify`` outbox payload. Raises ``SlackDeliveryError`` on fault.
+
+    Non-brief messages without ``thread_ts`` bind to the incident's stored root.
+    Successful brief (root) posts upsert ``domain.slack_incident_thread``.
+    """
     if message.event_type != SLACK_NOTIFY_EVENT:
         raise ValueError(f"expected {SLACK_NOTIFY_EVENT}, got {message.event_type!r}")
     payload = message.payload or {}
@@ -45,13 +54,39 @@ def deliver_slack_notify(
     blocks = payload.get("blocks")
     if not isinstance(blocks, list):
         blocks = []
+    template = str(payload.get("template") or "update")
     thread_ts = payload.get("thread_ts")
+    incident_raw = payload.get("incident_id")
+    incident_id = UUID(str(incident_raw)) if incident_raw else None
+
+    if not thread_ts and template != "brief" and incident_id is not None:
+        with connect() as conn:
+            existing = get_slack_incident_thread(conn, incident_id=incident_id)
+        if existing is not None:
+            thread_ts = existing[1]
+
     client = notifier or resolve_slack_notifier()
-    client.post_message(
+    result = client.post_message(
         channel=channel,
         message=SlackMessage(text=text, blocks=list(blocks)),
         thread_ts=str(thread_ts) if thread_ts else None,
     )
+
+    if (
+        template == "brief"
+        and incident_id is not None
+        and result.ts
+        and not thread_ts
+    ):
+        with connect() as conn:
+            upsert_slack_incident_thread(
+                conn,
+                incident_id=incident_id,
+                channel=channel,
+                thread_ts=result.ts,
+                commit=True,
+            )
+    return result
 
 
 def notify_once(

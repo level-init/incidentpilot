@@ -12,6 +12,10 @@ from incidentpilot_adapters.slack.notifier import (
 from incidentpilot_adapters.slack.templates import (
     SlackMessage,
     render_incident_brief,
+    render_incident_evidence,
+    render_incident_postmortem,
+    render_incident_recovery,
+    render_incident_status,
     render_incident_update,
 )
 
@@ -23,6 +27,10 @@ __all__ = [
     "SlackPostResult",
     "get_fake_slack_notifier",
     "render_incident_brief",
+    "render_incident_evidence",
+    "render_incident_postmortem",
+    "render_incident_recovery",
+    "render_incident_status",
     "render_incident_update",
     "resolve_slack_notifier",
     "set_fake_slack_notifier",
