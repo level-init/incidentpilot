@@ -220,6 +220,8 @@ class ProposeActionResult:
     bumped: bool
     is_reversible: bool
     reverse_action_type: str | None
+    compensates_action_id: UUID | None = None
+    compensates_action_version: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -351,9 +353,29 @@ _KNOWN_ACTION_TYPES = frozenset(
 def _default_reversibility(action_type: str) -> tuple[bool, str | None]:
     if action_type == "ROLLBACK_DEPLOYMENT":
         return True, "OTHER"
-    if action_type in {"DISABLE_FEATURE_FLAG", "RESTORE_FEATURE_FLAG", "RESTORE_CONFIG"}:
+    if action_type == "DISABLE_FEATURE_FLAG":
+        return True, "RESTORE_FEATURE_FLAG"
+    if action_type == "RESTORE_FEATURE_FLAG":
+        return True, "DISABLE_FEATURE_FLAG"
+    if action_type == "RESTORE_CONFIG":
         return True, "OTHER"
+    if action_type == "PAUSE_CONSUMER":
+        return True, "OTHER"
+    if action_type == "REROUTE_TRAFFIC":
+        return True, "REROUTE_TRAFFIC"
     return False, None
+
+
+class CompensationParentRequired(ValueError):
+    """Compensation must reference a parent Action version."""
+
+
+class CompensationActionTypeRequired(ValueError):
+    """Parent has no usable reverse_action_type; caller must pass action_type."""
+
+
+class ParentApprovalReuseDenied(PermissionError):
+    """Parent Approval/PolicyDecision cannot authorize a compensation Action (J9)."""
 
 
 def transition_incident_command(
@@ -1065,7 +1087,8 @@ def assert_approval_authorizes(
     """Return approval_id if APPROVED/CONSUMED for the exact version (I4).
 
     Raises ``StaleActionVersion`` when a different version's approval exists
-    but the requested version is not authorized.
+    but the requested version is not authorized. Parent approvals never
+    authorize a compensation Action (J9) — binding is exact ``action_id``.
     """
     with conn.cursor() as cur:
         cur.execute(
@@ -1078,6 +1101,35 @@ def assert_approval_authorizes(
         row = cur.fetchone()
         if row is not None and str(row[1]) in {"APPROVED", "CONSUMED"}:
             return UUID(str(row[0]))
+
+        # J9: if this is a compensation, surface parent-approval reuse clearly.
+        cur.execute(
+            """
+            SELECT compensates_action_id, compensates_action_version
+            FROM domain.action
+            WHERE id = %s
+            """,
+            (str(action_id),),
+        )
+        parent_link = cur.fetchone()
+        if parent_link is not None and parent_link[0] is not None:
+            parent_id = UUID(str(parent_link[0]))
+            parent_ver = int(parent_link[1]) if parent_link[1] is not None else None
+            cur.execute(
+                """
+                SELECT id, status, action_version FROM domain.approval
+                WHERE action_id = %s AND status IN ('APPROVED', 'CONSUMED')
+                ORDER BY action_version DESC
+                """,
+                (str(parent_id),),
+            )
+            parent_approvals = cur.fetchall()
+            if parent_approvals:
+                raise ParentApprovalReuseDenied(
+                    "compensation Action requires a fresh Approval; "
+                    f"parent {parent_id} v{parent_ver} approval cannot be reused "
+                    f"for compensation {action_id} v{action_version}"
+                )
 
         cur.execute(
             """
@@ -3261,6 +3313,150 @@ def propose_action_command(
         bumped=False,
         is_reversible=is_rev,
         reverse_action_type=reverse_type,
+    )
+
+
+def propose_compensation_action_command(
+    conn: Connection,
+    *,
+    parent_action_id: UUID,
+    parent_action_version: int | None = None,
+    action_type: str | None = None,
+    parameters: dict[str, Any] | None = None,
+    target_ref: dict[str, Any] | None = None,
+    proposed_by: str = "system",
+    rationale: str | None = None,
+    commit: bool = True,
+) -> ProposeActionResult:
+    """Propose a new compensation Action linked to a parent (J9).
+
+    Always creates a **new** ``action_id``. Does not copy or inherit the
+    parent's PolicyDecision or Approval — EvaluatePolicy + Approval must run
+    again for the compensation version.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT a.incident_id, a.action_type, a.current_version,
+                   a.is_reversible, a.reverse_action_type, a.status
+            FROM domain.action a
+            WHERE a.id = %s
+            """,
+            (str(parent_action_id),),
+        )
+        parent = cur.fetchone()
+        if parent is None:
+            raise LookupError(f"parent action {parent_action_id} not found")
+        incident_id = UUID(str(parent[0]))
+        parent_type = str(parent[1])
+        current_version = int(parent[2])
+        parent_version = (
+            int(parent_action_version)
+            if parent_action_version is not None
+            else current_version
+        )
+        reverse_type = str(parent[4]) if parent[4] is not None else None
+        cur.execute(
+            """
+            SELECT 1 FROM domain.action_version
+            WHERE action_id = %s AND version = %s
+            """,
+            (str(parent_action_id), parent_version),
+        )
+        if cur.fetchone() is None:
+            raise CompensationParentRequired(
+                f"parent action_version {parent_action_id} v{parent_version} not found"
+            )
+
+    atype = (action_type or reverse_type or "").strip()
+    if not atype:
+        raise CompensationActionTypeRequired(
+            f"parent {parent_action_id} ({parent_type}) has no reverse_action_type; "
+            "pass action_type explicitly"
+        )
+
+    # Propose as a brand-new action, then stamp the compensation link.
+    proposed = propose_action_command(
+        conn,
+        incident_id=incident_id,
+        action_type=atype,
+        parameters=parameters,
+        target_ref=target_ref,
+        action_id=None,
+        proposed_by=proposed_by,
+        rationale=rationale
+        or f"compensation for {parent_action_id} v{parent_version}",
+        commit=False,
+    )
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE domain.action
+            SET compensates_action_id = %s,
+                compensates_action_version = %s,
+                provenance = provenance || %s::jsonb,
+                updated_at = now()
+            WHERE id = %s
+            """,
+            (
+                str(parent_action_id),
+                parent_version,
+                json.dumps(
+                    {
+                        "compensation": True,
+                        "compensates_action_id": str(parent_action_id),
+                        "compensates_action_version": parent_version,
+                        "parent_action_type": parent_type,
+                        "inherits_parent_approval": False,
+                    }
+                ),
+                str(proposed.action_id),
+            ),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.timeline_event (
+                incident_id, event_type, summary, actor, payload
+            ) VALUES (
+                %s, 'COMPENSATION_PROPOSED', %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                f"compensation {proposed.action_id} for parent {parent_action_id} "
+                f"v{parent_version}",
+                proposed_by,
+                json.dumps(
+                    {
+                        "action_id": str(proposed.action_id),
+                        "version": proposed.version,
+                        "action_type": proposed.action_type,
+                        "compensates_action_id": str(parent_action_id),
+                        "compensates_action_version": parent_version,
+                        "inherits_parent_approval": False,
+                    }
+                ),
+            ),
+        )
+
+    if commit:
+        conn.commit()
+    return ProposeActionResult(
+        action_id=proposed.action_id,
+        incident_id=proposed.incident_id,
+        action_type=proposed.action_type,
+        version=proposed.version,
+        current_version=proposed.current_version,
+        status=proposed.status,
+        parameters=proposed.parameters,
+        runbook_version_id=proposed.runbook_version_id,
+        allowed_action_types=proposed.allowed_action_types,
+        bumped=False,
+        is_reversible=proposed.is_reversible,
+        reverse_action_type=proposed.reverse_action_type,
+        compensates_action_id=parent_action_id,
+        compensates_action_version=parent_version,
     )
 
 
