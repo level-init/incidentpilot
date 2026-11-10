@@ -15,7 +15,9 @@ from incidentpilot_adapters.blob import (
     FailingBlobStore,
     MemoryBlobStore,
     S3BlobStore,
+    resolve_ai_artifacts_blob_store,
     resolve_evidence_blob_store,
+    resolve_postmortem_export_blob_store,
 )
 from incidentpilot_adapters.changes import ChangeSource, MemoryChangeSource, SimChangeSource
 from incidentpilot_adapters.llm import (
@@ -136,7 +138,9 @@ __all__ = [
     "render_incident_status",
     "render_incident_update",
     "request_from_verified",
+    "resolve_ai_artifacts_blob_store",
     "resolve_evidence_blob_store",
+    "resolve_postmortem_export_blob_store",
     "resolve_llm_provider",
     "resolve_slack_notifier",
     "set_fake_slack_notifier",

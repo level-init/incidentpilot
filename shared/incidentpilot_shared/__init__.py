@@ -1,7 +1,9 @@
 """Shared domain library for IncidentPilot deployables."""
 
 from incidentpilot_shared.ai_invocation import (
+    AiInvocationProvenance,
     complete_structured_recorded,
+    get_ai_invocation_provenance,
     record_from_llm_result,
 )
 from incidentpilot_shared.ai_tool_broker import (
@@ -235,6 +237,7 @@ __all__ = [
     "QUEUE_CONSUMER_CONTRACTS",
     "REGISTERED_EVIDENCE_PRODUCERS",
     "SLACK_NOTIFY_EVENT",
+    "AiInvocationProvenance",
     "AiToolBroker",
     "AiToolRegistry",
     "AppendEvidenceResult",
@@ -325,6 +328,7 @@ __all__ = [
     "collect_cycle_task_queue",
     "collect_cycle_workflow_id",
     "complete_structured_recorded",
+    "get_ai_invocation_provenance",
     "consume_approval_command",
     "correlate_alert_command",
     "create_approval_command",

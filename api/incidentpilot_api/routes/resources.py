@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Connection
 from psycopg.rows import dict_row
 
@@ -17,12 +17,18 @@ from incidentpilot_api.commands import (
     PinnedRunbookRequired,
     PolicyActorDenied,
     PolicyDecisionExists,
+    PostmortemCorrectiveActionsError,
+    PostmortemFinalImmutableError,
+    PostmortemNotReadyError,
     SeverityActorDenied,
     activate_policy_version_command,
     compute_impact_snapshot_command,
     compute_slo_burn_command,
     confirm_hypothesis_command,
+    create_postmortem_draft_command,
     evaluate_policy_command,
+    export_postmortem_package_command,
+    finalize_postmortem_command,
     list_policy_definitions,
     propose_action_command,
     publish_policy_version_command,
@@ -37,6 +43,7 @@ from incidentpilot_api.schemas import (
     ActionProposeOut,
     AlertOut,
     ApprovalOut,
+    AuditEventOut,
     AutonomyConfigOut,
     AutonomyConfigUpsert,
     EvidenceOut,
@@ -48,11 +55,17 @@ from incidentpilot_api.schemas import (
     PolicyEvaluateBody,
     PolicyVersionOut,
     PolicyVersionPublish,
+    PostmortemDraftCreate,
+    PostmortemDraftOut,
+    PostmortemExportOut,
+    PostmortemFinalize,
+    PostmortemFinalizeOut,
     PostmortemOut,
     SeverityUpdateOut,
     SloBurnOut,
     TimelineEventOut,
 )
+from incidentpilot_shared.postmortem import UnsupportedClaimError
 
 router = APIRouter(tags=["resources"])
 
@@ -277,6 +290,7 @@ def upsert_autonomy_config(
             environment=body.environment,
             severity=body.severity,
             notes=body.notes,
+            actor=principal.actor_id,
             commit=True,
         )
     except ValueError as exc:
@@ -404,20 +418,53 @@ def list_timeline(
     incident_id: UUID,
     principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn)],
+    order: Literal["asc", "desc"] = Query(
+        default="desc",
+        description="Chronological order: asc = oldest first (readable chronicle).",
+    ),
 ) -> list[TimelineEventOut]:
     require_permission(principal, Permission.INCIDENT_READ)
+    order_sql = "ASC" if order == "asc" else "DESC"
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            """
+            f"""
             SELECT id, incident_id, event_type, summary, actor, occurred_at, payload
             FROM domain.timeline_event
             WHERE incident_id = %s
-            ORDER BY occurred_at DESC
+            ORDER BY occurred_at {order_sql}, created_at {order_sql}
             LIMIT 200
             """,
             (str(incident_id),),
         )
         return [TimelineEventOut(**row) for row in cur.fetchall()]
+
+
+@router.get("/incidents/{incident_id}/audit", response_model=list[AuditEventOut])
+def list_audit(
+    incident_id: UUID,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+    order: Literal["asc", "desc"] = Query(
+        default="desc",
+        description="Chronological order: asc = oldest first.",
+    ),
+) -> list[AuditEventOut]:
+    """L2: privileged who/what/when trail (not Timeline)."""
+    require_permission(principal, Permission.INCIDENT_READ)
+    order_sql = "ASC" if order == "asc" else "DESC"
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            SELECT id, incident_id, action, actor, resource_type, resource_id,
+                   outcome, occurred_at, details
+            FROM domain.audit_event
+            WHERE incident_id = %s
+            ORDER BY occurred_at {order_sql}, created_at {order_sql}
+            LIMIT 200
+            """,
+            (str(incident_id),),
+        )
+        return [AuditEventOut(**row) for row in cur.fetchall()]
 
 
 @router.get(
@@ -590,6 +637,122 @@ def update_incident_severity(
         explanation=result.explanation,
         quality_rule_id=result.quality_rule_id,
         inputs=result.inputs,
+    )
+
+
+@router.post(
+    "/incidents/{incident_id}/postmortem/draft",
+    response_model=PostmortemDraftOut,
+    status_code=201,
+)
+def create_postmortem_draft(
+    incident_id: UUID,
+    body: PostmortemDraftCreate,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> PostmortemDraftOut:
+    """L4: grounded DRAFT after RESOLVED; uncited claims → 400."""
+    require_permission(principal, Permission.INCIDENT_WRITE)
+    claims = None
+    if body.claims is not None:
+        claims = [c.model_dump() for c in body.claims]
+    try:
+        result = create_postmortem_draft_command(
+            conn,
+            incident_id=incident_id,
+            claims=claims,
+            title=body.title,
+            body_markdown=body.body_markdown,
+            author=principal.actor_id,
+            commit=True,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PostmortemNotReadyError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PostmortemFinalImmutableError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except UnsupportedClaimError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return PostmortemDraftOut(
+        postmortem_id=result.postmortem_id,
+        incident_id=result.incident_id,
+        status=result.status,
+        title=result.title,
+        claim_count=result.claim_count,
+        cited_evidence_ids=list(result.cited_evidence_ids),
+        inserted=result.inserted,
+    )
+
+
+@router.post(
+    "/incidents/{incident_id}/postmortem/finalize",
+    response_model=PostmortemFinalizeOut,
+)
+def finalize_postmortem(
+    incident_id: UUID,
+    body: PostmortemFinalize,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> PostmortemFinalizeOut:
+    """L5: DRAFT → FINAL with corrective_actions[]; RESOLVED → POSTMORTEM."""
+    require_permission(principal, Permission.INCIDENT_WRITE)
+    try:
+        result = finalize_postmortem_command(
+            conn,
+            incident_id=incident_id,
+            corrective_actions=list(body.corrective_actions),
+            actor=principal.actor_id,
+            commit=True,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (
+        PostmortemNotReadyError,
+        PostmortemFinalImmutableError,
+    ) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PostmortemCorrectiveActionsError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return PostmortemFinalizeOut(
+        postmortem_id=result.postmortem_id,
+        incident_id=result.incident_id,
+        status=result.status,
+        corrective_actions=list(result.corrective_actions),
+        incident_state=result.incident_state,
+        incident_revision=result.incident_revision,
+    )
+
+
+@router.get(
+    "/incidents/{incident_id}/postmortem/export",
+    response_model=PostmortemExportOut,
+)
+def download_postmortem_export(
+    incident_id: UUID,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> PostmortemExportOut:
+    """L6: download export package (timeline + evidence refs + postmortem body)."""
+    require_permission(principal, Permission.INCIDENT_READ)
+    try:
+        result = export_postmortem_package_command(
+            conn,
+            incident_id=incident_id,
+            actor=principal.actor_id,
+            commit=True,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return PostmortemExportOut(
+        incident_id=result.incident_id,
+        postmortem_id=result.postmortem_id,
+        public_id=result.public_id,
+        export_uri=result.export_uri,
+        blob_status=result.blob_status,
+        package=result.package,
     )
 
 

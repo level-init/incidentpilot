@@ -8,7 +8,11 @@ from psycopg import Connection
 from psycopg.rows import dict_row
 
 from incidentpilot_api.auth import Principal, get_principal
-from incidentpilot_api.commands import create_incident_command, transition_incident_command
+from incidentpilot_api.commands import (
+    PostmortemFinalRequiredError,
+    create_incident_command,
+    transition_incident_command,
+)
 from incidentpilot_api.db import get_conn, get_conn_with_permission
 from incidentpilot_api.rbac import Permission, require_permission
 from incidentpilot_api.schemas import (
@@ -138,6 +142,8 @@ def transition_incident(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except IllegalTransitionError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PostmortemFinalRequiredError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return get_incident(incident_id, principal, conn)

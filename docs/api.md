@@ -79,6 +79,64 @@ curl -s -X POST -H 'Authorization: Bearer local-dev' \
 - `provenance.actor_id` from session only; client `actor_id` → **400**
 - Notes are `truthfulness=human_note` (not absolute truth)
 
+## Timeline (L1)
+
+```http
+GET /incidents/{incident_id}/timeline?order=asc
+Authorization: Bearer local-dev
+```
+
+- Process chronicle (`TimelineEvent`) — **not** Evidence
+- `order=desc` (default) or `order=asc` for oldest-first readable chronology
+- Cap 200; requires `incident:read`
+- See [timeline.md](timeline.md)
+
+## Postmortem draft + FINAL (L4–L5)
+
+```http
+POST /incidents/{incident_id}/postmortem/draft
+Authorization: Bearer local-dev
+Content-Type: application/json
+
+{}
+```
+
+```http
+POST /incidents/{incident_id}/postmortem/finalize
+Authorization: Bearer local-dev
+Content-Type: application/json
+
+{"corrective_actions":[{"title":"Add deploy canary","owner":"platform"}]}
+```
+
+- Draft after **RESOLVED**; finalize sets **FINAL** + `corrective_actions[]`
+- `POSTMORTEM → CLOSED` refused without FINAL (**409**)
+- `GET /incidents/{id}/postmortem/export` — L6 package (timeline + evidence refs + body)
+- See [postmortem.md](postmortem.md)
+
+## AIInvocation provenance (L3)
+
+```http
+GET /ai-invocations/{invocation_id}/provenance
+Authorization: Bearer local-dev-admin
+```
+
+- Admin-gated (`admin:config`); answers which Evidence IDs were supplied
+- Includes `input_evidence_ids`, `artifact_uri`, request/response metadata
+- See [llm.md](llm.md)
+
+## Audit (L2)
+
+```http
+GET /incidents/{incident_id}/audit?order=asc
+Authorization: Bearer local-dev
+```
+
+- Privileged who/what/when (`AuditEvent`) — **not** Timeline
+- Approve + execute (and policy/admin) writers; retention ≥ related objects
+- Cap 200; requires `incident:read`
+- See [audit.md](audit.md)
+
 ## Slack slash commands (K6)
 
 `POST /webhooks/slack/commands` — HMAC-verified `/ip` ChatOps

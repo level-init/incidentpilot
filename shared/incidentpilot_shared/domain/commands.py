@@ -109,6 +109,55 @@ class RecordAiInvocationResult:
     invocation_id: UUID
     incident_id: UUID | None
     status: str
+    artifact_uri: str | None = None
+    input_evidence_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class CreatePostmortemDraftResult:
+    postmortem_id: UUID
+    incident_id: UUID
+    status: str
+    title: str
+    claim_count: int
+    cited_evidence_ids: tuple[UUID, ...]
+    inserted: bool
+
+
+class PostmortemNotReadyError(ValueError):
+    """Raised when draft is requested before the incident is RESOLVED (L4)."""
+
+
+class PostmortemFinalImmutableError(ValueError):
+    """Raised when attempting to rewrite a FINAL postmortem."""
+
+
+class PostmortemFinalRequiredError(ValueError):
+    """Raised when CLOSED is requested without a FINAL postmortem (L5)."""
+
+
+class PostmortemCorrectiveActionsError(ValueError):
+    """Raised when FINAL lacks a valid corrective_actions[] (L5)."""
+
+
+@dataclass(frozen=True, slots=True)
+class FinalizePostmortemResult:
+    postmortem_id: UUID
+    incident_id: UUID
+    status: str
+    corrective_actions: tuple[dict[str, Any], ...]
+    incident_state: str
+    incident_revision: int
+
+
+@dataclass(frozen=True, slots=True)
+class ExportPostmortemResult:
+    incident_id: UUID
+    postmortem_id: UUID
+    public_id: str
+    export_uri: str | None
+    blob_status: str
+    package: dict[str, Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -394,6 +443,8 @@ def transition_incident_command(
     (H5 — only ``diagnose_incident_command`` may set that flag).
     Replan paths (e.g. ``AWAITING_APPROVAL → DIAGNOSED`` on I5 timeout) are
     allowed without the diagnose gate.
+
+    ``POSTMORTEM → CLOSED`` requires a FINAL postmortem (L5) — no skip.
     """
     target = IncidentState(to_state) if not isinstance(to_state, IncidentState) else to_state
     if target is IncidentState.DIAGNOSED and not via_diagnose_gate:
@@ -408,6 +459,30 @@ def transition_incident_command(
             raise DiagnosedGateError(
                 "DIAGNOSED is only allowed via diagnose_incident_command (SYSTEM gate)"
             )
+    if target is IncidentState.CLOSED:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT state FROM domain.incident WHERE id = %s",
+                (str(incident_id),),
+            )
+            inc_row = cur.fetchone()
+            current_for_close = (
+                IncidentState(inc_row[0]) if inc_row is not None else None
+            )
+            if current_for_close is IncidentState.POSTMORTEM:
+                cur.execute(
+                    """
+                    SELECT status FROM domain.postmortem
+                    WHERE incident_id = %s
+                    """,
+                    (str(incident_id),),
+                )
+                pm = cur.fetchone()
+                if pm is None or str(pm[0]) != "FINAL":
+                    raise PostmortemFinalRequiredError(
+                        "CLOSED requires a FINAL postmortem "
+                        "(RESOLVED→POSTMORTEM→FINAL→CLOSED)"
+                    )
     uow = UnitOfWork(conn, requires_outbox=True)
     result = apply_transition(
         conn,
@@ -911,6 +986,26 @@ def decide_approval_command(
                 },
             )
 
+    if incident_id is not None:
+        from incidentpilot_shared.audit import append_audit_event
+
+        append_audit_event(
+            conn,
+            incident_id=incident_id,
+            action="approval.decide",
+            actor=decided_by,
+            resource_type="approval",
+            resource_id=str(approval_id),
+            outcome="success",
+            details={
+                "approval_id": str(approval_id),
+                "action_id": str(action_id),
+                "action_version": action_version,
+                "status": status,
+                "action_status": action_status,
+            },
+        )
+
     if commit:
         conn.commit()
     return ApprovalDecisionResult(
@@ -1170,6 +1265,30 @@ def reserve_execution_attempt_command(
             """,
             (str(attempt_id), str(action_id), action_version, attempt_number),
         )
+        cur.execute(
+            "SELECT incident_id FROM domain.action WHERE id = %s",
+            (str(action_id),),
+        )
+        action_row = cur.fetchone()
+    if action_row is not None and action_row[0] is not None:
+        from incidentpilot_shared.timeline import append_timeline_event
+
+        append_timeline_event(
+            conn,
+            incident_id=UUID(str(action_row[0])),
+            event_type="EXECUTION_ATTEMPT_RESERVED",
+            summary=(
+                f"execution attempt reserved for action {action_id} "
+                f"v{action_version} (#{attempt_number})"
+            ),
+            actor="system",
+            payload={
+                "attempt_id": str(attempt_id),
+                "action_id": str(action_id),
+                "action_version": action_version,
+                "attempt_number": attempt_number,
+            },
+        )
     if commit:
         conn.commit()
     return ReserveAttemptResult(
@@ -1204,7 +1323,7 @@ def append_action_result_evidence_command(
     write Evidence. Fingerprint is attempt-scoped so lost-ACK retries are
     idempotent. Provenance layer is ``ACTION_OBSERVATION``.
     """
-    return append_evidence_command(
+    result = append_evidence_command(
         conn,
         incident_id=incident_id,
         kind="ACTION_RESULT",
@@ -1232,8 +1351,51 @@ def append_action_result_evidence_command(
             "action_version": int(action_version),
             "action_type": action_type,
         },
-        commit=commit,
+        commit=False,
     )
+    if result.inserted:
+        from incidentpilot_shared.audit import append_audit_event
+        from incidentpilot_shared.timeline import append_timeline_event
+
+        append_timeline_event(
+            conn,
+            incident_id=incident_id,
+            event_type="REMEDIATION_RESULT",
+            summary=summary,
+            actor="system",
+            payload={
+                "attempt_id": str(attempt_id),
+                "action_id": str(action_id),
+                "action_version": int(action_version),
+                "action_type": action_type,
+                "ok": bool(ok),
+                "evidence_id": str(result.evidence_id),
+                "reconciliation_state": reconciliation_state,
+            },
+        )
+        append_audit_event(
+            conn,
+            incident_id=incident_id,
+            action="remediation.execute",
+            actor="system",
+            resource_type="execution_attempt",
+            resource_id=str(attempt_id),
+            outcome="success" if ok else "error",
+            details={
+                "attempt_id": str(attempt_id),
+                "action_id": str(action_id),
+                "action_version": int(action_version),
+                "action_type": action_type,
+                "ok": bool(ok),
+                "evidence_id": str(result.evidence_id),
+                "reconciliation_state": reconciliation_state,
+                "skipped_execute": bool(skipped_execute),
+                "error_summary": error_summary,
+            },
+        )
+    if commit:
+        conn.commit()
+    return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -1328,6 +1490,23 @@ def record_validation_result_command(
                 ),
             ),
         )
+
+    from incidentpilot_shared.timeline import append_timeline_event
+
+    append_timeline_event(
+        conn,
+        incident_id=incident_id,
+        event_type="VALIDATION_RECORDED",
+        summary=f"validation outcome {outcome} for attempt {execution_attempt_id}",
+        actor=actor,
+        payload={
+            "validation_result_id": str(result_id),
+            "execution_attempt_id": str(execution_attempt_id),
+            "outcome": outcome,
+            "action_id": str(action_id) if action_id is not None else None,
+            "action_version": action_version,
+        },
+    )
 
     incident_state: str | None = None
     incident_revision: int | None = None
@@ -1714,22 +1893,26 @@ def record_ai_invocation_command(
     request_metadata: dict[str, Any] | None = None,
     response_metadata: dict[str, Any] | None = None,
     artifact_uri: str | None = None,
+    invocation_id: UUID | None = None,
     commit: bool = True,
 ) -> RecordAiInvocationResult:
-    """Insert minimum ``domain.ai_invocation`` provenance (H2).
+    """Insert ``domain.ai_invocation`` provenance (H2) + optional S3 artifact (L3).
 
     Required AC fields: model, prompt_version + input evidence ids (in
     ``request_metadata``), status, timestamps (``created_at`` default), incident link.
-    Full S3 prompt packages are L3 (``artifact_uri`` left null for now).
+    L3 sets ``artifact_uri`` when the prompt/tool package was uploaded.
+    Pass ``invocation_id`` when the S3 object key must match the row id.
     """
     if status not in _AI_INVOCATION_STATUSES:
         raise ValueError(f"unsupported ai_invocation status: {status!r}")
     meta = dict(request_metadata or {})
     if prompt_version is not None:
         meta.setdefault("prompt_version", prompt_version)
+    evidence_tuple: tuple[str, ...] = ()
     if input_evidence_ids is not None:
-        meta.setdefault("input_evidence_ids", list(input_evidence_ids))
-    invocation_id = uuid4()
+        evidence_tuple = tuple(str(x) for x in input_evidence_ids)
+        meta.setdefault("input_evidence_ids", list(evidence_tuple))
+    inv_id = invocation_id or uuid4()
     iid = str(incident_id) if incident_id is not None else None
     with conn.cursor() as cur:
         cur.execute(
@@ -1748,7 +1931,7 @@ def record_ai_invocation_command(
             RETURNING id
             """,
             (
-                str(invocation_id),
+                str(inv_id),
                 iid,
                 purpose,
                 provider,
@@ -1773,6 +1956,8 @@ def record_ai_invocation_command(
         invocation_id=UUID(str(row[0])),
         incident_id=UUID(iid) if iid else None,
         status=status,
+        artifact_uri=artifact_uri,
+        input_evidence_ids=evidence_tuple,
     )
 
 
@@ -1850,9 +2035,353 @@ def create_incident_command(
                 """,
                 (str(incident_id), str(service_id)),
             )
+    from incidentpilot_shared.timeline import append_timeline_event
+
+    append_timeline_event(
+        conn,
+        incident_id=incident_id,
+        event_type="INCIDENT_CREATED",
+        summary=f"incident {public_id} created (DETECTED)",
+        actor=actor,
+        payload={"public_id": public_id, "title": title, "state": "DETECTED"},
+    )
     if commit:
         conn.commit()
     return CreateIncidentResult(incident_id=incident_id, public_id=public_id)
+
+
+def create_postmortem_draft_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    claims: list[dict[str, Any]] | None = None,
+    title: str | None = None,
+    body_markdown: str | None = None,
+    author: str = "system",
+    commit: bool = True,
+) -> CreatePostmortemDraftResult:
+    """Create or refresh a DRAFT postmortem after RESOLVED (L4).
+
+    Claims must cite Evidence / Timeline / Action / ValidationResult on this
+    incident. Uncited or unknown citations raise ``UnsupportedClaimError``.
+    When ``claims`` is omitted, a deterministic draft is generated from SoR.
+    """
+    from incidentpilot_shared.postmortem import (
+        UnsupportedClaimError,
+        build_draft_claims_from_incident,
+        claims_to_json,
+        parse_claim_dict,
+        render_draft_markdown,
+        validate_postmortem_claims,
+    )
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT public_id, title, state
+            FROM domain.incident
+            WHERE id = %s
+            """,
+            (str(incident_id),),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise LookupError(f"incident {incident_id} not found")
+        public_id, incident_title, state = str(row[0]), str(row[1]), str(row[2])
+        if state != IncidentState.RESOLVED.value:
+            raise PostmortemNotReadyError(
+                f"postmortem draft requires RESOLVED (got {state})"
+            )
+        cur.execute(
+            """
+            SELECT id, status FROM domain.postmortem
+            WHERE incident_id = %s
+            """,
+            (str(incident_id),),
+        )
+        existing = cur.fetchone()
+        if existing is not None and str(existing[1]) == "FINAL":
+            raise PostmortemFinalImmutableError(
+                f"postmortem for {incident_id} is FINAL and immutable"
+            )
+
+    if claims is None:
+        parsed = build_draft_claims_from_incident(conn, incident_id=incident_id)
+        if not parsed:
+            raise UnsupportedClaimError(
+                "cannot generate draft: no Evidence/Timeline/Action/ValidationResult "
+                f"on incident {incident_id}"
+            )
+    else:
+        parsed = [parse_claim_dict(c) for c in claims]
+
+    cited_evidence = validate_postmortem_claims(
+        conn, incident_id=incident_id, claims=parsed
+    )
+    draft_title = (title or f"Postmortem draft — {public_id}").strip()
+    body = body_markdown or render_draft_markdown(
+        public_id=public_id,
+        title=incident_title,
+        claims=parsed,
+    )
+    provenance = {
+        "writer": author,
+        "source": "postmortem_draft",
+        "layer": "DETERMINISTIC_DERIVED",
+        "claims": claims_to_json(parsed),
+        "quality_rule_id": "postmortem_citations.v1",
+    }
+    postmortem_id = uuid4()
+    inserted = True
+    with conn.cursor() as cur:
+        if existing is not None:
+            postmortem_id = UUID(str(existing[0]))
+            inserted = False
+            cur.execute(
+                """
+                UPDATE domain.postmortem
+                SET title = %s,
+                    body_markdown = %s,
+                    cited_evidence_ids = %s::uuid[],
+                    author = %s,
+                    provenance = %s::jsonb,
+                    status = 'DRAFT',
+                    updated_at = now()
+                WHERE id = %s AND status = 'DRAFT'
+                """,
+                (
+                    draft_title,
+                    body,
+                    [str(u) for u in cited_evidence],
+                    author,
+                    json.dumps(provenance),
+                    str(postmortem_id),
+                ),
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO domain.postmortem (
+                    id, incident_id, status, title, body_markdown,
+                    corrective_actions, cited_evidence_ids, author, provenance
+                ) VALUES (
+                    %s, %s, 'DRAFT', %s, %s,
+                    '[]'::jsonb, %s::uuid[], %s, %s::jsonb
+                )
+                """,
+                (
+                    str(postmortem_id),
+                    str(incident_id),
+                    draft_title,
+                    body,
+                    [str(u) for u in cited_evidence],
+                    author,
+                    json.dumps(provenance),
+                ),
+            )
+    if commit:
+        conn.commit()
+    return CreatePostmortemDraftResult(
+        postmortem_id=postmortem_id,
+        incident_id=incident_id,
+        status="DRAFT",
+        title=draft_title,
+        claim_count=len(parsed),
+        cited_evidence_ids=cited_evidence,
+        inserted=inserted,
+    )
+
+
+def _normalize_corrective_actions(
+    corrective_actions: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None,
+) -> list[dict[str, Any]]:
+    if not corrective_actions:
+        raise PostmortemCorrectiveActionsError(
+            "FINAL postmortem requires non-empty corrective_actions[]"
+        )
+    normalized: list[dict[str, Any]] = []
+    for i, raw in enumerate(corrective_actions):
+        if not isinstance(raw, dict):
+            raise PostmortemCorrectiveActionsError(
+                f"corrective_actions[{i}] must be an object"
+            )
+        title = str(raw.get("title") or "").strip()
+        if not title:
+            raise PostmortemCorrectiveActionsError(
+                f"corrective_actions[{i}].title is required"
+            )
+        item: dict[str, Any] = {"title": title}
+        owner = raw.get("owner")
+        if owner is not None and str(owner).strip():
+            item["owner"] = str(owner).strip()
+        for key, value in raw.items():
+            if key in {"title", "owner"}:
+                continue
+            item[key] = value
+        normalized.append(item)
+    return normalized
+
+
+def finalize_postmortem_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    corrective_actions: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None,
+    actor: str = "system",
+    commit: bool = True,
+) -> FinalizePostmortemResult:
+    """DRAFT → FINAL with corrective_actions[]; enter POSTMORTEM if RESOLVED (L5).
+
+    CLOSED remains a separate transition and is gated on FINAL status.
+    """
+    actions = _normalize_corrective_actions(corrective_actions)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT state, incident_revision FROM domain.incident
+            WHERE id = %s
+            """,
+            (str(incident_id),),
+        )
+        inc = cur.fetchone()
+        if inc is None:
+            raise LookupError(f"incident {incident_id} not found")
+        state = str(inc[0])
+        revision = int(inc[1])
+        if state not in {
+            IncidentState.RESOLVED.value,
+            IncidentState.POSTMORTEM.value,
+        }:
+            raise PostmortemNotReadyError(
+                f"finalize requires RESOLVED or POSTMORTEM (got {state})"
+            )
+        cur.execute(
+            """
+            SELECT id, status FROM domain.postmortem
+            WHERE incident_id = %s
+            """,
+            (str(incident_id),),
+        )
+        pm = cur.fetchone()
+        if pm is None:
+            raise LookupError(f"postmortem draft not found for incident {incident_id}")
+        postmortem_id = UUID(str(pm[0]))
+        if str(pm[1]) == "FINAL":
+            raise PostmortemFinalImmutableError(
+                f"postmortem for {incident_id} is already FINAL"
+            )
+        if str(pm[1]) != "DRAFT":
+            raise PostmortemNotReadyError(f"postmortem status is {pm[1]}, expected DRAFT")
+        cur.execute(
+            """
+            UPDATE domain.postmortem
+            SET status = 'FINAL',
+                corrective_actions = %s::jsonb,
+                author = COALESCE(author, %s),
+                provenance = provenance || %s::jsonb
+            WHERE id = %s AND status = 'DRAFT'
+            """,
+            (
+                json.dumps(actions),
+                actor,
+                json.dumps(
+                    {
+                        "finalized_by": actor,
+                        "source": "postmortem_finalize",
+                    }
+                ),
+                str(postmortem_id),
+            ),
+        )
+        if cur.rowcount != 1:
+            raise PostmortemFinalImmutableError(
+                f"failed to finalize postmortem for {incident_id}"
+            )
+
+    incident_state = state
+    incident_revision = revision
+    if state == IncidentState.RESOLVED.value:
+        transitioned = transition_incident_command(
+            conn,
+            incident_id=incident_id,
+            expected_revision=revision,
+            to_state=IncidentState.POSTMORTEM,
+            actor=actor,
+            commit=False,
+        )
+        incident_state = (
+            transitioned.to_state.value
+            if hasattr(transitioned.to_state, "value")
+            else str(transitioned.to_state)
+        )
+        incident_revision = transitioned.new_revision
+
+    if commit:
+        conn.commit()
+    return FinalizePostmortemResult(
+        postmortem_id=postmortem_id,
+        incident_id=incident_id,
+        status="FINAL",
+        corrective_actions=tuple(actions),
+        incident_state=incident_state,
+        incident_revision=incident_revision,
+    )
+
+
+def export_postmortem_package_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    blob_store: object | None = None,
+    actor: str = "system",
+    commit: bool = True,
+) -> ExportPostmortemResult:
+    """Build FINAL postmortem export package and best-effort S3 archive (L6).
+
+    Package always includes timeline, Evidence refs, and postmortem body.
+    ``blob_store`` may be injected for tests; otherwise resolves the L6 bucket.
+    """
+    from incidentpilot_shared.postmortem_export import (
+        build_postmortem_export_package,
+        upload_postmortem_export,
+    )
+
+    package = build_postmortem_export_package(conn, incident_id=incident_id)
+    public_id = str(package["incident"]["public_id"])
+    postmortem_id = UUID(str(package["postmortem"]["id"]))
+
+    store = blob_store
+    if store is None:
+        try:
+            from incidentpilot_adapters.blob import resolve_postmortem_export_blob_store
+
+            store = resolve_postmortem_export_blob_store()
+        except Exception:  # noqa: BLE001
+            store = None
+
+    upload = upload_postmortem_export(
+        store,  # type: ignore[arg-type]
+        incident_id=incident_id,
+        public_id=public_id,
+        package=package,
+    )
+    # FINAL rows are immutable — do not UPDATE postmortem; S3 + response carry uri.
+    package = {
+        **package,
+        "export_uri": upload.export_uri,
+        "blob_status": upload.blob_status,
+        "exported_by": actor,
+    }
+    if commit:
+        conn.commit()
+    return ExportPostmortemResult(
+        incident_id=incident_id,
+        postmortem_id=postmortem_id,
+        public_id=public_id,
+        export_uri=upload.export_uri,
+        blob_status=upload.blob_status,
+        package=package,
+    )
 
 
 def attach_alert_command(
@@ -3700,6 +4229,7 @@ def upsert_autonomy_config_command(
     environment: str | None = None,
     severity: str | None = None,
     notes: str | None = None,
+    actor: str = "admin",
     commit: bool = True,
 ) -> UpsertAutonomyConfigResult:
     """Insert or update an autonomy config row (I3). NULL dims = wildcards."""
@@ -3751,6 +4281,26 @@ def upsert_autonomy_config_command(
                 (str(returned_id), svc, atype, env, sev, level, notes),
             )
             inserted = True
+    from incidentpilot_shared.audit import append_audit_event
+
+    append_audit_event(
+        conn,
+        action="admin.autonomy_upsert",
+        actor=actor,
+        resource_type="autonomy_config",
+        resource_id=str(returned_id),
+        outcome="success",
+        details={
+            "config_id": str(returned_id),
+            "service_key": svc,
+            "action_type": atype,
+            "environment": env,
+            "severity": sev,
+            "autonomy_level": level,
+            "inserted": inserted,
+            "notes": notes,
+        },
+    )
     if commit:
         conn.commit()
     return UpsertAutonomyConfigResult(

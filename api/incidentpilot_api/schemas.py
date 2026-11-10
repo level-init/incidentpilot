@@ -185,6 +185,18 @@ class TimelineEventOut(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class AuditEventOut(BaseModel):
+    id: UUID
+    incident_id: UUID | None = None
+    action: str
+    actor: str
+    resource_type: str
+    resource_id: str | None = None
+    outcome: str
+    occurred_at: datetime
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
 class PostmortemOut(BaseModel):
     id: UUID
     incident_id: UUID
@@ -192,6 +204,51 @@ class PostmortemOut(BaseModel):
     title: str
     body_markdown: str
     corrective_actions: list[Any]
+
+
+class PostmortemClaimIn(BaseModel):
+    text: str = Field(min_length=1)
+    citations: list[Any] = Field(default_factory=list)
+
+
+class PostmortemDraftCreate(BaseModel):
+    """Optional explicit claims; omit to auto-generate from SoR (L4)."""
+
+    title: str | None = Field(default=None, max_length=500)
+    body_markdown: str | None = None
+    claims: list[PostmortemClaimIn] | None = None
+
+
+class PostmortemDraftOut(BaseModel):
+    postmortem_id: UUID
+    incident_id: UUID
+    status: str
+    title: str
+    claim_count: int
+    cited_evidence_ids: list[UUID]
+    inserted: bool
+
+
+class PostmortemFinalize(BaseModel):
+    corrective_actions: list[dict[str, Any]] = Field(min_length=1)
+
+
+class PostmortemFinalizeOut(BaseModel):
+    postmortem_id: UUID
+    incident_id: UUID
+    status: str
+    corrective_actions: list[dict[str, Any]]
+    incident_state: str
+    incident_revision: int
+
+
+class PostmortemExportOut(BaseModel):
+    incident_id: UUID
+    postmortem_id: UUID
+    public_id: str
+    export_uri: str | None = None
+    blob_status: str
+    package: dict[str, Any]
 
 
 class ImpactSnapshotOut(BaseModel):

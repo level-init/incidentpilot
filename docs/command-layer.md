@@ -15,25 +15,33 @@ transitions, and outbox rules cannot be bypassed.
 
 | Command | Purpose |
 | --- | --- |
-| `transition_incident_command` | State machine + revision + timeline + outbox |
+| `transition_incident_command` | State machine + revision + timeline + outbox; CLOSED gated on FINAL postmortem (L5) |
 | `append_evidence_command` | Producer-gated Evidence insert; fingerprint dedup (G1); rejects fake HIGH RAW without `blob_uri` (G5) |
 | `append_raw_evidence_with_blob` | Collector helper: S3/MinIO upload then append with honest RAW provenance (G5) |
 | `append_derived_evidence_command` | DETERMINISTIC_DERIVED + DERIVED_FROM parents (G4) |
 | `link_evidence_relation_command` | Evidence graph edges |
 | `create_approval_command` | PENDING Approval bound to exact `action_version` (I4); duplicate create no-op |
-| `decide_approval_command` | PENDING → APPROVED/REJECTED; duplicate same status no-op; reject → action CANCELLED (I4) |
+| `decide_approval_command` | PENDING → APPROVED/REJECTED; duplicate same status no-op; reject → action CANCELLED (I4); `approval.decide` AuditEvent (L2) |
 | `consume_approval_command` | Single-use APPROVED → CONSUMED; wrong version → `STALE_ACTION_VERSION` (I4) |
 | `assert_approval_authorizes` | Exact-version APPROVED/CONSUMED gate; vN cannot authorize vM (I4) |
 | `expire_pending_approvals_command` | TIMEOUT path: PENDING → EXPIRED; actions CANCELLED (I5; no execute) |
 | `reserve_execution_attempt_command` | Reserve attempt before MITIGATING |
 | `verify_execution_attempt` | J1: SoR param/binding + policy/approval gate before adapter execute |
 | `verify_reconcile_and_execute` | J2 remediation-worker: verify → reconcile → execute only if `NOT_APPLIED` |
-| `append_action_result_evidence_command` | J6: RemediationResult → `ACTION_RESULT` Evidence (`ACTION_OBSERVATION`; producer `remediation_worker`) |
+| `append_action_result_evidence_command` | J6: RemediationResult → `ACTION_RESULT` Evidence (`ACTION_OBSERVATION`; producer `remediation_worker`); `remediation.execute` AuditEvent (L2) |
 | `record_validation_result_command` | J7: one `ValidationResult` per `execution_attempt`; optional `VALIDATING→RECOVERED|DEGRADED` |
 | `route_validation_outcome_command` | J8: `RECOVERED→RESOLVED`; NO_IMPROVEMENT→`DIAGNOSED`; REGRESSION→stay `DEGRADED` |
 | `upsert_alert_command` | Insert/update `domain.alert` by fingerprint (F2) |
 | `upsert_change_command` | Idempotent `domain.change` by `(source, fingerprint)` (G8); `source_ref`→`external_ref` |
-| `create_incident_command` | Create DETECTED incident (+ optional service link) |
+| `create_incident_command` | Create DETECTED incident (+ optional service link); emits `INCIDENT_CREATED` (L1) |
+| `append_timeline_event` | Shared helper for append-only process chronicle ([timeline.md](timeline.md)) |
+| `append_audit_event` | Shared helper for privileged who/what/when trail ([audit.md](audit.md)) |
+| `record_ai_invocation_command` | AI provenance row; optional `artifact_uri` (L3) |
+| `complete_structured_recorded` | LLM complete + provenance + best-effort S3 artifact package (L3) |
+| `get_ai_invocation_provenance` | Read Evidence lineage + outputs for one invocation (L3) |
+| `create_postmortem_draft_command` | DRAFT after RESOLVED; citation validator (L4; [postmortem.md](postmortem.md)) |
+| `finalize_postmortem_command` | DRAFT→FINAL + corrective_actions[]; RESOLVED→POSTMORTEM (L5) |
+| `export_postmortem_package_command` | FINAL export package + best-effort S3 archive (L6) |
 | `attach_alert_command` | Set `alert.incident_id` |
 | `correlate_alert_command` | Fingerprint/time/service match or create (F4) |
 | `propose_hypothesis_command` | SYSTEM insert PROPOSED hypothesis; resolve EV citations (H4) |
