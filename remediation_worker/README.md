@@ -12,7 +12,8 @@ python -m incidentpilot_remediation smoke    # subscribe smoke
 See [docs/temporal-queues.md](../docs/temporal-queues.md).
 
 **Owns:** RemediationAdapter calls after **VerifyExecutionAttempt** (J1);
-`ROLLBACK_DEPLOYMENT` sim + reconcile (J2); narrow identity later (J11).
+`ROLLBACK_DEPLOYMENT` sim + reconcile (J2); `RESTART_WORKLOAD` /
+`SCALE_WORKLOAD` sim (J3); narrow identity later (J11).
 
 ```python
 from incidentpilot_remediation.execute import (

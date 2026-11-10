@@ -1,4 +1,4 @@
-"""Remediation adapters — privileged outbound execute / reconcile (J1/J2)."""
+"""Remediation adapters — privileged outbound execute / reconcile (J1–J3)."""
 
 from incidentpilot_adapters.remediation.noop import (
     NoopRemediationAdapter,
@@ -22,6 +22,11 @@ from incidentpilot_adapters.remediation.sim_rollback import (
     SimDeploymentWorld,
     SimRollbackAdapter,
 )
+from incidentpilot_adapters.remediation.sim_workload import (
+    SimRestartAdapter,
+    SimScaleAdapter,
+    SimWorkloadWorld,
+)
 
 __all__ = [
     "BlindRetryForbidden",
@@ -36,7 +41,10 @@ __all__ = [
     "RemediationRequest",
     "RemediationResult",
     "SimDeploymentWorld",
+    "SimRestartAdapter",
     "SimRollbackAdapter",
+    "SimScaleAdapter",
+    "SimWorkloadWorld",
     "execute_verified",
     "reconcile_verified",
     "request_from_verified",
