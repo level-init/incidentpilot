@@ -109,6 +109,8 @@ class RecordAiInvocationResult:
     invocation_id: UUID
     incident_id: UUID | None
     status: str
+    artifact_uri: str | None = None
+    input_evidence_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -1818,22 +1820,26 @@ def record_ai_invocation_command(
     request_metadata: dict[str, Any] | None = None,
     response_metadata: dict[str, Any] | None = None,
     artifact_uri: str | None = None,
+    invocation_id: UUID | None = None,
     commit: bool = True,
 ) -> RecordAiInvocationResult:
-    """Insert minimum ``domain.ai_invocation`` provenance (H2).
+    """Insert ``domain.ai_invocation`` provenance (H2) + optional S3 artifact (L3).
 
     Required AC fields: model, prompt_version + input evidence ids (in
     ``request_metadata``), status, timestamps (``created_at`` default), incident link.
-    Full S3 prompt packages are L3 (``artifact_uri`` left null for now).
+    L3 sets ``artifact_uri`` when the prompt/tool package was uploaded.
+    Pass ``invocation_id`` when the S3 object key must match the row id.
     """
     if status not in _AI_INVOCATION_STATUSES:
         raise ValueError(f"unsupported ai_invocation status: {status!r}")
     meta = dict(request_metadata or {})
     if prompt_version is not None:
         meta.setdefault("prompt_version", prompt_version)
+    evidence_tuple: tuple[str, ...] = ()
     if input_evidence_ids is not None:
-        meta.setdefault("input_evidence_ids", list(input_evidence_ids))
-    invocation_id = uuid4()
+        evidence_tuple = tuple(str(x) for x in input_evidence_ids)
+        meta.setdefault("input_evidence_ids", list(evidence_tuple))
+    inv_id = invocation_id or uuid4()
     iid = str(incident_id) if incident_id is not None else None
     with conn.cursor() as cur:
         cur.execute(
@@ -1852,7 +1858,7 @@ def record_ai_invocation_command(
             RETURNING id
             """,
             (
-                str(invocation_id),
+                str(inv_id),
                 iid,
                 purpose,
                 provider,
@@ -1877,6 +1883,8 @@ def record_ai_invocation_command(
         invocation_id=UUID(str(row[0])),
         incident_id=UUID(iid) if iid else None,
         status=status,
+        artifact_uri=artifact_uri,
+        input_evidence_ids=evidence_tuple,
     )
 
 

@@ -37,6 +37,7 @@ put these URLs on the general worker.
 | Client | Env | Module |
 | --- | --- | --- |
 | `S3BlobStore` / `resolve_evidence_blob_store` | `S3_ENDPOINT`, `S3_BUCKET_EVIDENCE`, MinIO/`AWS_*` keys | `incidentpilot_adapters.blob` |
+| `resolve_ai_artifacts_blob_store` | same endpoint/keys + `S3_BUCKET_AI_ARTIFACTS` | AIInvocation packages (L3) |
 
 Uploads only — no domain SQL. Collectors claim RAW `quality=HIGH` only when
 `put` succeeds and `blob_uri` is set; on failure use MEDIUM + hash/external_ref.

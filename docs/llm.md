@@ -45,10 +45,28 @@ Each `domain.ai_invocation` row records at least:
 | `created_at` | DB default |
 | `incident_id` | linked when provided |
 
-Full S3 prompt packages (`artifact_uri`) are L3 / out of scope for H2.
-
 `record_ai_invocation_command` is the B7 mutation path; workers should prefer
 `complete_structured_recorded` so success and validation failure both leave a row.
+
+## Full artifacts + provenance API (L3)
+
+`complete_structured_recorded(..., blob_store=…)` best-effort uploads a JSON
+package (prompts, tools, tool traces, `input_evidence_ids`, raw/parsed output)
+to `S3_BUCKET_AI_ARTIFACTS` and sets `artifact_uri`. Upload failure does **not**
+block the provenance row (`response_metadata.artifact_blob_status`).
+
+```http
+GET /ai-invocations/{invocation_id}/provenance
+Authorization: Bearer local-dev-admin
+```
+
+- **Admin only** (`admin:config`) — Responder → **403**
+- Returns `input_evidence_ids` (what Evidence was supplied), outputs metadata,
+  `artifact_uri`, model/purpose/status
+- Helper: `get_ai_invocation_provenance(conn, invocation_id=…)`
+
+Bucket: `incidentpilot-ai-artifacts` (`S3_BUCKET_AI_ARTIFACTS`); resolver
+`resolve_ai_artifacts_blob_store()` (same S3 endpoint/keys as evidence).
 
 ## Env (general worker only)
 
