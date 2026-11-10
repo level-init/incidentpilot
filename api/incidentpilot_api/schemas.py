@@ -28,6 +28,7 @@ class IncidentCreate(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     severity: str | None = None
     summary: str | None = None
+    service_key: str | None = None
 
 
 class IncidentTransition(BaseModel):
@@ -46,6 +47,7 @@ class IncidentOut(BaseModel):
     opened_at: datetime
     resolved_at: datetime | None
     closed_at: datetime | None
+    service_keys: list[str] = Field(default_factory=list)
 
 
 class AlertOut(BaseModel):

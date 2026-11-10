@@ -1,8 +1,8 @@
-# Web dashboard (M1)
+# Web dashboard (M1 / M2)
 
 Deployable: **incidentpilot-web** (`web/`). Next.js App Router + TypeScript.
 
-## Login smoke
+## Login smoke (M1)
 
 1. Start API: `make api-run` (Bearer stub mode).
 2. Start UI: `make web-dev` → http://localhost:3000
@@ -17,9 +17,27 @@ Session probe used by the UI:
 curl -s -H 'Authorization: Bearer local-dev' http://localhost:8000/auth/me
 ```
 
+## Incident overview + list (M2)
+
+Open `/incidents` after login. The page shows:
+
+- Overview metrics (listed / active / by state / by severity)
+- Filters: state, severity, service key
+- Table columns: public id, title, **severity**, **state**, **service**, **duration**
+
+List API:
+
+```bash
+curl -s -H 'Authorization: Bearer local-dev' \
+  'http://localhost:8000/incidents?state=DETECTED&severity=SEV2&service=checkout'
+```
+
+`IncidentOut.service_keys` comes from `domain.incident_service`. Duration is
+computed in the UI from `opened_at` → `resolved_at` / `closed_at` / now.
+
 ## Nav model
 
-| Section | Who sees it | Routes (M1) |
+| Section | Who sees it | Routes |
 | --- | --- | --- |
 | Ops | viewer / responder / admin | `/incidents` |
 | Admin | admin only | `/admin` |

@@ -83,8 +83,63 @@
           "incidents"
         ],
         "summary": "List Incidents",
+        "description": "Overview list \u2014 severity / state / service / timestamps for duration.",
         "operationId": "list_incidents_incidents_get",
         "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact incident state",
+              "title": "State"
+            },
+            "description": "Exact incident state"
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact severity",
+              "title": "Severity"
+            },
+            "description": "Exact severity"
+          },
+          {
+            "name": "service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Linked service key (exact)",
+              "title": "Service"
+            },
+            "description": "Linked service key (exact)"
+          },
           {
             "name": "authorization",
             "in": "header",
@@ -3963,6 +4018,17 @@
               }
             ],
             "title": "Summary"
+          },
+          "service_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Key"
           }
         },
         "type": "object",
@@ -4044,6 +4110,13 @@
               }
             ],
             "title": "Closed At"
+          },
+          "service_keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Service Keys"
           }
         },
         "type": "object",

@@ -22,6 +22,8 @@ in `sessionStorage`.
 - **Ops nav** — visible for every authenticated role (starts with Incidents).
 - **Admin nav** — only when `role === admin`.
 - **Eval UI** — intentionally omitted (C3 / later epic).
+- **`/incidents`** — overview metrics + filterable list (severity / state /
+  service / duration) via `GET /incidents` (M2).
 
 Port **3000** matches `INCIDENTPILOT_WEB_BASE_URL` deep links. If Compose
 Grafana is also on 3000 (evidence profile), stop Grafana or remap one of them.
