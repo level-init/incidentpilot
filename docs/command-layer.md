@@ -33,7 +33,8 @@ transitions, and outbox rules cannot be bypassed.
 | `route_validation_outcome_command` | J8: `RECOVERED→RESOLVED`; NO_IMPROVEMENT→`DIAGNOSED`; REGRESSION→stay `DEGRADED` |
 | `upsert_alert_command` | Insert/update `domain.alert` by fingerprint (F2) |
 | `upsert_change_command` | Idempotent `domain.change` by `(source, fingerprint)` (G8); `source_ref`→`external_ref` |
-| `create_incident_command` | Create DETECTED incident (+ optional service link) |
+| `create_incident_command` | Create DETECTED incident (+ optional service link); emits `INCIDENT_CREATED` (L1) |
+| `append_timeline_event` | Shared helper for append-only process chronicle ([timeline.md](timeline.md)) |
 | `attach_alert_command` | Set `alert.incident_id` |
 | `correlate_alert_command` | Fingerprint/time/service match or create (F4) |
 | `propose_hypothesis_command` | SYSTEM insert PROPOSED hypothesis; resolve EV citations (H4) |

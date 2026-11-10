@@ -92,7 +92,7 @@ Migrations are recorded in `public.schema_migrations`.
 
 | `domain.impact_snapshot` | Point-in-time impact estimate (H7; cites Evidence in `provenance`) |
 | `domain.slo_burn` | SLO burn / error-budget observations (H7) |
-| `domain.timeline_event` | Append-only process chronicle |
+| `domain.timeline_event` | Append-only process chronicle (L1; see [timeline.md](timeline.md)) |
 | `domain.audit_event` | Append-only privileged ops audit |
 | `domain.slack_interaction` | Verified Slack interactive ingress (K2); `RECEIVED` before HTTP 200 |
 | `domain.slack_incident_thread` | Slack root `thread_ts` per incident (K4 lifecycle replies) |
