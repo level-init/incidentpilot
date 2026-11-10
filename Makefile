@@ -19,8 +19,8 @@ RPS ?= 1
 .PHONY: bootstrap lint format typecheck test help \
 	compose-core compose-full compose-up compose-down compose-ps compose-config \
 	migrate db-verify-isolation verify-local-infra openapi-export api-run \
-	temporal-queue-smoke sim-happy-path sim-contract-scan test-sim-contract obs-smoke \
-	sim-traffic sim-baseline-gate sim-inject
+	temporal-queue-smoke test-temporal-d6 sim-happy-path sim-contract-scan test-sim-contract \
+	obs-smoke sim-traffic sim-baseline-gate sim-inject
 
 help:
 	@echo "Targets:"
@@ -39,6 +39,7 @@ help:
 	@echo "  make db-verify-isolation   - prove GT denied for ip_app/ip_runner; no app DDL"
 	@echo "  make verify-local-infra    - Temporal UI + local S3 put/get smoke"
 	@echo "  make temporal-queue-smoke  - workers subscribe to general/evidence/remediation"
+	@echo "  make test-temporal-d6      - D6 five-test Temporal regression (needs Postgres)"
 	@echo "  make sim-happy-path        - curl checkout happy path via sim-gateway :8100"
 	@echo "  make sim-contract-scan     - fail if sim exposes GT / root-cause cheat routes"
 	@echo "  make test-sim-contract     - pytest contract suite + sim_contract_scan (E6/CI)"
@@ -104,6 +105,11 @@ temporal-queue-smoke: $(VENV)
 		$(BIN)/python -m incidentpilot_worker evidence smoke
 	PYTHONPATH="$(CURDIR)/remediation_worker:$(CURDIR)/shared:$$PYTHONPATH" \
 		$(BIN)/python -m incidentpilot_remediation smoke
+
+# D6: approval wait+kill, validation single result, reconcile no-dup,
+# stale revision non-retryable, BEST_EFFORT Slack failure leaves domain intact.
+test-temporal-d6: $(VENV)
+	$(PYTEST) -m temporal_d6 -v --override-ini="addopts="
 
 sim-happy-path:
 	./scripts/sim_happy_path.sh

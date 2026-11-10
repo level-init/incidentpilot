@@ -140,3 +140,26 @@ for signal `approval_decision` (`ApprovalDecisionSignal`).
 (`checkout_recovery.v1`) and applies J8 routing (`RESOLVED` /
 `PLANNING_REMEDIATION`→`DIAGNOSED` / stay `DEGRADED`).
 See [docs/validation.md](validation.md).
+
+## Temporal regression suite (D6)
+
+Mandatory CI gate that Temporal is a viable workflow runtime. Five scenarios
+(marker `temporal_d6`), harnessed with Temporal
+`WorkflowEnvironment` / sim adapters / `FakeSlackNotifier`:
+
+| # | Scenario | Test |
+| --- | --- | --- |
+| 1 | Approval wait survives worker kill; timeout never executes | `test_approval_wait_survives_worker_kill` |
+| 2 | Validation timer yields a single `ValidationResult` | `test_validation_window_recovers` |
+| 3 | Reconcile after lost ACK does not double-apply | `test_retry_after_lost_ack_does_not_double_apply` |
+| 4 | Stale revision is non-retryable in Temporal | `test_stale_revision_is_non_retryable_in_temporal` |
+| 5 | BEST_EFFORT Slack failure leaves domain state intact | `test_slack_failure_leaves_mitigating_intact` |
+
+Local (Postgres migrated via `make compose-core && make migrate`):
+
+```bash
+make test-temporal-d6
+```
+
+Main CI job: `temporal-d6` in `.github/workflows/ci.yml` (Postgres service +
+`MIGRATE_DSN` + the same make target).
