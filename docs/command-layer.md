@@ -36,6 +36,9 @@ transitions, and outbox rules cannot be bypassed.
 | `create_incident_command` | Create DETECTED incident (+ optional service link); emits `INCIDENT_CREATED` (L1) |
 | `append_timeline_event` | Shared helper for append-only process chronicle ([timeline.md](timeline.md)) |
 | `append_audit_event` | Shared helper for privileged who/what/when trail ([audit.md](audit.md)) |
+| `record_ai_invocation_command` | AI provenance row; optional `artifact_uri` (L3) |
+| `complete_structured_recorded` | LLM complete + provenance + best-effort S3 artifact package (L3) |
+| `get_ai_invocation_provenance` | Read Evidence lineage + outputs for one invocation (L3) |
 | `attach_alert_command` | Set `alert.incident_id` |
 | `correlate_alert_command` | Fingerprint/time/service match or create (F4) |
 | `propose_hypothesis_command` | SYSTEM insert PROPOSED hypothesis; resolve EV citations (H4) |

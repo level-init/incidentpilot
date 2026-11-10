@@ -91,6 +91,17 @@ Authorization: Bearer local-dev
 - Cap 200; requires `incident:read`
 - See [timeline.md](timeline.md)
 
+## AIInvocation provenance (L3)
+
+```http
+GET /ai-invocations/{invocation_id}/provenance
+Authorization: Bearer local-dev-admin
+```
+
+- Admin-gated (`admin:config`); answers which Evidence IDs were supplied
+- Includes `input_evidence_ids`, `artifact_uri`, request/response metadata
+- See [llm.md](llm.md)
+
 ## Audit (L2)
 
 ```http
