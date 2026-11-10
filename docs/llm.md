@@ -303,6 +303,18 @@ SimConfigRestoreAdapter(world).execute(...) # RESTORE_CONFIG
 - Clears catalog-aligned sim faults (`strict_jwt`, `jwt_skew_seconds`, `pool_size`)
 - Same reconcile/idempotency contract; params: `flag`/`key` + optional `service` + desired `value`
 
+## RemediationResult → ACTION_RESULT Evidence (J6)
+
+```python
+from incidentpilot_remediation.execute import verify_reconcile_and_execute
+# after successful verify/execute, SYSTEM producer writes Evidence:
+# kind=ACTION_RESULT, producer=remediation_worker, provenance.layer=ACTION_OBSERVATION
+# fingerprint=remediation_worker:attempt:{attempt_id} (idempotent on lost-ACK retry)
+```
+
+- Adapters return `RemediationResult` only — they never write `domain.evidence`
+- Path: Result → `append_action_result_evidence_command` → Producer (not adapter SQL)
+
 ## PAUSE_CONSUMER + REROUTE_TRAFFIC (J5)
 
 ```python
