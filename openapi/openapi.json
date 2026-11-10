@@ -2253,7 +2253,7 @@
           "webhooks"
         ],
         "summary": "Slack interactive component ingress",
-        "description": "Verify Slack signature, persist interaction, then ack.\n\nInvalid signatures never reach persistence (401). Valid payloads are written\nto ``domain.slack_interaction`` **before** the 200 response. Approval mapping\nis K3.",
+        "description": "Verify Slack signature, persist interaction, map approve/reject (K3).\n\nInvalid signatures never reach persistence (401). Valid payloads are written\nto ``domain.slack_interaction`` **before** the 200 response. Stale action\nversions return a visible ``STALE_ACTION_VERSION`` message (still HTTP 200\nso Slack shows the ephemeral text).",
         "operationId": "slack_interactions_webhooks_slack_interactions_post",
         "responses": {
           "200": {
@@ -3833,10 +3833,20 @@
       },
       "SlackInteractionAccepted": {
         "properties": {
+          "response_type": {
+            "type": "string",
+            "title": "Response Type",
+            "default": "ephemeral"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Visible Slack UX message"
+          },
           "status": {
             "type": "string",
             "title": "Status",
-            "description": "accepted | duplicate"
+            "description": "accepted | duplicate | mapped | stale | failed"
           },
           "ingress_id": {
             "type": "string",
@@ -3869,14 +3879,37 @@
               }
             ],
             "title": "Interaction Type"
+          },
+          "approval_mapped": {
+            "type": "boolean",
+            "title": "Approval Mapped",
+            "default": false
+          },
+          "workflow_signaled": {
+            "type": "boolean",
+            "title": "Workflow Signaled",
+            "default": false
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
           }
         },
         "type": "object",
         "required": [
+          "text",
           "status",
           "ingress_id"
         ],
-        "title": "SlackInteractionAccepted"
+        "title": "SlackInteractionAccepted",
+        "description": "HTTP body for tests + Slack ephemeral ack (``text`` / ``response_type``)."
       },
       "SloBurnOut": {
         "properties": {

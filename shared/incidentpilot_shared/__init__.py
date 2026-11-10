@@ -172,6 +172,16 @@ from incidentpilot_shared.runbooks import (
     retrieve_runbooks,
     runbook_searcher_for_broker,
 )
+from incidentpilot_shared.slack_approval import (
+    SLACK_ACTOR_PREFIX,
+    STALE_CODE,
+    SlackApprovalIntent,
+    SlackApprovalMapResult,
+    encode_slack_approval_value,
+    map_slack_interaction_to_approval,
+    parse_slack_approval_intent,
+    slack_actor_id,
+)
 from incidentpilot_shared.slack_ingress import (
     PersistSlackInteractionResult,
     persist_slack_interaction_command,
@@ -259,6 +269,10 @@ __all__ = [
     "ExecutionVerificationError",
     "ParamMismatchError",
     "PersistSlackInteractionResult",
+    "SLACK_ACTOR_PREFIX",
+    "STALE_CODE",
+    "SlackApprovalIntent",
+    "SlackApprovalMapResult",
     "UnverifiedExecutionError",
     "VerifiedExecution",
     "ScopeViolationError",
@@ -304,6 +318,10 @@ __all__ = [
     "enqueue_outbox",
     "enqueue_slack_notify",
     "persist_slack_interaction_command",
+    "encode_slack_approval_value",
+    "map_slack_interaction_to_approval",
+    "parse_slack_approval_intent",
+    "slack_actor_id",
     "ensure_collect_cycle_started",
     "ensure_incident_workflow_started",
     "fetch_pending_outbox",
