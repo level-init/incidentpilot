@@ -118,7 +118,10 @@ Timers use `workflow.sleep` and survive worker kill/restart; each name fires
 `IncidentWorkflowInput.wait_for_approval=True` arms `approval_timeout` and waits
 for signal `approval_decision` (`ApprovalDecisionSignal`).
 
-- **APPROVED / REJECTED** — wait ends; remediation execute is **not** done here (Epic J).
+- **APPROVED** — wait ends; with `execute_on_approval=True` (J10) runs
+  `handle_approval_approved`: reserve attempt → `MITIGATING` → sim rollback execute.
+  `BLOCK` never calls the adapter.
+- **REJECTED** — wait ends; replan only (never execute).
 - **TIMEOUT** — `handle_approval_timeout` expires PENDING approvals, cancels awaiting
   actions, transitions `AWAITING_APPROVAL → DIAGNOSED` (replan).
   Query `remediation_executed` stays `false`; no `execution_attempt` is written.

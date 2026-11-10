@@ -311,6 +311,13 @@ One `ValidationResult` per attempt; LLM explains only.
 J8 routes: `RECOVERED→RESOLVED`; NO_IMPROVEMENT→`DIAGNOSED`; REGRESSION→`DEGRADED`;
 no `VALIDATING→MITIGATING`.
 
+## Policy ↔ remediation integration (J10)
+
+Level-2 harness `APPROVED` with `IncidentWorkflowInput.execute_on_approval=True`:
+reserve `execution_attempt` **before** `MITIGATING`, then
+`verify_reconcile_and_execute` (sim rollback). `BLOCK` never calls the adapter.
+Rollback executes once per approve path.
+
 ## Compensation Action (J9)
 
 ```python
