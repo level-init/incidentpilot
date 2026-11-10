@@ -91,6 +91,18 @@ Authorization: Bearer local-dev
 - Cap 200; requires `incident:read`
 - See [timeline.md](timeline.md)
 
+## Audit (L2)
+
+```http
+GET /incidents/{incident_id}/audit?order=asc
+Authorization: Bearer local-dev
+```
+
+- Privileged who/what/when (`AuditEvent`) — **not** Timeline
+- Approve + execute (and policy/admin) writers; retention ≥ related objects
+- Cap 200; requires `incident:read`
+- See [audit.md](audit.md)
+
 ## Slack slash commands (K6)
 
 `POST /webhooks/slack/commands` — HMAC-verified `/ip` ChatOps

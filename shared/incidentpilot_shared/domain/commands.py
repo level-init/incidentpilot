@@ -911,6 +911,26 @@ def decide_approval_command(
                 },
             )
 
+    if incident_id is not None:
+        from incidentpilot_shared.audit import append_audit_event
+
+        append_audit_event(
+            conn,
+            incident_id=incident_id,
+            action="approval.decide",
+            actor=decided_by,
+            resource_type="approval",
+            resource_id=str(approval_id),
+            outcome="success",
+            details={
+                "approval_id": str(approval_id),
+                "action_id": str(action_id),
+                "action_version": action_version,
+                "status": status,
+                "action_status": action_status,
+            },
+        )
+
     if commit:
         conn.commit()
     return ApprovalDecisionResult(
@@ -1259,6 +1279,7 @@ def append_action_result_evidence_command(
         commit=False,
     )
     if result.inserted:
+        from incidentpilot_shared.audit import append_audit_event
         from incidentpilot_shared.timeline import append_timeline_event
 
         append_timeline_event(
@@ -1275,6 +1296,26 @@ def append_action_result_evidence_command(
                 "ok": bool(ok),
                 "evidence_id": str(result.evidence_id),
                 "reconciliation_state": reconciliation_state,
+            },
+        )
+        append_audit_event(
+            conn,
+            incident_id=incident_id,
+            action="remediation.execute",
+            actor="system",
+            resource_type="execution_attempt",
+            resource_id=str(attempt_id),
+            outcome="success" if ok else "error",
+            details={
+                "attempt_id": str(attempt_id),
+                "action_id": str(action_id),
+                "action_version": int(action_version),
+                "action_type": action_type,
+                "ok": bool(ok),
+                "evidence_id": str(result.evidence_id),
+                "reconciliation_state": reconciliation_state,
+                "skipped_execute": bool(skipped_execute),
+                "error_summary": error_summary,
             },
         )
     if commit:
@@ -3773,6 +3814,7 @@ def upsert_autonomy_config_command(
     environment: str | None = None,
     severity: str | None = None,
     notes: str | None = None,
+    actor: str = "admin",
     commit: bool = True,
 ) -> UpsertAutonomyConfigResult:
     """Insert or update an autonomy config row (I3). NULL dims = wildcards."""
@@ -3824,6 +3866,26 @@ def upsert_autonomy_config_command(
                 (str(returned_id), svc, atype, env, sev, level, notes),
             )
             inserted = True
+    from incidentpilot_shared.audit import append_audit_event
+
+    append_audit_event(
+        conn,
+        action="admin.autonomy_upsert",
+        actor=actor,
+        resource_type="autonomy_config",
+        resource_id=str(returned_id),
+        outcome="success",
+        details={
+            "config_id": str(returned_id),
+            "service_key": svc,
+            "action_type": atype,
+            "environment": env,
+            "severity": sev,
+            "autonomy_level": level,
+            "inserted": inserted,
+            "notes": notes,
+        },
+    )
     if commit:
         conn.commit()
     return UpsertAutonomyConfigResult(

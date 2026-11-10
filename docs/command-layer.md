@@ -21,20 +21,21 @@ transitions, and outbox rules cannot be bypassed.
 | `append_derived_evidence_command` | DETERMINISTIC_DERIVED + DERIVED_FROM parents (G4) |
 | `link_evidence_relation_command` | Evidence graph edges |
 | `create_approval_command` | PENDING Approval bound to exact `action_version` (I4); duplicate create no-op |
-| `decide_approval_command` | PENDING → APPROVED/REJECTED; duplicate same status no-op; reject → action CANCELLED (I4) |
+| `decide_approval_command` | PENDING → APPROVED/REJECTED; duplicate same status no-op; reject → action CANCELLED (I4); `approval.decide` AuditEvent (L2) |
 | `consume_approval_command` | Single-use APPROVED → CONSUMED; wrong version → `STALE_ACTION_VERSION` (I4) |
 | `assert_approval_authorizes` | Exact-version APPROVED/CONSUMED gate; vN cannot authorize vM (I4) |
 | `expire_pending_approvals_command` | TIMEOUT path: PENDING → EXPIRED; actions CANCELLED (I5; no execute) |
 | `reserve_execution_attempt_command` | Reserve attempt before MITIGATING |
 | `verify_execution_attempt` | J1: SoR param/binding + policy/approval gate before adapter execute |
 | `verify_reconcile_and_execute` | J2 remediation-worker: verify → reconcile → execute only if `NOT_APPLIED` |
-| `append_action_result_evidence_command` | J6: RemediationResult → `ACTION_RESULT` Evidence (`ACTION_OBSERVATION`; producer `remediation_worker`) |
+| `append_action_result_evidence_command` | J6: RemediationResult → `ACTION_RESULT` Evidence (`ACTION_OBSERVATION`; producer `remediation_worker`); `remediation.execute` AuditEvent (L2) |
 | `record_validation_result_command` | J7: one `ValidationResult` per `execution_attempt`; optional `VALIDATING→RECOVERED|DEGRADED` |
 | `route_validation_outcome_command` | J8: `RECOVERED→RESOLVED`; NO_IMPROVEMENT→`DIAGNOSED`; REGRESSION→stay `DEGRADED` |
 | `upsert_alert_command` | Insert/update `domain.alert` by fingerprint (F2) |
 | `upsert_change_command` | Idempotent `domain.change` by `(source, fingerprint)` (G8); `source_ref`→`external_ref` |
 | `create_incident_command` | Create DETECTED incident (+ optional service link); emits `INCIDENT_CREATED` (L1) |
 | `append_timeline_event` | Shared helper for append-only process chronicle ([timeline.md](timeline.md)) |
+| `append_audit_event` | Shared helper for privileged who/what/when trail ([audit.md](audit.md)) |
 | `attach_alert_command` | Set `alert.incident_id` |
 | `correlate_alert_command` | Fingerprint/time/service match or create (F4) |
 | `propose_hypothesis_command` | SYSTEM insert PROPOSED hypothesis; resolve EV citations (H4) |

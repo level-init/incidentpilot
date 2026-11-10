@@ -4,7 +4,8 @@ Timeline answers **what IncidentPilot did** — the process chronicle for humans
 and postmortems. It is **not** Evidence and must not be treated as production
 facts. Evidence answers what we observed about the production system; a
 timeline row may *reference* evidence, actions, or approvals, but never
-substitutes for them.
+substitutes for them. Privileged who/what/when belongs in
+[audit.md](audit.md), not here.
 
 ## Storage
 
