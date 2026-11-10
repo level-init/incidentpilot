@@ -234,6 +234,7 @@ async def test_approve_signal_unblocks_without_execute(incident_id: uuid.UUID) -
             )
 
 
+@pytest.mark.temporal_d6
 async def test_approval_wait_survives_worker_kill(incident_id: uuid.UUID) -> None:
     task_queue = f"test-i5-kill-{uuid.uuid4().hex[:8]}"
     timers = WorkflowTimerConfig(approval_timeout_seconds=2)

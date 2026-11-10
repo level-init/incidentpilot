@@ -129,6 +129,7 @@ def mitigating_incident() -> Iterator[uuid.UUID]:
         set_fake_slack_notifier(None)
 
 
+@pytest.mark.temporal_d6
 @pytest.mark.skipif(not _db_available(), reason="Postgres not reachable")
 def test_slack_failure_leaves_mitigating_intact(
     mitigating_incident: uuid.UUID,

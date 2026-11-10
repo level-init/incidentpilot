@@ -162,6 +162,7 @@ async def test_workflow_requeries_and_completes_after_race(
     assert _pg_state(incident_id) == ("INVESTIGATING", 3)
 
 
+@pytest.mark.temporal_d6
 @pytest.mark.asyncio
 async def test_stale_revision_is_non_retryable_in_temporal(
     incident_id: uuid.UUID,
