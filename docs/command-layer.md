@@ -26,6 +26,11 @@ transitions, and outbox rules cannot be bypassed.
 | `assert_approval_authorizes` | Exact-version APPROVED/CONSUMED gate; vN cannot authorize vM (I4) |
 | `expire_pending_approvals_command` | TIMEOUT path: PENDING → EXPIRED; actions CANCELLED (I5; no execute) |
 | `reserve_execution_attempt_command` | Reserve attempt before MITIGATING |
+| `verify_execution_attempt` | J1: SoR param/binding + policy/approval gate before adapter execute |
+| `verify_reconcile_and_execute` | J2 remediation-worker: verify → reconcile → execute only if `NOT_APPLIED` |
+| `append_action_result_evidence_command` | J6: RemediationResult → `ACTION_RESULT` Evidence (`ACTION_OBSERVATION`; producer `remediation_worker`) |
+| `record_validation_result_command` | J7: one `ValidationResult` per `execution_attempt`; optional `VALIDATING→RECOVERED|DEGRADED` |
+| `route_validation_outcome_command` | J8: `RECOVERED→RESOLVED`; NO_IMPROVEMENT→`DIAGNOSED`; REGRESSION→stay `DEGRADED` |
 | `upsert_alert_command` | Insert/update `domain.alert` by fingerprint (F2) |
 | `upsert_change_command` | Idempotent `domain.change` by `(source, fingerprint)` (G8); `source_ref`→`external_ref` |
 | `create_incident_command` | Create DETECTED incident (+ optional service link) |
@@ -45,6 +50,7 @@ transitions, and outbox rules cannot be bypassed.
 | `retrieve_historical_assist` | Past incidents/postmortems as non-Evidence suggestions (H9; not a mutator) |
 | `confirm_hypothesis_command` | SYSTEM class rules → CONFIRMED + optional CAUSED_BY (H10); RECOVERED alone insufficient |
 | `propose_action_command` | ProposeAction + immutable `action_version`; type ∈ pinned allowlist (I1) |
+| `propose_compensation_action_command` | J9: new Action linked via `compensates_action_id`; fresh PolicyDecision/Approval required |
 | `evaluate_policy_command` | SYSTEM EvaluatePolicy → immutable PolicyDecision; AI denied (I2); resolves autonomy via I3; stamps active policy version (I7) |
 | `upsert_autonomy_config_command` | Autonomy Levels 1–3 per service/action/env/severity (I3) |
 | `publish_policy_version_command` | Append immutable policy_definition version; optional activate (I7) |

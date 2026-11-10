@@ -10,7 +10,7 @@ out of scope for D1 (see D2+).
 | --- | --- | --- | --- |
 | `incidentpilot-general` | `TaskQueue.GENERAL` | `incidentpilot-worker` | orchestration (no rollback keys, no GT) |
 | `incidentpilot-evidence` | `TaskQueue.EVIDENCE` | `evidence-worker` | collector / deterministic processors |
-| `incidentpilot-remediation` | `TaskQueue.REMEDIATION` | `remediation-worker` | privileged execute / reconcile only |
+| `incidentpilot-remediation` | `TaskQueue.REMEDIATION` | `remediation-worker` | privileged execute / reconcile + ACTION_RESULT Evidence (J1–J6) |
 
 Source of truth: `shared/incidentpilot_shared/temporal_queues.py`.
 
@@ -108,7 +108,7 @@ After `INVESTIGATING`, `IncidentWorkflow` can arm three Temporal durable timers
 | --- | --- | --- |
 | `investigation_deadline` | 4h | Bound investigation window (handler stub) |
 | `approval_timeout` | 30m | I5: race vs `approval_decision`; timeout never executes |
-| `validation_window` | 15m | Post-remediation validation wait (J7) |
+| `validation_window` | 15m | Post-remediation validation wait → `handle_validation_window` (J7) |
 
 Timers use `workflow.sleep` and survive worker kill/restart; each name fires
 **once** per arming. Queries: `timers_armed`, `timer_fire_count(name)`.
@@ -118,7 +118,10 @@ Timers use `workflow.sleep` and survive worker kill/restart; each name fires
 `IncidentWorkflowInput.wait_for_approval=True` arms `approval_timeout` and waits
 for signal `approval_decision` (`ApprovalDecisionSignal`).
 
-- **APPROVED / REJECTED** — wait ends; remediation execute is **not** done here (Epic J).
+- **APPROVED** — wait ends; with `execute_on_approval=True` (J10) runs
+  `handle_approval_approved`: reserve attempt → `MITIGATING` → sim rollback execute.
+  `BLOCK` never calls the adapter.
+- **REJECTED** — wait ends; replan only (never execute).
 - **TIMEOUT** — `handle_approval_timeout` expires PENDING approvals, cancels awaiting
   actions, transitions `AWAITING_APPROVAL → DIAGNOSED` (replan).
   Query `remediation_executed` stays `false`; no `execution_attempt` is written.
@@ -126,3 +129,11 @@ for signal `approval_decision` (`ApprovalDecisionSignal`).
 - **I6 harness:** `POST /eval/approvals/{id}/decide` (eval entitlement) calls the same
   domain decide + signals immediately; **reject** runs `handle_approval_rejected`
   → `DIAGNOSED` (replan), never execute.
+
+## Validation wait (J7)
+
+`IncidentWorkflowInput.wait_for_validation=True` + `execution_attempt_id` arms
+`validation_window`, then `handle_validation_window` writes one `ValidationResult`
+(`checkout_recovery.v1`) and applies J8 routing (`RESOLVED` /
+`PLANNING_REMEDIATION`→`DIAGNOSED` / stay `DEGRADED`).
+See [docs/validation.md](validation.md).

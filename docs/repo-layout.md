@@ -15,6 +15,7 @@ incidentpilot/
 ├── simulation/             # demo microservices + local world
 ├── scenario_runner/        # scenario runner (isolated from investigation)
 ├── evaluator/              # evaluator (GroundTruth-only; isolated)
+├── deploy/                 # compose, db init, k8s RBAC (J11) / charts (O*)
 ├── docs/                   # product + git standards + this file
 └── .github/                # GitHub Actions / project metadata
 ```

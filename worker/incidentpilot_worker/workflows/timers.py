@@ -1,6 +1,6 @@
 """Durable timer names + defaults for IncidentWorkflow (D5).
 
-Approval timeout is wired in IncidentWorkflow (I5); validation handler is J7.
+Approval timeout is wired in IncidentWorkflow (I5); validation_window in J7.
 Durations are seconds (JSON-safe for Temporal payloads).
 """
 

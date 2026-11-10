@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 
 from incidentpilot_shared.domain.outbox import UnitOfWork
 from incidentpilot_shared.domain.transitions import (
+    IllegalTransitionError,
     IncidentState,
     TransitionResult,
     apply_transition,
@@ -219,6 +220,8 @@ class ProposeActionResult:
     bumped: bool
     is_reversible: bool
     reverse_action_type: str | None
+    compensates_action_id: UUID | None = None
+    compensates_action_version: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -350,9 +353,29 @@ _KNOWN_ACTION_TYPES = frozenset(
 def _default_reversibility(action_type: str) -> tuple[bool, str | None]:
     if action_type == "ROLLBACK_DEPLOYMENT":
         return True, "OTHER"
-    if action_type in {"DISABLE_FEATURE_FLAG", "RESTORE_FEATURE_FLAG", "RESTORE_CONFIG"}:
+    if action_type == "DISABLE_FEATURE_FLAG":
+        return True, "RESTORE_FEATURE_FLAG"
+    if action_type == "RESTORE_FEATURE_FLAG":
+        return True, "DISABLE_FEATURE_FLAG"
+    if action_type == "RESTORE_CONFIG":
         return True, "OTHER"
+    if action_type == "PAUSE_CONSUMER":
+        return True, "OTHER"
+    if action_type == "REROUTE_TRAFFIC":
+        return True, "REROUTE_TRAFFIC"
     return False, None
+
+
+class CompensationParentRequired(ValueError):
+    """Compensation must reference a parent Action version."""
+
+
+class CompensationActionTypeRequired(ValueError):
+    """Parent has no usable reverse_action_type; caller must pass action_type."""
+
+
+class ParentApprovalReuseDenied(PermissionError):
+    """Parent Approval/PolicyDecision cannot authorize a compensation Action (J9)."""
 
 
 def transition_incident_command(
@@ -1064,7 +1087,8 @@ def assert_approval_authorizes(
     """Return approval_id if APPROVED/CONSUMED for the exact version (I4).
 
     Raises ``StaleActionVersion`` when a different version's approval exists
-    but the requested version is not authorized.
+    but the requested version is not authorized. Parent approvals never
+    authorize a compensation Action (J9) — binding is exact ``action_id``.
     """
     with conn.cursor() as cur:
         cur.execute(
@@ -1077,6 +1101,35 @@ def assert_approval_authorizes(
         row = cur.fetchone()
         if row is not None and str(row[1]) in {"APPROVED", "CONSUMED"}:
             return UUID(str(row[0]))
+
+        # J9: if this is a compensation, surface parent-approval reuse clearly.
+        cur.execute(
+            """
+            SELECT compensates_action_id, compensates_action_version
+            FROM domain.action
+            WHERE id = %s
+            """,
+            (str(action_id),),
+        )
+        parent_link = cur.fetchone()
+        if parent_link is not None and parent_link[0] is not None:
+            parent_id = UUID(str(parent_link[0]))
+            parent_ver = int(parent_link[1]) if parent_link[1] is not None else None
+            cur.execute(
+                """
+                SELECT id, status, action_version FROM domain.approval
+                WHERE action_id = %s AND status IN ('APPROVED', 'CONSUMED')
+                ORDER BY action_version DESC
+                """,
+                (str(parent_id),),
+            )
+            parent_approvals = cur.fetchall()
+            if parent_approvals:
+                raise ParentApprovalReuseDenied(
+                    "compensation Action requires a fresh Approval; "
+                    f"parent {parent_id} v{parent_ver} approval cannot be reused "
+                    f"for compensation {action_id} v{action_version}"
+                )
 
         cur.execute(
             """
@@ -1125,6 +1178,372 @@ def reserve_execution_attempt_command(
         action_version=action_version,
         attempt_number=attempt_number,
         state="RESERVED",
+    )
+
+
+def append_action_result_evidence_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    attempt_id: UUID,
+    action_id: UUID,
+    action_version: int,
+    action_type: str,
+    summary: str,
+    ok: bool = True,
+    adapter_result: dict[str, Any] | None = None,
+    error_summary: str | None = None,
+    reconciliation_state: str | None = None,
+    skipped_execute: bool = False,
+    parameters: dict[str, Any] | None = None,
+    commit: bool = True,
+) -> AppendEvidenceResult:
+    """SYSTEM path: RemediationResult → ACTION_RESULT Evidence (J6).
+
+    Called only from remediation-worker after verify/execute. Adapters never
+    write Evidence. Fingerprint is attempt-scoped so lost-ACK retries are
+    idempotent. Provenance layer is ``ACTION_OBSERVATION``.
+    """
+    return append_evidence_command(
+        conn,
+        incident_id=incident_id,
+        kind="ACTION_RESULT",
+        fingerprint=f"remediation_worker:attempt:{attempt_id}",
+        summary=summary,
+        producer="remediation_worker",
+        payload={
+            "attempt_id": str(attempt_id),
+            "action_id": str(action_id),
+            "action_version": int(action_version),
+            "action_type": action_type,
+            "ok": bool(ok),
+            "adapter_result": dict(adapter_result or {}),
+            "error_summary": error_summary,
+            "reconciliation_state": reconciliation_state,
+            "skipped_execute": bool(skipped_execute),
+            "parameters": dict(parameters or {}),
+        },
+        provenance={
+            "layer": "ACTION_OBSERVATION",
+            "writer": "system",
+            "source": "remediation_execute",
+            "attempt_id": str(attempt_id),
+            "action_id": str(action_id),
+            "action_version": int(action_version),
+            "action_type": action_type,
+        },
+        commit=commit,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class RecordValidationResultResult:
+    validation_result_id: UUID
+    incident_id: UUID
+    execution_attempt_id: UUID
+    outcome: str
+    inserted: bool
+    incident_state: str | None = None
+    incident_revision: int | None = None
+
+
+def record_validation_result_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    execution_attempt_id: UUID,
+    outcome: str,
+    criteria: dict[str, Any] | None = None,
+    observations: dict[str, Any] | None = None,
+    action_id: UUID | None = None,
+    action_version: int | None = None,
+    provenance: dict[str, Any] | None = None,
+    transition: bool = True,
+    actor: str = "system",
+    commit: bool = True,
+) -> RecordValidationResultResult:
+    """Persist one ValidationResult per execution_attempt (J7).
+
+    Idempotent on ``execution_attempt_id``. Optionally transitions
+    ``VALIDATING → RECOVERED|DEGRADED``; canonical post-validation routing
+    (RESOLVED / replan / stay DEGRADED) is :func:`route_validation_outcome_command`
+    (J8).
+    """
+    allowed = {
+        "RECOVERED",
+        "STILL_DEGRADED",
+        "UNKNOWN",
+        "FAILED_VALIDATION",
+    }
+    if outcome not in allowed:
+        raise ValueError(f"invalid ValidationResult outcome: {outcome!r}")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, outcome FROM domain.validation_result
+            WHERE execution_attempt_id = %s
+            """,
+            (str(execution_attempt_id),),
+        )
+        existing = cur.fetchone()
+        if existing is not None:
+            if commit:
+                conn.commit()
+            return RecordValidationResultResult(
+                validation_result_id=UUID(str(existing[0])),
+                incident_id=incident_id,
+                execution_attempt_id=execution_attempt_id,
+                outcome=str(existing[1]),
+                inserted=False,
+            )
+
+        result_id = uuid4()
+        cur.execute(
+            """
+            INSERT INTO domain.validation_result (
+                id, incident_id, execution_attempt_id, action_id, action_version,
+                outcome, criteria, observations, provenance
+            ) VALUES (
+                %s, %s, %s, %s, %s,
+                %s, %s::jsonb, %s::jsonb, %s::jsonb
+            )
+            """,
+            (
+                str(result_id),
+                str(incident_id),
+                str(execution_attempt_id),
+                str(action_id) if action_id is not None else None,
+                action_version,
+                outcome,
+                json.dumps(criteria or {}),
+                json.dumps(observations or {}),
+                json.dumps(
+                    provenance
+                    or {
+                        "writer": "system",
+                        "source": "validation_window",
+                        "layer": "DETERMINISTIC_DERIVED",
+                    }
+                ),
+            ),
+        )
+
+    incident_state: str | None = None
+    incident_revision: int | None = None
+    if transition:
+        to_state: IncidentState | None = None
+        if outcome == "RECOVERED":
+            to_state = IncidentState.RECOVERED
+        elif outcome in {"STILL_DEGRADED", "UNKNOWN", "FAILED_VALIDATION"}:
+            to_state = IncidentState.DEGRADED
+        if to_state is not None:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT state, incident_revision FROM domain.incident
+                    WHERE id = %s
+                    """,
+                    (str(incident_id),),
+                )
+                row = cur.fetchone()
+                if row is None:
+                    raise LookupError(f"incident {incident_id} not found")
+                current = str(row[0])
+                revision = int(row[1])
+            if current == IncidentState.VALIDATING.value:
+                transitioned = transition_incident_command(
+                    conn,
+                    incident_id=incident_id,
+                    expected_revision=revision,
+                    to_state=to_state,
+                    actor=actor,
+                    commit=False,
+                )
+                incident_state = (
+                    transitioned.to_state.value
+                    if hasattr(transitioned.to_state, "value")
+                    else str(transitioned.to_state)
+                )
+                incident_revision = transitioned.new_revision
+            else:
+                incident_state = current
+                incident_revision = revision
+
+    if commit:
+        conn.commit()
+    return RecordValidationResultResult(
+        validation_result_id=result_id,
+        incident_id=incident_id,
+        execution_attempt_id=execution_attempt_id,
+        outcome=outcome,
+        inserted=True,
+        incident_state=incident_state,
+        incident_revision=incident_revision,
+    )
+
+
+# J8 route names (product language). PLANNING_REMEDIATION maps to DIAGNOSED.
+ROUTE_RESOLVED = "RESOLVED"
+ROUTE_PLANNING_REMEDIATION = "PLANNING_REMEDIATION"
+ROUTE_DEGRADED = "DEGRADED"
+
+
+@dataclass(frozen=True, slots=True)
+class RouteValidationOutcomeResult:
+    incident_id: UUID
+    execution_attempt_id: UUID
+    validation_outcome: str
+    route: str
+    from_state: str
+    to_state: str
+    revision: int
+    steps: tuple[str, ...]
+
+
+def _validation_route_for_outcome(outcome: str) -> str:
+    """Map ValidationResult outcome → J8 route name.
+
+    Product aliases: PARTIAL/NO_IMPROVEMENT ← STILL_DEGRADED|UNKNOWN;
+    REGRESSION ← FAILED_VALIDATION. ``PLANNING_REMEDIATION`` is the route
+    name; the incident state used is ``DIAGNOSED`` (Freeze-2).
+    """
+    if outcome == "RECOVERED":
+        return ROUTE_RESOLVED
+    if outcome in {"STILL_DEGRADED", "UNKNOWN"}:
+        return ROUTE_PLANNING_REMEDIATION
+    if outcome == "FAILED_VALIDATION":
+        return ROUTE_DEGRADED
+    raise ValueError(f"no J8 route for ValidationResult outcome {outcome!r}")
+
+
+def route_validation_outcome_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    execution_attempt_id: UUID,
+    actor: str = "system",
+    commit: bool = True,
+) -> RouteValidationOutcomeResult:
+    """Canonical post-validation routing (J8).
+
+    - ``RECOVERED`` → ``RECOVERED`` then ``RESOLVED``
+    - ``PARTIAL`` / ``NO_IMPROVEMENT`` / ``STILL_DEGRADED`` / ``UNKNOWN``
+      → ``DEGRADED`` then ``DIAGNOSED`` (``PLANNING_REMEDIATION``)
+    - ``REGRESSION`` / ``FAILED_VALIDATION`` → ``DEGRADED`` (stay)
+
+    Never takes ``VALIDATING → MITIGATING`` (illegal shortcut).
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT outcome FROM domain.validation_result
+            WHERE execution_attempt_id = %s
+            """,
+            (str(execution_attempt_id),),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise LookupError(
+                f"ValidationResult for attempt {execution_attempt_id} not found"
+            )
+        outcome = str(row[0])
+        cur.execute(
+            """
+            SELECT state, incident_revision FROM domain.incident
+            WHERE id = %s
+            """,
+            (str(incident_id),),
+        )
+        inc = cur.fetchone()
+        if inc is None:
+            raise LookupError(f"incident {incident_id} not found")
+        current = str(inc[0])
+        revision = int(inc[1])
+
+    route = _validation_route_for_outcome(outcome)
+    start_state = current
+    steps: list[str] = []
+
+    def _advance(to: IncidentState) -> None:
+        nonlocal current, revision
+        if current == to.value:
+            return
+        # Defense: never allow the illegal shortcut even if a caller invents it.
+        if current == IncidentState.VALIDATING.value and to is IncidentState.MITIGATING:
+            raise IllegalTransitionError(
+                incident_id=incident_id,
+                from_state=IncidentState.VALIDATING,
+                to_state=IncidentState.MITIGATING,
+            )
+        result = transition_incident_command(
+            conn,
+            incident_id=incident_id,
+            expected_revision=revision,
+            to_state=to,
+            actor=actor,
+            commit=False,
+        )
+        steps.append(f"{current}→{to.value}")
+        current = (
+            result.to_state.value
+            if hasattr(result.to_state, "value")
+            else str(result.to_state)
+        )
+        revision = result.new_revision
+
+    if route == ROUTE_RESOLVED:
+        if current == IncidentState.VALIDATING.value:
+            _advance(IncidentState.RECOVERED)
+        if current == IncidentState.RECOVERED.value:
+            _advance(IncidentState.RESOLVED)
+    elif route == ROUTE_PLANNING_REMEDIATION:
+        if current == IncidentState.VALIDATING.value:
+            _advance(IncidentState.DEGRADED)
+        if current == IncidentState.DEGRADED.value:
+            _advance(IncidentState.DIAGNOSED)
+    elif route == ROUTE_DEGRADED:
+        if current == IncidentState.VALIDATING.value:
+            _advance(IncidentState.DEGRADED)
+        # Already DEGRADED / other: stay; do not replan.
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO domain.timeline_event (
+                incident_id, event_type, summary, actor, payload
+            ) VALUES (
+                %s, 'VALIDATION_ROUTED', %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                f"validation route {route} from outcome {outcome}",
+                actor,
+                json.dumps(
+                    {
+                        "execution_attempt_id": str(execution_attempt_id),
+                        "validation_outcome": outcome,
+                        "route": route,
+                        "from_state": start_state,
+                        "to_state": current,
+                        "steps": steps,
+                    }
+                ),
+            ),
+        )
+
+    if commit:
+        conn.commit()
+    return RouteValidationOutcomeResult(
+        incident_id=incident_id,
+        execution_attempt_id=execution_attempt_id,
+        validation_outcome=outcome,
+        route=route,
+        from_state=start_state,
+        to_state=current,
+        revision=revision,
+        steps=tuple(steps),
     )
 
 
@@ -2894,6 +3313,150 @@ def propose_action_command(
         bumped=False,
         is_reversible=is_rev,
         reverse_action_type=reverse_type,
+    )
+
+
+def propose_compensation_action_command(
+    conn: Connection,
+    *,
+    parent_action_id: UUID,
+    parent_action_version: int | None = None,
+    action_type: str | None = None,
+    parameters: dict[str, Any] | None = None,
+    target_ref: dict[str, Any] | None = None,
+    proposed_by: str = "system",
+    rationale: str | None = None,
+    commit: bool = True,
+) -> ProposeActionResult:
+    """Propose a new compensation Action linked to a parent (J9).
+
+    Always creates a **new** ``action_id``. Does not copy or inherit the
+    parent's PolicyDecision or Approval — EvaluatePolicy + Approval must run
+    again for the compensation version.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT a.incident_id, a.action_type, a.current_version,
+                   a.is_reversible, a.reverse_action_type, a.status
+            FROM domain.action a
+            WHERE a.id = %s
+            """,
+            (str(parent_action_id),),
+        )
+        parent = cur.fetchone()
+        if parent is None:
+            raise LookupError(f"parent action {parent_action_id} not found")
+        incident_id = UUID(str(parent[0]))
+        parent_type = str(parent[1])
+        current_version = int(parent[2])
+        parent_version = (
+            int(parent_action_version)
+            if parent_action_version is not None
+            else current_version
+        )
+        reverse_type = str(parent[4]) if parent[4] is not None else None
+        cur.execute(
+            """
+            SELECT 1 FROM domain.action_version
+            WHERE action_id = %s AND version = %s
+            """,
+            (str(parent_action_id), parent_version),
+        )
+        if cur.fetchone() is None:
+            raise CompensationParentRequired(
+                f"parent action_version {parent_action_id} v{parent_version} not found"
+            )
+
+    atype = (action_type or reverse_type or "").strip()
+    if not atype:
+        raise CompensationActionTypeRequired(
+            f"parent {parent_action_id} ({parent_type}) has no reverse_action_type; "
+            "pass action_type explicitly"
+        )
+
+    # Propose as a brand-new action, then stamp the compensation link.
+    proposed = propose_action_command(
+        conn,
+        incident_id=incident_id,
+        action_type=atype,
+        parameters=parameters,
+        target_ref=target_ref,
+        action_id=None,
+        proposed_by=proposed_by,
+        rationale=rationale
+        or f"compensation for {parent_action_id} v{parent_version}",
+        commit=False,
+    )
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE domain.action
+            SET compensates_action_id = %s,
+                compensates_action_version = %s,
+                provenance = provenance || %s::jsonb,
+                updated_at = now()
+            WHERE id = %s
+            """,
+            (
+                str(parent_action_id),
+                parent_version,
+                json.dumps(
+                    {
+                        "compensation": True,
+                        "compensates_action_id": str(parent_action_id),
+                        "compensates_action_version": parent_version,
+                        "parent_action_type": parent_type,
+                        "inherits_parent_approval": False,
+                    }
+                ),
+                str(proposed.action_id),
+            ),
+        )
+        cur.execute(
+            """
+            INSERT INTO domain.timeline_event (
+                incident_id, event_type, summary, actor, payload
+            ) VALUES (
+                %s, 'COMPENSATION_PROPOSED', %s, %s, %s::jsonb
+            )
+            """,
+            (
+                str(incident_id),
+                f"compensation {proposed.action_id} for parent {parent_action_id} "
+                f"v{parent_version}",
+                proposed_by,
+                json.dumps(
+                    {
+                        "action_id": str(proposed.action_id),
+                        "version": proposed.version,
+                        "action_type": proposed.action_type,
+                        "compensates_action_id": str(parent_action_id),
+                        "compensates_action_version": parent_version,
+                        "inherits_parent_approval": False,
+                    }
+                ),
+            ),
+        )
+
+    if commit:
+        conn.commit()
+    return ProposeActionResult(
+        action_id=proposed.action_id,
+        incident_id=proposed.incident_id,
+        action_type=proposed.action_type,
+        version=proposed.version,
+        current_version=proposed.current_version,
+        status=proposed.status,
+        parameters=proposed.parameters,
+        runbook_version_id=proposed.runbook_version_id,
+        allowed_action_types=proposed.allowed_action_types,
+        bumped=False,
+        is_reversible=proposed.is_reversible,
+        reverse_action_type=proposed.reverse_action_type,
+        compensates_action_id=parent_action_id,
+        compensates_action_version=parent_version,
     )
 
 

@@ -7,7 +7,7 @@ it via `append_evidence_command` / `POST /incidents/{id}/evidence`.
 
 | Identity | How |
 | --- | --- |
-| `prometheus_collector`, `loki_collector`, `tempo_collector`, `change_collector`, `alert_context`, `deterministic_processor`, `runbook_store`, `test_producer` | Exact name |
+| `prometheus_collector`, `loki_collector`, `tempo_collector`, `change_collector`, `alert_context`, `deterministic_processor`, `runbook_store`, `remediation_worker`, `test_producer` | Exact name |
 | `session:<actor_id>` | Human observations (`POST …/observations`) |
 | `ai_sandbox` / `ai_*` | **Denied** |
 

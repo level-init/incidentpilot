@@ -231,6 +231,140 @@ assert_approval_authorizes(conn, action_id=…, action_version=1)
   writes real Approval rows + signals the wait; reject → replan `DIAGNOSED`
   CLI: `python scripts/approval_harness.py approve|reject <approval_id>`
 
+## VerifyExecutionAttempt (J1)
+
+```python
+from incidentpilot_shared.remediation_verify import verify_execution_attempt
+from incidentpilot_adapters.remediation import execute_verified, NoopRemediationAdapter
+
+verified = verify_execution_attempt(conn, attempt_id=…, parameters={…})  # must match SoR
+execute_verified(NoopRemediationAdapter(), verified)
+```
+
+- Real `attempt_id` with **bogus params** → `ParamMismatchError`
+- Adapter execute without verify → `UnverifiedExecutionError`
+- Params always taken from immutable `action_version` after verify
+- remediation-worker entry: `incidentpilot_remediation.execute.verify_and_execute`
+
+## ROLLBACK_DEPLOYMENT + reconcile (J2)
+
+```python
+from incidentpilot_adapters.remediation import SimDeploymentWorld, SimRollbackAdapter
+from incidentpilot_remediation.execute import verify_reconcile_and_execute
+
+world = SimDeploymentWorld()
+world.seed("checkout", "bad")
+adapter = SimRollbackAdapter(world)
+verified, result = verify_reconcile_and_execute(
+    conn, adapter, attempt_id=…, parameters={"revision": "prev", "deployment": "checkout"}
+)
+# result.reconciliation_state ∈ {NOT_APPLIED, APPLIED, PARTIAL, UNKNOWN}
+```
+
+- Rollback clears bad revision (`observed → parameters.revision`)
+- Retry after lost ACK: reconcile → `APPLIED` → **skip execute** (no double-apply)
+- `UNKNOWN` / `PARTIAL` → `BlindRetryForbidden` (no blind full retry)
+- Params: `deployment` + `revision` (SoR); sim or K8s — narrow RBAC: [k8s-rbac.md](k8s-rbac.md) (J11)
+
+## RESTART_WORKLOAD + SCALE_WORKLOAD (J3)
+
+```python
+from incidentpilot_adapters.remediation import (
+    SimWorkloadWorld, SimRestartAdapter, SimScaleAdapter,
+)
+from incidentpilot_remediation.execute import verify_reconcile_and_execute
+
+world = SimWorkloadWorld()
+world.seed("checkout-api", generation=1, replicas=2)
+verify_reconcile_and_execute(conn, SimRestartAdapter(world), attempt_id=…,
+                              parameters={"workload": "checkout-api"})
+verify_reconcile_and_execute(conn, SimScaleAdapter(world), attempt_id=…,
+                              parameters={"workload": "checkout-api", "replicas": 4})
+```
+
+- Same reconcile contract as J2 (`NOT_APPLIED`/`APPLIED`/`PARTIAL`/`UNKNOWN`)
+- Restart bumps generation; scale sets desired replicas; attempt_id is idempotency key
+- Lost-ACK retry skips re-mutate; `UNKNOWN` → `BlindRetryForbidden`
+
+## Feature flag + config restore (J4)
+
+```python
+from incidentpilot_adapters.remediation import (
+    SimFlagConfigWorld, SimFeatureFlagAdapter, SimConfigRestoreAdapter,
+)
+
+world = SimFlagConfigWorld()
+world.seed_bad_flag_fault()       # auth:strict_jwt=true
+world.seed_bad_config_faults()    # jwt_skew_seconds=0, pool_size=4
+SimFeatureFlagAdapter(world).execute(...)   # DISABLE_FEATURE_FLAG / RESTORE_FEATURE_FLAG
+SimConfigRestoreAdapter(world).execute(...) # RESTORE_CONFIG
+```
+
+- Clears catalog-aligned sim faults (`strict_jwt`, `jwt_skew_seconds`, `pool_size`)
+- Same reconcile/idempotency contract; params: `flag`/`key` + optional `service` + desired `value`
+
+## Validation window + ValidationResult (J7) + routing (J8)
+
+See [docs/validation.md](validation.md). Durable `validation_window` (15m default);
+`checkout_recovery.v1` thresholds: error_rate ≤ **0.05**, baseline ratio &lt; **2.0**.
+One `ValidationResult` per attempt; LLM explains only.
+J8 routes: `RECOVERED→RESOLVED`; NO_IMPROVEMENT→`DIAGNOSED`; REGRESSION→`DEGRADED`;
+no `VALIDATING→MITIGATING`.
+
+## Narrow K8s RBAC (J11)
+
+Remediation SA `incidentpilot-remediation` (ns `incidentpilot-system`) gets
+namespaced RoleBindings in approved `sim-*` namespaces only — never
+`cluster-admin`. Mapping + apply: [k8s-rbac.md](k8s-rbac.md).
+
+## Policy ↔ remediation integration (J10)
+
+Level-2 harness `APPROVED` with `IncidentWorkflowInput.execute_on_approval=True`:
+reserve `execution_attempt` **before** `MITIGATING`, then
+`verify_reconcile_and_execute` (sim rollback). `BLOCK` never calls the adapter.
+Rollback executes once per approve path.
+
+## Compensation Action (J9)
+
+```python
+from incidentpilot_shared.domain.commands import propose_compensation_action_command
+
+comp = propose_compensation_action_command(
+    conn, parent_action_id=…, parameters={…}
+)
+# comp.action_id is new; compensates_action_id → parent
+# Parent Approval cannot authorize comp — EvaluatePolicy + Approval again
+```
+
+## RemediationResult → ACTION_RESULT Evidence (J6)
+
+```python
+from incidentpilot_remediation.execute import verify_reconcile_and_execute
+# after successful verify/execute, SYSTEM producer writes Evidence:
+# kind=ACTION_RESULT, producer=remediation_worker, provenance.layer=ACTION_OBSERVATION
+# fingerprint=remediation_worker:attempt:{attempt_id} (idempotent on lost-ACK retry)
+```
+
+- Adapters return `RemediationResult` only — they never write `domain.evidence`
+- Path: Result → `append_action_result_evidence_command` → Producer (not adapter SQL)
+
+## PAUSE_CONSUMER + REROUTE_TRAFFIC (J5)
+
+```python
+from incidentpilot_adapters.remediation import (
+    SimTrafficWorld, SimPauseConsumerAdapter, SimRerouteTrafficAdapter,
+)
+
+world = SimTrafficWorld()
+world.seed_queue_backlog_fault()
+SimPauseConsumerAdapter(world).execute(...)  # pause notification-worker
+# Mid-shift weights → PARTIAL with adapter_result["observed_state"]
+SimRerouteTrafficAdapter(world).reconcile(...)
+```
+
+- Reroute `PARTIAL` always includes `observed_state` (current weights); no blind full retry
+- Params: pause `consumer`; reroute `service` + `weights` or `from`/`target`/`percent`
+
 ## ProposeAction (I1)
 
 ```python
