@@ -1170,6 +1170,30 @@ def reserve_execution_attempt_command(
             """,
             (str(attempt_id), str(action_id), action_version, attempt_number),
         )
+        cur.execute(
+            "SELECT incident_id FROM domain.action WHERE id = %s",
+            (str(action_id),),
+        )
+        action_row = cur.fetchone()
+    if action_row is not None and action_row[0] is not None:
+        from incidentpilot_shared.timeline import append_timeline_event
+
+        append_timeline_event(
+            conn,
+            incident_id=UUID(str(action_row[0])),
+            event_type="EXECUTION_ATTEMPT_RESERVED",
+            summary=(
+                f"execution attempt reserved for action {action_id} "
+                f"v{action_version} (#{attempt_number})"
+            ),
+            actor="system",
+            payload={
+                "attempt_id": str(attempt_id),
+                "action_id": str(action_id),
+                "action_version": action_version,
+                "attempt_number": attempt_number,
+            },
+        )
     if commit:
         conn.commit()
     return ReserveAttemptResult(
@@ -1204,7 +1228,7 @@ def append_action_result_evidence_command(
     write Evidence. Fingerprint is attempt-scoped so lost-ACK retries are
     idempotent. Provenance layer is ``ACTION_OBSERVATION``.
     """
-    return append_evidence_command(
+    result = append_evidence_command(
         conn,
         incident_id=incident_id,
         kind="ACTION_RESULT",
@@ -1232,8 +1256,30 @@ def append_action_result_evidence_command(
             "action_version": int(action_version),
             "action_type": action_type,
         },
-        commit=commit,
+        commit=False,
     )
+    if result.inserted:
+        from incidentpilot_shared.timeline import append_timeline_event
+
+        append_timeline_event(
+            conn,
+            incident_id=incident_id,
+            event_type="REMEDIATION_RESULT",
+            summary=summary,
+            actor="system",
+            payload={
+                "attempt_id": str(attempt_id),
+                "action_id": str(action_id),
+                "action_version": int(action_version),
+                "action_type": action_type,
+                "ok": bool(ok),
+                "evidence_id": str(result.evidence_id),
+                "reconciliation_state": reconciliation_state,
+            },
+        )
+    if commit:
+        conn.commit()
+    return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -1328,6 +1374,23 @@ def record_validation_result_command(
                 ),
             ),
         )
+
+    from incidentpilot_shared.timeline import append_timeline_event
+
+    append_timeline_event(
+        conn,
+        incident_id=incident_id,
+        event_type="VALIDATION_RECORDED",
+        summary=f"validation outcome {outcome} for attempt {execution_attempt_id}",
+        actor=actor,
+        payload={
+            "validation_result_id": str(result_id),
+            "execution_attempt_id": str(execution_attempt_id),
+            "outcome": outcome,
+            "action_id": str(action_id) if action_id is not None else None,
+            "action_version": action_version,
+        },
+    )
 
     incident_state: str | None = None
     incident_revision: int | None = None
@@ -1850,6 +1913,16 @@ def create_incident_command(
                 """,
                 (str(incident_id), str(service_id)),
             )
+    from incidentpilot_shared.timeline import append_timeline_event
+
+    append_timeline_event(
+        conn,
+        incident_id=incident_id,
+        event_type="INCIDENT_CREATED",
+        summary=f"incident {public_id} created (DETECTED)",
+        actor=actor,
+        payload={"public_id": public_id, "title": title, "state": "DETECTED"},
+    )
     if commit:
         conn.commit()
     return CreateIncidentResult(incident_id=incident_id, public_id=public_id)

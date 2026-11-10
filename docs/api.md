@@ -79,6 +79,18 @@ curl -s -X POST -H 'Authorization: Bearer local-dev' \
 - `provenance.actor_id` from session only; client `actor_id` → **400**
 - Notes are `truthfulness=human_note` (not absolute truth)
 
+## Timeline (L1)
+
+```http
+GET /incidents/{incident_id}/timeline?order=asc
+Authorization: Bearer local-dev
+```
+
+- Process chronicle (`TimelineEvent`) — **not** Evidence
+- `order=desc` (default) or `order=asc` for oldest-first readable chronology
+- Cap 200; requires `incident:read`
+- See [timeline.md](timeline.md)
+
 ## Slack slash commands (K6)
 
 `POST /webhooks/slack/commands` — HMAC-verified `/ip` ChatOps

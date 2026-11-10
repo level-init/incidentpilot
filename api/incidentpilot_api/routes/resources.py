@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Connection
 from psycopg.rows import dict_row
 
@@ -404,15 +404,20 @@ def list_timeline(
     incident_id: UUID,
     principal: Annotated[Principal, Depends(get_principal)],
     conn: Annotated[Connection, Depends(get_conn)],
+    order: Literal["asc", "desc"] = Query(
+        default="desc",
+        description="Chronological order: asc = oldest first (readable chronicle).",
+    ),
 ) -> list[TimelineEventOut]:
     require_permission(principal, Permission.INCIDENT_READ)
+    order_sql = "ASC" if order == "asc" else "DESC"
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            """
+            f"""
             SELECT id, incident_id, event_type, summary, actor, occurred_at, payload
             FROM domain.timeline_event
             WHERE incident_id = %s
-            ORDER BY occurred_at DESC
+            ORDER BY occurred_at {order_sql}, created_at {order_sql}
             LIMIT 200
             """,
             (str(incident_id),),
