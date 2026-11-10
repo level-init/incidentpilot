@@ -283,6 +283,27 @@ class IncidentWorkflow:
             )
         self._remediation_executed = False
 
+    async def _on_approval_rejected(self, incident_id: str) -> None:
+        """I6: reject → replan; never execute remediation."""
+        result = await workflow.execute_activity(
+            "handle_approval_rejected",
+            incident_id,
+            result_type=dict[str, Any],
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=RetryPolicy(
+                initial_interval=timedelta(milliseconds=200),
+                maximum_attempts=5,
+                non_retryable_error_types=[STALE_REVISION_ERROR_TYPE],
+            ),
+        )
+        if result.get("remediation_executed"):
+            raise ApplicationError(
+                "approval reject must not execute remediation",
+                type="ApprovalRejectExecuted",
+                non_retryable=True,
+            )
+        self._remediation_executed = False
+
     @workflow.run
     async def run(self, input: IncidentWorkflowInput) -> str:
         self._wait_for_domain_event = input.wait_for_domain_event
@@ -345,8 +366,10 @@ class IncidentWorkflow:
             self._approval_wait_result = outcome
             if outcome == "TIMEOUT":
                 await self._on_approval_timeout(input.incident_id)
-            # APPROVED / REJECTED: domain already decided; remediation is Epic J.
-            # I5 AC: never execute on timeout; also do not execute here on approve.
+            elif outcome == "REJECTED":
+                # I6: reject → replan (DIAGNOSED); never execute.
+                await self._on_approval_rejected(input.incident_id)
+            # APPROVED: domain decided; remediation execute is Epic J.
 
         final = await self._load(input.incident_id)
         return str(final["state"])

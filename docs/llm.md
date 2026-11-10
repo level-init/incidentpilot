@@ -224,6 +224,9 @@ assert_approval_authorizes(conn, action_id=…, action_version=1)
 - HTTP decide: `POST /approvals/{id}/decide` (session actor; BLOCK still un-overridable)
 - Decide enqueues outbox `approval.decided` → workflow signal `approval_decision` (I5)
 - Workflow `wait_for_approval`: durable `approval_timeout`; **timeout never executes** remediation (expires + replan to `DIAGNOSED`)
+- **I6 harness** (no Slack): `POST /eval/approvals/{id}/decide` with `local-dev-evaluator`
+  writes real Approval rows + signals the wait; reject → replan `DIAGNOSED`
+  CLI: `python scripts/approval_harness.py approve|reject <approval_id>`
 
 ## ProposeAction (I1)
 

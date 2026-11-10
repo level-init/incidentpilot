@@ -13,7 +13,10 @@ from temporalio.worker import Worker
 
 from incidentpilot_shared.temporal_queues import TaskQueue
 from incidentpilot_shared.temporal_runtime import queue_subscribe_ping
-from incidentpilot_worker.activities.approval_wait import handle_approval_timeout
+from incidentpilot_worker.activities.approval_wait import (
+    handle_approval_rejected,
+    handle_approval_timeout,
+)
 from incidentpilot_worker.activities.collector_trigger import (
     kickoff_collect_cycle,
     trigger_collect_cycle,
@@ -43,6 +46,7 @@ def build_worker(client: Client, task_queue: TaskQueue | str) -> Worker:
                 advance_incident_state,
                 apply_diagnosed_gate,
                 handle_approval_timeout,
+                handle_approval_rejected,
                 trigger_collect_cycle,
                 kickoff_collect_cycle,
             ],
