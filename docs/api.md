@@ -111,6 +111,7 @@ Content-Type: application/json
 
 - Draft after **RESOLVED**; finalize sets **FINAL** + `corrective_actions[]`
 - `POSTMORTEM → CLOSED` refused without FINAL (**409**)
+- `GET /incidents/{id}/postmortem/export` — L6 package (timeline + evidence refs + body)
 - See [postmortem.md](postmortem.md)
 
 ## AIInvocation provenance (L3)

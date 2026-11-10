@@ -1726,6 +1726,66 @@
         }
       }
     },
+    "/incidents/{incident_id}/postmortem/export": {
+      "get": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Download Postmortem Export",
+        "description": "L6: download export package (timeline + evidence refs + postmortem body).",
+        "operationId": "download_postmortem_export_incidents__incident_id__postmortem_export_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostmortemExportOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/incidents/{incident_id}/postmortem": {
       "get": {
         "tags": [
@@ -4288,6 +4348,53 @@
           "inserted"
         ],
         "title": "PostmortemDraftOut"
+      },
+      "PostmortemExportOut": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "postmortem_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Postmortem Id"
+          },
+          "public_id": {
+            "type": "string",
+            "title": "Public Id"
+          },
+          "export_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Export Uri"
+          },
+          "blob_status": {
+            "type": "string",
+            "title": "Blob Status"
+          },
+          "package": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Package"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "postmortem_id",
+          "public_id",
+          "blob_status",
+          "package"
+        ],
+        "title": "PostmortemExportOut"
       },
       "PostmortemFinalize": {
         "properties": {

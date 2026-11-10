@@ -151,6 +151,16 @@ class FinalizePostmortemResult:
 
 
 @dataclass(frozen=True, slots=True)
+class ExportPostmortemResult:
+    incident_id: UUID
+    postmortem_id: UUID
+    public_id: str
+    export_uri: str | None
+    blob_status: str
+    package: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
 class ProposeHypothesisResult:
     hypothesis_id: UUID
     incident_id: UUID
@@ -2315,6 +2325,62 @@ def finalize_postmortem_command(
         corrective_actions=tuple(actions),
         incident_state=incident_state,
         incident_revision=incident_revision,
+    )
+
+
+def export_postmortem_package_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    blob_store: object | None = None,
+    actor: str = "system",
+    commit: bool = True,
+) -> ExportPostmortemResult:
+    """Build FINAL postmortem export package and best-effort S3 archive (L6).
+
+    Package always includes timeline, Evidence refs, and postmortem body.
+    ``blob_store`` may be injected for tests; otherwise resolves the L6 bucket.
+    """
+    from incidentpilot_shared.postmortem_export import (
+        build_postmortem_export_package,
+        upload_postmortem_export,
+    )
+
+    package = build_postmortem_export_package(conn, incident_id=incident_id)
+    public_id = str(package["incident"]["public_id"])
+    postmortem_id = UUID(str(package["postmortem"]["id"]))
+
+    store = blob_store
+    if store is None:
+        try:
+            from incidentpilot_adapters.blob import resolve_postmortem_export_blob_store
+
+            store = resolve_postmortem_export_blob_store()
+        except Exception:  # noqa: BLE001
+            store = None
+
+    upload = upload_postmortem_export(
+        store,  # type: ignore[arg-type]
+        incident_id=incident_id,
+        public_id=public_id,
+        package=package,
+    )
+    # FINAL rows are immutable — do not UPDATE postmortem; S3 + response carry uri.
+    package = {
+        **package,
+        "export_uri": upload.export_uri,
+        "blob_status": upload.blob_status,
+        "exported_by": actor,
+    }
+    if commit:
+        conn.commit()
+    return ExportPostmortemResult(
+        incident_id=incident_id,
+        postmortem_id=postmortem_id,
+        public_id=public_id,
+        export_uri=upload.export_uri,
+        blob_status=upload.blob_status,
+        package=package,
     )
 
 

@@ -41,6 +41,7 @@ transitions, and outbox rules cannot be bypassed.
 | `get_ai_invocation_provenance` | Read Evidence lineage + outputs for one invocation (L3) |
 | `create_postmortem_draft_command` | DRAFT after RESOLVED; citation validator (L4; [postmortem.md](postmortem.md)) |
 | `finalize_postmortem_command` | DRAFT→FINAL + corrective_actions[]; RESOLVED→POSTMORTEM (L5) |
+| `export_postmortem_package_command` | FINAL export package + best-effort S3 archive (L6) |
 | `attach_alert_command` | Set `alert.incident_id` |
 | `correlate_alert_command` | Fingerprint/time/service match or create (F4) |
 | `propose_hypothesis_command` | SYSTEM insert PROPOSED hypothesis; resolve EV citations (H4) |
