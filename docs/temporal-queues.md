@@ -10,7 +10,7 @@ out of scope for D1 (see D2+).
 | --- | --- | --- | --- |
 | `incidentpilot-general` | `TaskQueue.GENERAL` | `incidentpilot-worker` | orchestration (no rollback keys, no GT) |
 | `incidentpilot-evidence` | `TaskQueue.EVIDENCE` | `evidence-worker` | collector / deterministic processors |
-| `incidentpilot-remediation` | `TaskQueue.REMEDIATION` | `remediation-worker` | privileged execute / reconcile only |
+| `incidentpilot-remediation` | `TaskQueue.REMEDIATION` | `remediation-worker` | privileged execute / reconcile only (J1: VerifyExecutionAttempt first) |
 
 Source of truth: `shared/incidentpilot_shared/temporal_queues.py`.
 
