@@ -26,11 +26,16 @@ make api-run
 curl -s http://localhost:8000/health
 curl -s -H 'Authorization: Bearer local-dev' http://localhost:8000/auth/me
 curl -s -H 'Authorization: Bearer local-dev' http://localhost:8000/incidents
+curl -s -H 'Authorization: Bearer local-dev' \
+  'http://localhost:8000/incidents?state=DETECTED&service=checkout'
 curl -s -X POST -H 'Authorization: Bearer local-dev' \
   -H 'Content-Type: application/json' \
-  -d '{"title":"demo"}' \
+  -d '{"title":"demo","severity":"SEV2","service_key":"checkout"}' \
   http://localhost:8000/incidents
 ```
+
+`GET /incidents` returns `service_keys[]` and accepts `state` / `severity` /
+`service` query filters (M2).
 
 Dashboard: [web.md](web.md) (`make web-dev`).
 
