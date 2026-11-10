@@ -1,15 +1,30 @@
-"""RemediationAdapter contract (J1).
+"""RemediationAdapter contract (J1/J2).
 
 Outbound only — adapters never write ``domain.*``. Execute payloads must come
 from a successful ``verify_execution_attempt`` (SoR params), not from unverified
 caller claims. Queue membership is not authorization.
+
+J2 adds semantic reconcile: observe desired vs actual before mutate. States are
+``NOT_APPLIED`` / ``APPLIED`` / ``PARTIAL`` / ``UNKNOWN``. Blind full retry on
+``UNKNOWN`` or ``PARTIAL`` is forbidden.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 from uuid import UUID
+
+ReconciliationState = Literal["NOT_APPLIED", "APPLIED", "PARTIAL", "UNKNOWN"]
+
+RECONCILE_NOT_APPLIED: ReconciliationState = "NOT_APPLIED"
+RECONCILE_APPLIED: ReconciliationState = "APPLIED"
+RECONCILE_PARTIAL: ReconciliationState = "PARTIAL"
+RECONCILE_UNKNOWN: ReconciliationState = "UNKNOWN"
+
+
+class BlindRetryForbidden(RuntimeError):
+    """Execute refused: reconcile is UNKNOWN/PARTIAL — no blind full retry (J2)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,13 +48,19 @@ class RemediationResult:
     summary: str
     adapter_result: dict[str, Any] = field(default_factory=dict)
     error_summary: str | None = None
+    reconciliation_state: ReconciliationState | None = None
+    skipped_execute: bool = False
 
 
 class RemediationAdapter(Protocol):
-    """Privileged execute client used only by remediation-worker after verify."""
+    """Privileged execute/reconcile client used only by remediation-worker after verify."""
 
     name: str
 
     def execute(self, request: RemediationRequest) -> RemediationResult:
         """Perform the vendor/K8s/sim mutation. Never writes domain tables."""
+        ...
+
+    def reconcile(self, request: RemediationRequest) -> RemediationResult:
+        """Observe desired vs actual without mutating. Never writes domain tables."""
         ...

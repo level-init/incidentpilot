@@ -246,6 +246,26 @@ execute_verified(NoopRemediationAdapter(), verified)
 - Params always taken from immutable `action_version` after verify
 - remediation-worker entry: `incidentpilot_remediation.execute.verify_and_execute`
 
+## ROLLBACK_DEPLOYMENT + reconcile (J2)
+
+```python
+from incidentpilot_adapters.remediation import SimDeploymentWorld, SimRollbackAdapter
+from incidentpilot_remediation.execute import verify_reconcile_and_execute
+
+world = SimDeploymentWorld()
+world.seed("checkout", "bad")
+adapter = SimRollbackAdapter(world)
+verified, result = verify_reconcile_and_execute(
+    conn, adapter, attempt_id=…, parameters={"revision": "prev", "deployment": "checkout"}
+)
+# result.reconciliation_state ∈ {NOT_APPLIED, APPLIED, PARTIAL, UNKNOWN}
+```
+
+- Rollback clears bad revision (`observed → parameters.revision`)
+- Retry after lost ACK: reconcile → `APPLIED` → **skip execute** (no double-apply)
+- `UNKNOWN` / `PARTIAL` → `BlindRetryForbidden` (no blind full retry)
+- Params: `deployment` + `revision` (SoR); sim only — K8s RBAC is J11
+
 ## ProposeAction (I1)
 
 ```python
