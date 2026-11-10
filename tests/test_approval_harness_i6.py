@@ -19,11 +19,16 @@ from fastapi.testclient import TestClient  # noqa: E402
 from temporalio.testing import WorkflowEnvironment  # noqa: E402
 from temporalio.worker import Worker  # noqa: E402
 
+from incidentpilot_adapters.remediation import SimDeploymentWorld  # noqa: E402
 from incidentpilot_api.app import app  # noqa: E402
 from incidentpilot_api.temporal import set_temporal_client_override  # noqa: E402
 from incidentpilot_worker.activities.approval_wait import (  # noqa: E402
     handle_approval_rejected,
     handle_approval_timeout,
+)
+from incidentpilot_worker.activities.approved_remediation import (  # noqa: E402
+    handle_approval_approved,
+    set_sim_deployment_world,
 )
 from incidentpilot_worker.activities.incident_transitions import (  # noqa: E402
     advance_incident_state,
@@ -83,8 +88,11 @@ def _seed_awaiting() -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
         cur.execute(
             """
             INSERT INTO domain.action_version (
-                action_id, version, action_type, proposed_by
-            ) VALUES (%s, 1, 'ROLLBACK_DEPLOYMENT', 'system')
+                action_id, version, action_type, parameters, proposed_by
+            ) VALUES (
+                %s, 1, 'ROLLBACK_DEPLOYMENT',
+                '{"revision":"prev","deployment":"checkout"}'::jsonb, 'system'
+            )
             """,
             (str(action_id),),
         )
@@ -117,6 +125,7 @@ def _worker(env: WorkflowEnvironment, task_queue: str) -> Worker:
             advance_incident_state,
             handle_approval_timeout,
             handle_approval_rejected,
+            handle_approval_approved,
         ],
         activity_executor=_ACTIVITY_EXECUTOR,
     )
@@ -124,7 +133,13 @@ def _worker(env: WorkflowEnvironment, task_queue: str) -> Worker:
 
 @pytest.fixture()
 def seeded() -> Iterator[tuple[uuid.UUID, uuid.UUID, uuid.UUID]]:
-    yield _seed_awaiting()
+    world = SimDeploymentWorld()
+    world.seed("checkout", "bad")
+    set_sim_deployment_world(world)
+    try:
+        yield _seed_awaiting()
+    finally:
+        set_sim_deployment_world(None)
 
 
 @pytest.mark.asyncio
@@ -144,6 +159,7 @@ async def test_harness_approve_resumes_workflow(
                     IncidentWorkflowInput(
                         incident_id=str(incident_id),
                         wait_for_approval=True,
+                        execute_on_approval=True,
                         timers=timers,
                     ),
                     id=f"incident-{incident_id}",
@@ -165,9 +181,10 @@ async def test_harness_approve_resumes_workflow(
                 assert body["workflow_signaled"] is True
 
                 result = await handle.result()
-                assert result == "AWAITING_APPROVAL"
+                # J10: APPROVED → reserve → MITIGATING → sim rollback execute.
+                assert result == "MITIGATING"
                 assert await handle.query(IncidentWorkflow.approval_wait_result) == "APPROVED"
-                assert await handle.query(IncidentWorkflow.remediation_executed) is False
+                assert await handle.query(IncidentWorkflow.remediation_executed) is True
         finally:
             set_temporal_client_override(None)
 

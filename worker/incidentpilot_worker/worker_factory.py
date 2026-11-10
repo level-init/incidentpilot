@@ -17,6 +17,7 @@ from incidentpilot_worker.activities.approval_wait import (
     handle_approval_rejected,
     handle_approval_timeout,
 )
+from incidentpilot_worker.activities.approved_remediation import handle_approval_approved
 from incidentpilot_worker.activities.collector_trigger import (
     kickoff_collect_cycle,
     trigger_collect_cycle,
@@ -48,6 +49,7 @@ def build_worker(client: Client, task_queue: TaskQueue | str) -> Worker:
                 apply_diagnosed_gate,
                 handle_approval_timeout,
                 handle_approval_rejected,
+                handle_approval_approved,
                 handle_validation_window,
                 trigger_collect_cycle,
                 kickoff_collect_cycle,

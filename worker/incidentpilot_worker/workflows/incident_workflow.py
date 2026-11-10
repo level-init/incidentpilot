@@ -318,6 +318,36 @@ class IncidentWorkflow:
             )
         self._remediation_executed = False
 
+    async def _on_approval_approved(self, incident_id: str) -> None:
+        """J10: policy-gated execute after APPROVED (Level-2 harness path)."""
+        decision = self._last_approval_decision
+        if decision is None:
+            raise ApplicationError(
+                "APPROVED without approval_decision signal payload",
+                type="ApprovalDecisionMissing",
+                non_retryable=True,
+            )
+        result = await workflow.execute_activity(
+            "handle_approval_approved",
+            {
+                "incident_id": incident_id,
+                "action_id": decision.action_id,
+                "action_version": int(decision.action_version),
+                "approval_id": decision.approval_id,
+            },
+            result_type=dict[str, Any],
+            start_to_close_timeout=timedelta(seconds=120),
+            retry_policy=RetryPolicy(
+                initial_interval=timedelta(milliseconds=200),
+                maximum_attempts=5,
+                non_retryable_error_types=[STALE_REVISION_ERROR_TYPE],
+            ),
+        )
+        if result.get("blocked"):
+            self._remediation_executed = False
+            return
+        self._remediation_executed = bool(result.get("remediation_executed"))
+
     async def _wait_validation_window(self, timeout: timedelta) -> None:
         """Durable validation_window sleep — survives worker kill (J7)."""
         if TIMER_VALIDATION_WINDOW not in self._timers_armed:
@@ -421,7 +451,9 @@ class IncidentWorkflow:
             elif outcome == "REJECTED":
                 # I6: reject → replan (DIAGNOSED); never execute.
                 await self._on_approval_rejected(input.incident_id)
-            # APPROVED: domain decided; remediation execute is Epic J.
+            elif outcome == "APPROVED" and input.execute_on_approval:
+                # J10: reserve → MITIGATING → verify/execute (BLOCK never adapts).
+                await self._on_approval_approved(input.incident_id)
 
         if input.wait_for_validation:
             if not input.execution_attempt_id:
