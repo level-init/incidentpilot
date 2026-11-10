@@ -91,7 +91,7 @@ Authorization: Bearer local-dev
 - Cap 200; requires `incident:read`
 - See [timeline.md](timeline.md)
 
-## Postmortem draft (L4)
+## Postmortem draft + FINAL (L4–L5)
 
 ```http
 POST /incidents/{incident_id}/postmortem/draft
@@ -101,8 +101,16 @@ Content-Type: application/json
 {}
 ```
 
-- Requires incident **RESOLVED**; uncited/unsupported claims → **400**
-- Auto-generates grounded claims from Evidence/Timeline/Action/ValidationResult
+```http
+POST /incidents/{incident_id}/postmortem/finalize
+Authorization: Bearer local-dev
+Content-Type: application/json
+
+{"corrective_actions":[{"title":"Add deploy canary","owner":"platform"}]}
+```
+
+- Draft after **RESOLVED**; finalize sets **FINAL** + `corrective_actions[]`
+- `POSTMORTEM → CLOSED` refused without FINAL (**409**)
 - See [postmortem.md](postmortem.md)
 
 ## AIInvocation provenance (L3)

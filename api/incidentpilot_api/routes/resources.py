@@ -17,6 +17,7 @@ from incidentpilot_api.commands import (
     PinnedRunbookRequired,
     PolicyActorDenied,
     PolicyDecisionExists,
+    PostmortemCorrectiveActionsError,
     PostmortemFinalImmutableError,
     PostmortemNotReadyError,
     SeverityActorDenied,
@@ -26,6 +27,7 @@ from incidentpilot_api.commands import (
     confirm_hypothesis_command,
     create_postmortem_draft_command,
     evaluate_policy_command,
+    finalize_postmortem_command,
     list_policy_definitions,
     propose_action_command,
     publish_policy_version_command,
@@ -54,6 +56,8 @@ from incidentpilot_api.schemas import (
     PolicyVersionPublish,
     PostmortemDraftCreate,
     PostmortemDraftOut,
+    PostmortemFinalize,
+    PostmortemFinalizeOut,
     PostmortemOut,
     SeverityUpdateOut,
     SloBurnOut,
@@ -676,6 +680,45 @@ def create_postmortem_draft(
         claim_count=result.claim_count,
         cited_evidence_ids=list(result.cited_evidence_ids),
         inserted=result.inserted,
+    )
+
+
+@router.post(
+    "/incidents/{incident_id}/postmortem/finalize",
+    response_model=PostmortemFinalizeOut,
+)
+def finalize_postmortem(
+    incident_id: UUID,
+    body: PostmortemFinalize,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> PostmortemFinalizeOut:
+    """L5: DRAFT → FINAL with corrective_actions[]; RESOLVED → POSTMORTEM."""
+    require_permission(principal, Permission.INCIDENT_WRITE)
+    try:
+        result = finalize_postmortem_command(
+            conn,
+            incident_id=incident_id,
+            corrective_actions=list(body.corrective_actions),
+            actor=principal.actor_id,
+            commit=True,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (
+        PostmortemNotReadyError,
+        PostmortemFinalImmutableError,
+    ) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PostmortemCorrectiveActionsError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return PostmortemFinalizeOut(
+        postmortem_id=result.postmortem_id,
+        incident_id=result.incident_id,
+        status=result.status,
+        corrective_actions=list(result.corrective_actions),
+        incident_state=result.incident_state,
+        incident_revision=result.incident_revision,
     )
 
 
