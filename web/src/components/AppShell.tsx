@@ -10,6 +10,7 @@ import {
   getStoredToken,
   type Session,
 } from "@/lib/auth";
+import { SessionProvider } from "@/lib/session";
 
 type Props = {
   children: ReactNode;
@@ -128,7 +129,9 @@ export function AppShell({ children, requireAdmin = false }: Props) {
           ) : null}
         </nav>
 
-        <main className="shell-main">{children}</main>
+        <main className="shell-main">
+          <SessionProvider session={session}>{children}</SessionProvider>
+        </main>
       </div>
     </div>
   );

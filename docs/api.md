@@ -38,6 +38,9 @@ curl -s -X POST -H 'Authorization: Bearer local-dev' \
 `state` / `severity` / `service` query filters (M2). `GET /incidents/{id}`
 accepts UUID or `public_id` (M3 header + Slack deep links).
 
+`GET /evidence?incident_id=` and `GET /hypotheses?incident_id=` include
+`provenance` (and hypotheses also `cited_evidence_ids`) for the M4 panes.
+
 Dashboard: [web.md](web.md) (`make web-dev`).
 
 Published contract: [openapi/openapi.json](../openapi/openapi.json) (`make openapi-export`).
