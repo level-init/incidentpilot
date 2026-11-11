@@ -48,7 +48,27 @@ curl -s -H 'Authorization: Bearer local-dev' \
   'http://localhost:8000/incidents/<uuid>/timeline?order=asc'
 ```
 
-Evidence / remediation panes are out of scope (M4 / M5).
+## Evidence + Hypotheses panes (M4)
+
+On the detail page, two visually distinct panes sit under the header:
+
+| Pane | Meaning | Look |
+| --- | --- | --- |
+| **Evidence** | Production facts | Solid teal border; provenance badges (`layer`, `quality`, `truthfulness`, producer, kind) |
+| **Hypotheses** | Interpretations | Dashed warm border; italic statements; `score_kind` / status badges |
+
+Hypothesis `cited_evidence_ids` render as navigable links to `#evidence-{id}`.
+Responders/Admins get a **HUMAN_OBSERVATION** form (`POST …/observations`);
+Viewers see a read-only hint.
+
+```bash
+curl -s -H 'Authorization: Bearer local-dev' \
+  "http://localhost:8000/evidence?incident_id=<uuid>"
+curl -s -H 'Authorization: Bearer local-dev' \
+  "http://localhost:8000/hypotheses?incident_id=<uuid>"
+```
+
+Remediation panel is out of scope (M5).
 
 ## Nav model
 

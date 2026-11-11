@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
+import { EvidenceHypothesesPanes } from "@/components/EvidenceHypothesesPanes";
 import {
   formatDuration,
   getIncident,
@@ -120,6 +121,8 @@ export default function IncidentDetailPage() {
               <p className="detail-summary">{incident.summary}</p>
             ) : null}
           </header>
+
+          <EvidenceHypothesesPanes incidentId={incident.id} />
 
           <section className="timeline-pane" aria-label="Timeline">
             <div className="timeline-head">

@@ -3501,6 +3501,11 @@
           "producer": {
             "type": "string",
             "title": "Producer"
+          },
+          "provenance": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Provenance"
           }
         },
         "type": "object",
@@ -3908,6 +3913,19 @@
             "type": "string",
             "title": "Score Kind",
             "default": "heuristic"
+          },
+          "provenance": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Provenance"
+          },
+          "cited_evidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Cited Evidence Ids"
           }
         },
         "type": "object",

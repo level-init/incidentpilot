@@ -25,6 +25,31 @@ export type TimelineEvent = {
   payload: Record<string, unknown>;
 };
 
+export type Evidence = {
+  id: string;
+  evidence_key: string;
+  incident_id: string;
+  kind: string;
+  summary: string;
+  fingerprint: string;
+  observed_at: string;
+  producer: string;
+  provenance: Record<string, unknown>;
+};
+
+export type Hypothesis = {
+  id: string;
+  incident_id: string;
+  status: string;
+  statement: string;
+  proposed_by: string;
+  confidence: number | null;
+  rank: number | null;
+  score_kind: string;
+  provenance: Record<string, unknown>;
+  cited_evidence_ids: string[];
+};
+
 export type IncidentListFilters = {
   state?: string;
   severity?: string;
@@ -78,6 +103,65 @@ export async function listTimeline(
     throw new Error((await res.text()) || `timeline failed (${res.status})`);
   }
   return (await res.json()) as TimelineEvent[];
+}
+
+export async function listEvidence(incidentId: string): Promise<Evidence[]> {
+  const qs = new URLSearchParams({ incident_id: incidentId });
+  const res = await apiFetch(`/evidence?${qs}`);
+  if (!res.ok) {
+    throw new Error((await res.text()) || `evidence failed (${res.status})`);
+  }
+  return (await res.json()) as Evidence[];
+}
+
+export async function listHypotheses(incidentId: string): Promise<Hypothesis[]> {
+  const qs = new URLSearchParams({ incident_id: incidentId });
+  const res = await apiFetch(`/hypotheses?${qs}`);
+  if (!res.ok) {
+    throw new Error((await res.text()) || `hypotheses failed (${res.status})`);
+  }
+  return (await res.json()) as Hypothesis[];
+}
+
+export async function createHumanObservation(
+  incidentId: string,
+  summary: string,
+): Promise<Evidence> {
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/observations`,
+    {
+      method: "POST",
+      body: JSON.stringify({ summary }),
+    },
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `observation failed (${res.status})`);
+  }
+  return (await res.json()) as Evidence;
+}
+
+export function provenanceBadges(
+  provenance: Record<string, unknown>,
+  extras: Record<string, string | undefined> = {},
+): Array<{ label: string; value: string }> {
+  const badges: Array<{ label: string; value: string }> = [];
+  for (const [label, value] of Object.entries(extras)) {
+    if (value) badges.push({ label, value });
+  }
+  for (const key of [
+    "layer",
+    "quality",
+    "truthfulness",
+    "source",
+    "score_kind",
+    "quality_rule_id",
+    "blob_status",
+  ]) {
+    const raw = provenance[key];
+    if (raw === undefined || raw === null || raw === "") continue;
+    badges.push({ label: key, value: String(raw) });
+  }
+  return badges;
 }
 
 /** Open duration: now − opened_at, or resolved/closed − opened_at when terminal. */

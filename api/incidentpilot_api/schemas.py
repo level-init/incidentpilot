@@ -69,6 +69,7 @@ class EvidenceOut(BaseModel):
     fingerprint: str
     observed_at: datetime
     producer: str
+    provenance: dict[str, Any] = Field(default_factory=dict)
 
 
 class HypothesisOut(BaseModel):
@@ -81,6 +82,8 @@ class HypothesisOut(BaseModel):
     confidence: float | None = None
     rank: int | None = None
     score_kind: str = "heuristic"
+    provenance: dict[str, Any] = Field(default_factory=dict)
+    cited_evidence_ids: list[UUID] = Field(default_factory=list)
 
 
 class ActionPropose(BaseModel):

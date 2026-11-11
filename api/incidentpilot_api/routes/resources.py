@@ -100,7 +100,7 @@ def list_evidence(
     require_permission(principal, Permission.INCIDENT_READ)
     sql = """
         SELECT id, evidence_key, incident_id, kind, summary, fingerprint,
-               observed_at, producer
+               observed_at, producer, provenance
         FROM domain.evidence
     """
     params: list[object] = []
@@ -122,7 +122,8 @@ def list_hypotheses(
     require_permission(principal, Permission.INCIDENT_READ)
     sql = """
         SELECT id, incident_id, status, statement, proposed_by, confidence, rank,
-               COALESCE(provenance->>'score_kind', 'heuristic') AS score_kind
+               COALESCE(provenance->>'score_kind', 'heuristic') AS score_kind,
+               provenance, cited_evidence_ids
         FROM domain.hypothesis
     """
     params: list[object] = []
