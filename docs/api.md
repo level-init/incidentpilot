@@ -41,6 +41,9 @@ accepts UUID or `public_id` (M3 header + Slack deep links).
 `GET /evidence?incident_id=` and `GET /hypotheses?incident_id=` include
 `provenance` (and hypotheses also `cited_evidence_ids`) for the M4 panes.
 
+`GET /incidents/{id}/remediation` returns remediation cards (params, risk,
+policy, approval, attempts with `unsafe_to_retry` for UNKNOWN/PARTIAL) for M5.
+
 Dashboard: [web.md](web.md) (`make web-dev`).
 
 Published contract: [openapi/openapi.json](../openapi/openapi.json) (`make openapi-export`).

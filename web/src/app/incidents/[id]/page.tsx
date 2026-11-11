@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
 import { EvidenceHypothesesPanes } from "@/components/EvidenceHypothesesPanes";
+import { RemediationPanel } from "@/components/RemediationPanel";
 import {
   formatDuration,
   getIncident,
@@ -123,6 +124,8 @@ export default function IncidentDetailPage() {
           </header>
 
           <EvidenceHypothesesPanes incidentId={incident.id} />
+
+          <RemediationPanel incidentId={incident.id} />
 
           <section className="timeline-pane" aria-label="Timeline">
             <div className="timeline-head">

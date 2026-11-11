@@ -2426,6 +2426,69 @@
         }
       }
     },
+    "/incidents/{incident_id}/remediation": {
+      "get": {
+        "tags": [
+          "remediation"
+        ],
+        "summary": "Remediation panel cards (scope / policy / approval / attempts)",
+        "operationId": "list_remediation_incidents__incident_id__remediation_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RemediationActionOut"
+                  },
+                  "title": "Response List Remediation Incidents  Incident Id  Remediation Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ai-invocations/{invocation_id}/provenance": {
       "get": {
         "tags": [
@@ -4646,6 +4709,225 @@
           "corrective_actions"
         ],
         "title": "PostmortemOut"
+      },
+      "RemediationActionOut": {
+        "properties": {
+          "action_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Action Id"
+          },
+          "action_type": {
+            "type": "string",
+            "title": "Action Type"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "current_version": {
+            "type": "integer",
+            "title": "Current Version"
+          },
+          "is_reversible": {
+            "type": "boolean",
+            "title": "Is Reversible"
+          },
+          "risk": {
+            "type": "string",
+            "title": "Risk"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          },
+          "target_ref": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Target Ref"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RemediationPolicyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RemediationApprovalOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/RemediationAttemptOut"
+            },
+            "type": "array",
+            "title": "Attempts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action_id",
+          "action_type",
+          "status",
+          "current_version",
+          "is_reversible",
+          "risk"
+        ],
+        "title": "RemediationActionOut",
+        "description": "M5 remediation card \u2014 scope visible before approve; UNKNOWN \u2260 plain failed."
+      },
+      "RemediationApprovalOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "action_version": {
+            "type": "integer",
+            "title": "Action Version"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "action_version",
+          "status"
+        ],
+        "title": "RemediationApprovalOut"
+      },
+      "RemediationAttemptOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "action_version": {
+            "type": "integer",
+            "title": "Action Version"
+          },
+          "attempt_number": {
+            "type": "integer",
+            "title": "Attempt Number"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "error_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Summary"
+          },
+          "reconciliation_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reconciliation State"
+          },
+          "adapter_result": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Adapter Result"
+          },
+          "unsafe_to_retry": {
+            "type": "boolean",
+            "title": "Unsafe To Retry",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "action_version",
+          "attempt_number",
+          "state"
+        ],
+        "title": "RemediationAttemptOut"
+      },
+      "RemediationPolicyOut": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "title": "Decision"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "policy_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Key"
+          },
+          "policy_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "title": "RemediationPolicyOut"
       },
       "RunbookHitOut": {
         "properties": {

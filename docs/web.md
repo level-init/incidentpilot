@@ -68,7 +68,23 @@ curl -s -H 'Authorization: Bearer local-dev' \
   "http://localhost:8000/hypotheses?incident_id=<uuid>"
 ```
 
-Remediation panel is out of scope (M5).
+## Remediation panel (M5)
+
+Detail page includes a **Remediation** panel from
+`GET /incidents/{id}/remediation`:
+
+- Action type / version / status / risk (`reversible` | `irreversible`)
+- **Scope** block: parameters + target_ref (visible before approve)
+- Policy decision + approval status
+- Execution attempts with reconcile state
+- **UNKNOWN / PARTIAL** → prominent “Unsafe to retry” (not plain failed)
+- Responder/Admin: Approve / Reject when approval is `PENDING` and policy is
+  `REQUIRE_APPROVAL`
+
+```bash
+curl -s -H 'Authorization: Bearer local-dev' \
+  http://localhost:8000/incidents/<uuid>/remediation
+```
 
 ## Nav model
 
