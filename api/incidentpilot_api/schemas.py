@@ -191,6 +191,47 @@ class ApprovalOut(BaseModel):
     decided_by: str | None = None
 
 
+class RemediationAttemptOut(BaseModel):
+    id: UUID
+    action_version: int
+    attempt_number: int
+    state: str
+    error_summary: str | None = None
+    reconciliation_state: str | None = None
+    adapter_result: dict[str, Any] = Field(default_factory=dict)
+    unsafe_to_retry: bool = False
+
+
+class RemediationPolicyOut(BaseModel):
+    decision: str
+    reason: str | None = None
+    policy_key: str | None = None
+    policy_version: str | None = None
+
+
+class RemediationApprovalOut(BaseModel):
+    id: UUID
+    action_version: int
+    status: str
+    decided_by: str | None = None
+
+
+class RemediationActionOut(BaseModel):
+    """M5 remediation card — scope visible before approve; UNKNOWN ≠ plain failed."""
+
+    action_id: UUID
+    action_type: str
+    status: str
+    current_version: int
+    is_reversible: bool
+    risk: str
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    target_ref: dict[str, Any] = Field(default_factory=dict)
+    policy: RemediationPolicyOut | None = None
+    approval: RemediationApprovalOut | None = None
+    attempts: list[RemediationAttemptOut] = Field(default_factory=list)
+
+
 class TimelineEventOut(BaseModel):
     id: UUID
     incident_id: UUID

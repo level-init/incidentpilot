@@ -140,6 +140,69 @@ export async function createHumanObservation(
   return (await res.json()) as Evidence;
 }
 
+export type RemediationAttempt = {
+  id: string;
+  action_version: number;
+  attempt_number: number;
+  state: string;
+  error_summary: string | null;
+  reconciliation_state: string | null;
+  adapter_result: Record<string, unknown>;
+  unsafe_to_retry: boolean;
+};
+
+export type RemediationAction = {
+  action_id: string;
+  action_type: string;
+  status: string;
+  current_version: number;
+  is_reversible: boolean;
+  risk: string;
+  parameters: Record<string, unknown>;
+  target_ref: Record<string, unknown>;
+  policy: {
+    decision: string;
+    reason: string | null;
+    policy_key: string | null;
+    policy_version: string | null;
+  } | null;
+  approval: {
+    id: string;
+    action_version: number;
+    status: string;
+    decided_by: string | null;
+  } | null;
+  attempts: RemediationAttempt[];
+};
+
+export async function listRemediation(
+  incidentId: string,
+): Promise<RemediationAction[]> {
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/remediation`,
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `remediation failed (${res.status})`);
+  }
+  return (await res.json()) as RemediationAction[];
+}
+
+export async function decideApproval(
+  approvalId: string,
+  status: "APPROVED" | "REJECTED",
+): Promise<void> {
+  const res = await apiFetch(
+    `/approvals/${encodeURIComponent(approvalId)}/decide`,
+    {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    },
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `decide failed (${res.status})`);
+  }
+}
+
 export function provenanceBadges(
   provenance: Record<string, unknown>,
   extras: Record<string, string | undefined> = {},
