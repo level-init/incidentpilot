@@ -4,6 +4,12 @@ Outbound incident briefs/updates are **BEST_EFFORT**: domain commits first
 (with a transactional outbox row); Slack delivery failures **never** roll back
 Incident state (`MITIGATING` / `VALIDATING` stay intact).
 
+## Admin scope (M8)
+
+`GET /admin/integrations` exposes Slack inbound/outbound **configuration
+flags** (`signing_secret_configured`, `bot_token_configured`, notifier mode,
+responder counts) — never `SLACK_SIGNING_SECRET` / `SLACK_BOT_TOKEN` values.
+
 ## Inbound verify (K2)
 
 `POST /webhooks/slack/interactions` — **api-only** HMAC with
@@ -95,7 +101,7 @@ enqueue_slack_lifecycle_thread(
 | `status` `evidence` `hypotheses` `timeline` `impact` | any verified Slack user | Read incident summary |
 | `approve` `reject` | responder allowlist | Decide PENDING approval |
 | `escalate` | responder allowlist | HUMAN_OBSERVATION note; DEGRADED when legal |
-| `resolve` | responder allowlist | `RECOVERED` → `RESOLVED` when legal |
+| `resolve` | responder allowlist | `RECOVERED` → `RESOLVED` when legal (same edge as web M7 contextual resolve) |
 | `help` | any | Command list |
 
 ```text

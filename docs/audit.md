@@ -29,7 +29,14 @@ Helper: `incidentpilot_shared.audit.append_audit_event` (caller owns TX).
 | `policy.evaluate` / `policy.publish` / `policy.activate` | Policy gate + admin policy versions |
 | `admin.autonomy_upsert` | Autonomy config insert/update |
 | `incident.create` / `incident.severity_update` | Incident create / severity rules |
+| `incident.manual_resolve` | Contextual human resolve `RECOVERED→RESOLVED` with reason + health (M7) |
 | `hypothesis.confirm` | SYSTEM confirmation gate |
+
+## Web UI (M9)
+
+Incident detail **Audit** panel lists these events (oldest first). Distinct
+from Timeline. AI provenance lineage is a separate Admin-only panel
+([web.md](web.md)).
 
 ## HTTP
 

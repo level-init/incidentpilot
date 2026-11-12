@@ -2,18 +2,26 @@
 
 from __future__ import annotations
 
+import os
+
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from incidentpilot_api.auth import reject_spoofed_identity
 from incidentpilot_api.routes import (
+    admin,
     ai_invocations,
+    auth,
     evidence,
     health,
     history,
     human,
     incidents,
+    manual_resolve,
+    remediation,
     resources,
     runbooks,
+    topology,
     webhooks_alerts,
     webhooks_slack,
 )
@@ -34,13 +42,32 @@ app = FastAPI(
     dependencies=[Depends(reject_spoofed_identity)],
 )
 
+# Browser dashboard (M1). Override with CORS_ORIGINS=comma-separated list.
+_cors_raw = os.environ.get(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000",
+)
+_cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+
 app.include_router(health.router)
+app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(incidents.router)
 app.include_router(resources.router)
+app.include_router(topology.router)
 app.include_router(evidence.router)
 app.include_router(runbooks.router)
 app.include_router(history.router)
 app.include_router(human.router)
+app.include_router(manual_resolve.router)
+app.include_router(remediation.router)
 app.include_router(ai_invocations.router)
 app.include_router(eval_routes.router)
 app.include_router(webhooks_alerts.router)

@@ -54,6 +54,12 @@ citable EV-ids exist for reasoning.
 HTTP ingress for CW is optional later — F3 is the adapter + unit fixtures.
 See `tests/fixtures/cloudwatch_alarm_*.json` and `tests/test_cloudwatch_normalize.py`.
 
+## Admin scope (M8)
+
+`GET /admin/integrations` reports whether Alertmanager webhook auth is
+configured and which **mechanism names** are set (`bearer` / `basic` /
+`custom_header`). Secret values are never included.
+
 ## Secret configuration
 
 Set at least one mechanism (env / `.env`):

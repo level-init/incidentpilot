@@ -14,10 +14,21 @@ class HealthResponse(BaseModel):
     service: str = "incidentpilot-api"
 
 
+class SessionOut(BaseModel):
+    """Authenticated principal from Bearer (C1/C2) — used by the web shell."""
+
+    actor_id: str
+    role: str
+    auth_mode: str
+    email: str | None = None
+    eval_entitled: bool = False
+
+
 class IncidentCreate(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     severity: str | None = None
     summary: str | None = None
+    service_key: str | None = None
 
 
 class IncidentTransition(BaseModel):
@@ -36,6 +47,8 @@ class IncidentOut(BaseModel):
     opened_at: datetime
     resolved_at: datetime | None
     closed_at: datetime | None
+    service_keys: list[str] = Field(default_factory=list)
+    environments: list[str] = Field(default_factory=list)
 
 
 class AlertOut(BaseModel):
@@ -56,6 +69,7 @@ class EvidenceOut(BaseModel):
     fingerprint: str
     observed_at: datetime
     producer: str
+    provenance: dict[str, Any] = Field(default_factory=dict)
 
 
 class HypothesisOut(BaseModel):
@@ -68,6 +82,8 @@ class HypothesisOut(BaseModel):
     confidence: float | None = None
     rank: int | None = None
     score_kind: str = "heuristic"
+    provenance: dict[str, Any] = Field(default_factory=dict)
+    cited_evidence_ids: list[UUID] = Field(default_factory=list)
 
 
 class ActionPropose(BaseModel):
@@ -175,6 +191,47 @@ class ApprovalOut(BaseModel):
     decided_by: str | None = None
 
 
+class RemediationAttemptOut(BaseModel):
+    id: UUID
+    action_version: int
+    attempt_number: int
+    state: str
+    error_summary: str | None = None
+    reconciliation_state: str | None = None
+    adapter_result: dict[str, Any] = Field(default_factory=dict)
+    unsafe_to_retry: bool = False
+
+
+class RemediationPolicyOut(BaseModel):
+    decision: str
+    reason: str | None = None
+    policy_key: str | None = None
+    policy_version: str | None = None
+
+
+class RemediationApprovalOut(BaseModel):
+    id: UUID
+    action_version: int
+    status: str
+    decided_by: str | None = None
+
+
+class RemediationActionOut(BaseModel):
+    """M5 remediation card — scope visible before approve; UNKNOWN ≠ plain failed."""
+
+    action_id: UUID
+    action_type: str
+    status: str
+    current_version: int
+    is_reversible: bool
+    risk: str
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    target_ref: dict[str, Any] = Field(default_factory=dict)
+    policy: RemediationPolicyOut | None = None
+    approval: RemediationApprovalOut | None = None
+    attempts: list[RemediationAttemptOut] = Field(default_factory=list)
+
+
 class TimelineEventOut(BaseModel):
     id: UUID
     incident_id: UUID
@@ -195,6 +252,19 @@ class AuditEventOut(BaseModel):
     outcome: str
     occurred_at: datetime
     details: dict[str, Any] = Field(default_factory=dict)
+
+
+class AiInvocationSummaryOut(BaseModel):
+    """Admin list row for incident-scoped AI invocations (M9)."""
+
+    invocation_id: UUID
+    incident_id: UUID | None = None
+    purpose: str
+    provider: str
+    model: str
+    status: str
+    artifact_uri: str | None = None
+    created_at: datetime
 
 
 class PostmortemOut(BaseModel):
@@ -262,6 +332,128 @@ class ImpactSnapshotOut(BaseModel):
     provenance: dict[str, Any] = Field(default_factory=dict)
 
 
+class ChangeOut(BaseModel):
+    id: UUID
+    change_key: str
+    change_type: str
+    service_key: str | None = None
+    summary: str
+    source: str
+    external_ref: str | None = None
+    observed_at: datetime
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class PinnedRunbookOut(BaseModel):
+    """Pinned runbook for the incident — authority vs untrusted prose (M6/H6)."""
+
+    pinned: bool
+    runbook_key: str | None = None
+    title: str | None = None
+    version: int | None = None
+    runbook_version_id: UUID | None = None
+    allowed_action_types: list[str] = Field(default_factory=list)
+    body_markdown: str | None = None
+    authority_note: str = (
+        "allowed_action_types is executable authority; "
+        "body_markdown is untrusted human prose"
+    )
+
+
+class PolicyKeyOut(BaseModel):
+    """Admin summary of a policy_key (M8)."""
+
+    policy_key: str
+    version_count: int
+    latest_version: int
+    active_version: int | None = None
+
+
+class AdminRunbookVersionOut(BaseModel):
+    runbook_version_id: UUID
+    runbook_id: UUID
+    version: int
+    status: str
+    allowed_action_types: list[str] = Field(default_factory=list)
+    proposed_by: str | None = None
+    created_at: str | None = None
+
+
+class AdminRunbookOut(BaseModel):
+    runbook_id: UUID
+    key: str
+    title: str
+    hypothesis_class: str | None = None
+    description: str | None = None
+    service_key: str | None = None
+    active_version_id: UUID | None = None
+    active_version: int | None = None
+    active_status: str | None = None
+    active_allowed_action_types: list[str] = Field(default_factory=list)
+    versions: list[AdminRunbookVersionOut] = Field(default_factory=list)
+
+
+class AdminRunbookCreate(BaseModel):
+    key: str = Field(min_length=1, max_length=200)
+    title: str = Field(min_length=1, max_length=500)
+    hypothesis_class: str | None = None
+    description: str | None = None
+    service_key: str | None = None
+    environment: str = "local"
+
+
+class AdminRunbookVersionCreate(BaseModel):
+    body_markdown: str = ""
+    allowed_action_types: list[str] = Field(min_length=1)
+
+
+class IntegrationStatusOut(BaseModel):
+    """Connector scope/health for admin — secrets_exposed always false (M8)."""
+
+    key: str
+    display_name: str
+    kind: str
+    configured: bool
+    endpoint: str | None = None
+    scope: dict[str, Any] = Field(default_factory=dict)
+    secrets_exposed: bool = False
+    notes: str | None = None
+
+
+class ResolveHealthOut(BaseModel):
+    outcome: str | None = None
+    criteria: dict[str, Any] = Field(default_factory=dict)
+    observations: dict[str, Any] = Field(default_factory=dict)
+    decided_at: str | None = None
+
+
+class ResolveContextOut(BaseModel):
+    """Eligibility for contextual manual resolve (M7) — never a generic always-on Resolve."""
+
+    eligible: bool
+    current_state: str
+    incident_revision: int
+    reason_required: bool = True
+    message: str
+    health: ResolveHealthOut | None = None
+
+
+class ManualResolveBody(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+    expected_revision: int = Field(ge=1)
+
+
+class ManualResolveOut(BaseModel):
+    incident_id: UUID
+    public_id: str
+    from_state: str
+    to_state: str
+    previous_revision: int
+    new_revision: int
+    reason: str
+    audited: bool = True
+
+
 class SloBurnOut(BaseModel):
     id: UUID
     incident_id: UUID
@@ -293,3 +485,36 @@ class HypothesisConfirmOut(BaseModel):
     reason: str
     quality_rule_id: str
     inputs: dict[str, Any] = Field(default_factory=dict)
+
+
+class DependencyNodeOut(BaseModel):
+    service_id: str
+    key: str
+    display_name: str
+    environment: str
+    criticality: str
+    linked: bool = False
+    upstream: bool = False
+    downstream: bool = False
+
+
+class DependencyEdgeOut(BaseModel):
+    edge_id: str
+    from_key: str
+    to_key: str
+    dependency_type: str
+    discovery_source: str
+    confidence_tier: str
+    on_propagation_path: bool = False
+
+
+class DependencyMapOut(BaseModel):
+    """Service dependency catalog + optional incident blast-radius overlay (M11)."""
+
+    environment: str
+    nodes: list[DependencyNodeOut] = Field(default_factory=list)
+    edges: list[DependencyEdgeOut] = Field(default_factory=list)
+    linked_service_keys: list[str] = Field(default_factory=list)
+    upstream_keys: list[str] = Field(default_factory=list)
+    downstream_keys: list[str] = Field(default_factory=list)
+    propagation_edge_ids: list[str] = Field(default_factory=list)

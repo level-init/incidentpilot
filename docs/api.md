@@ -24,12 +24,61 @@ make api-run
 
 ```bash
 curl -s http://localhost:8000/health
+curl -s -H 'Authorization: Bearer local-dev' http://localhost:8000/auth/me
 curl -s -H 'Authorization: Bearer local-dev' http://localhost:8000/incidents
+curl -s -H 'Authorization: Bearer local-dev' \
+  'http://localhost:8000/incidents?state=DETECTED&service=checkout'
 curl -s -X POST -H 'Authorization: Bearer local-dev' \
   -H 'Content-Type: application/json' \
-  -d '{"title":"demo"}' \
+  -d '{"title":"demo","severity":"SEV2","service_key":"checkout"}' \
   http://localhost:8000/incidents
 ```
+
+`GET /incidents` returns `service_keys[]` / `environments[]` and accepts
+`state` / `severity` / `service` query filters (M2). `GET /incidents/{id}`
+accepts UUID or `public_id` (M3 header + Slack deep links).
+
+`GET /evidence?incident_id=` and `GET /hypotheses?incident_id=` include
+`provenance` (and hypotheses also `cited_evidence_ids`) for the M4 panes.
+
+`GET /incidents/{id}/remediation` returns remediation cards (params, risk,
+policy, approval, attempts with `unsafe_to_retry` for UNKNOWN/PARTIAL) for M5.
+
+M6 context:
+
+- `GET /incidents/{id}/changes` — changes for linked services
+- `GET /incidents/{id}/runbook` — pinned runbook with `allowed_action_types`
+  (authority) and `body_markdown` (untrusted prose)
+
+M10 concurrency tokens:
+
+- `POST /approvals/{id}/decide` requires `action_version` (client token).
+  Mismatch → **409** `STALE_ACTION_VERSION` (refresh UI; no success).
+- `POST /incidents/{id}/resolve` requires `expected_revision` (same pattern).
+
+M9 postmortem / audit / provenance:
+
+- `GET /incidents/{id}/postmortem` (+ draft/finalize/export) — Viewer read; write = Responder+
+- `GET /incidents/{id}/audit` — Viewer+
+- `GET /incidents/{id}/ai-invocations` + `GET /ai-invocations/{id}/provenance` — **Admin only**
+
+M8 admin (Admin / `admin:config` only):
+
+- `GET /admin/policies` — policy keys + active/latest versions
+- `GET/POST /admin/runbooks`, `POST …/versions`, `POST …/publish` — catalog + publish
+- `GET /admin/integrations` — connector scope/health; **never returns secrets**
+
+Policy version history/publish/activate remain under `/policies/{key}/versions`
+(I7). Dashboard admin UI: [web.md](web.md).
+
+M7 contextual manual resolve (no generic Resolve):
+
+- `GET /incidents/{id}/resolve-context` — `eligible` only when state is
+  `RECOVERED`; includes validation health
+- `POST /incidents/{id}/resolve` — reason + revision; audits
+  `incident.manual_resolve`; `RECOVERED → RESOLVED`
+
+Dashboard: [web.md](web.md) (`make web-dev`).
 
 Published contract: [openapi/openapi.json](../openapi/openapi.json) (`make openapi-export`).
 

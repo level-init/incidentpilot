@@ -26,8 +26,13 @@ HTTP: `Authorization: Bearer <token>` only. Identity headers like `X-Actor` are
 | `local-dev-evaluator` | `user_local_evaluator` | viewer | **yes** |
 
 ```bash
+curl -s -H 'Authorization: Bearer local-dev' http://localhost:8000/auth/me
 curl -s -H 'Authorization: Bearer local-dev' http://localhost:8000/incidents
 ```
+
+`GET /auth/me` returns the session principal (`actor_id`, `role`, `auth_mode`,
+`email`, `eval_entitled`) for the web shell (M1). There is no cookie login —
+the UI stores the Bearer token and sends it on each request.
 
 Forged body identity fails:
 
@@ -43,7 +48,8 @@ Session identity on human actions:
 
 - `POST /incidents/{id}/observations` → Evidence `HUMAN_OBSERVATION` with
   `provenance.actor_id` = session (K5; Responder+; not absolute truth)
-- `POST /approvals/{id}/decide` → `decided_by` = session `actor_id`
+- `POST /approvals/{id}/decide` → `decided_by` = session `actor_id`;
+  body must include `action_version` (M10 stale guard)
 - `POST /eval/approvals/{id}/decide` (I6 harness) → `decided_by = harness:<actor_id>`;
   requires `eval_entitled` (ops Responder alone → **403**)
 

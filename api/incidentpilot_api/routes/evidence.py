@@ -123,7 +123,7 @@ def produce_evidence(
         cur.execute(
             """
             SELECT id, evidence_key, incident_id, kind, summary, fingerprint,
-                   observed_at, producer
+                   observed_at, producer, provenance
             FROM domain.evidence WHERE id = %s
             """,
             (str(result.evidence_id),),
