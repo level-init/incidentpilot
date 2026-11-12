@@ -17,6 +17,7 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/product-overview.md](docs/product-overview.md) | Product goal, closed loop, locked design decisions |
 | [docs/scenarios.md](docs/scenarios.md) | Scenario runner (N1): baseline gate, FAILED vs scored |
 | [docs/ground-truth.md](docs/ground-truth.md) | Evaluator-only GroundTruth schema + isolation (N2) |
+| [docs/eval-metrics.md](docs/eval-metrics.md) | Operational metric formulas + RootCauseMatchSpec (N5) |
 | [docs/sim-baseline.md](docs/sim-baseline.md) | Sim health/ready baseline contract (E4) |
 | [docs/git-standards.md](docs/git-standards.md) | Branching, commits, PRs (`main` / `dev`) |
 | [docs/repo-layout.md](docs/repo-layout.md) | Monorepo packages ↔ deployables |
