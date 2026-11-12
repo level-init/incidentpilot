@@ -20,7 +20,8 @@ Sign in with a stub persona (`local-dev` responder, `local-dev-admin`,
 in `sessionStorage`.
 
 - **Ops nav** — visible for every authenticated role (starts with Incidents).
-- **Admin nav** — only when `role === admin`.
+- **Admin nav** — only when `role === admin`; `/admin` tabs for policies,
+  runbook publish, and integration scope (secrets never shown) (M8).
 - **Eval UI** — intentionally omitted (C3 / later epic).
 - **`/incidents`** — overview metrics + filterable list (severity / state /
   service / duration) via `GET /incidents` (M2).

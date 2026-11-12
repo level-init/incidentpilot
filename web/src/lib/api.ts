@@ -250,6 +250,168 @@ export async function manualResolve(
   }
 }
 
+export type PolicyKey = {
+  policy_key: string;
+  version_count: number;
+  latest_version: number;
+  active_version: number | null;
+};
+
+export type PolicyVersion = {
+  policy_definition_id: string;
+  policy_key: string;
+  version: number;
+  version_label: string;
+  body: Record<string, unknown>;
+  notes: string | null;
+  created_by: string;
+  active: boolean;
+};
+
+export type AdminRunbookVersion = {
+  runbook_version_id: string;
+  runbook_id: string;
+  version: number;
+  status: string;
+  allowed_action_types: string[];
+  proposed_by: string | null;
+  created_at: string | null;
+};
+
+export type AdminRunbook = {
+  runbook_id: string;
+  key: string;
+  title: string;
+  hypothesis_class: string | null;
+  description: string | null;
+  service_key: string | null;
+  active_version_id: string | null;
+  active_version: number | null;
+  active_status: string | null;
+  active_allowed_action_types: string[];
+  versions: AdminRunbookVersion[];
+};
+
+export type IntegrationStatus = {
+  key: string;
+  display_name: string;
+  kind: string;
+  configured: boolean;
+  endpoint: string | null;
+  scope: Record<string, unknown>;
+  secrets_exposed: boolean;
+  notes: string | null;
+};
+
+export async function listAdminPolicies(): Promise<PolicyKey[]> {
+  const res = await apiFetch("/admin/policies");
+  if (!res.ok) {
+    throw new Error((await res.text()) || `admin policies failed (${res.status})`);
+  }
+  return (await res.json()) as PolicyKey[];
+}
+
+export async function listPolicyVersions(
+  policyKey: string,
+): Promise<PolicyVersion[]> {
+  const res = await apiFetch(
+    `/policies/${encodeURIComponent(policyKey)}/versions`,
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `policy versions failed (${res.status})`);
+  }
+  return (await res.json()) as PolicyVersion[];
+}
+
+export async function publishPolicyVersion(
+  policyKey: string,
+  body: { body: Record<string, unknown>; notes?: string; activate?: boolean },
+): Promise<PolicyVersion> {
+  const res = await apiFetch(`/policies/${encodeURIComponent(policyKey)}/versions`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error((await res.text()) || `publish policy failed (${res.status})`);
+  }
+  return (await res.json()) as PolicyVersion;
+}
+
+export async function activatePolicyVersion(
+  policyKey: string,
+  version: number,
+): Promise<void> {
+  const res = await apiFetch(
+    `/policies/${encodeURIComponent(policyKey)}/versions/${version}/activate`,
+    { method: "POST" },
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `activate policy failed (${res.status})`);
+  }
+}
+
+export async function listAdminRunbooks(): Promise<AdminRunbook[]> {
+  const res = await apiFetch("/admin/runbooks");
+  if (!res.ok) {
+    throw new Error((await res.text()) || `admin runbooks failed (${res.status})`);
+  }
+  return (await res.json()) as AdminRunbook[];
+}
+
+export async function createAdminRunbook(body: {
+  key: string;
+  title: string;
+  service_key?: string;
+  hypothesis_class?: string;
+  description?: string;
+}): Promise<AdminRunbook> {
+  const res = await apiFetch("/admin/runbooks", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error((await res.text()) || `create runbook failed (${res.status})`);
+  }
+  return (await res.json()) as AdminRunbook;
+}
+
+export async function createAdminRunbookVersion(
+  runbookId: string,
+  body: { body_markdown: string; allowed_action_types: string[] },
+): Promise<AdminRunbookVersion> {
+  const res = await apiFetch(
+    `/admin/runbooks/${encodeURIComponent(runbookId)}/versions`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `create version failed (${res.status})`);
+  }
+  return (await res.json()) as AdminRunbookVersion;
+}
+
+export async function publishAdminRunbookVersion(
+  runbookVersionId: string,
+): Promise<AdminRunbookVersion> {
+  const res = await apiFetch(
+    `/admin/runbooks/versions/${encodeURIComponent(runbookVersionId)}/publish`,
+    { method: "POST" },
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `publish version failed (${res.status})`);
+  }
+  return (await res.json()) as AdminRunbookVersion;
+}
+
+export async function listAdminIntegrations(): Promise<IntegrationStatus[]> {
+  const res = await apiFetch("/admin/integrations");
+  if (!res.ok) {
+    throw new Error(
+      (await res.text()) || `admin integrations failed (${res.status})`,
+    );
+  }
+  return (await res.json()) as IntegrationStatus[];
+}
+
 export type RemediationAttempt = {
   id: string;
   action_version: number;

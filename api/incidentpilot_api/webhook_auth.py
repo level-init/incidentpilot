@@ -43,6 +43,24 @@ def webhook_auth_configured() -> bool:
     return bool(_configured_bearer() or _configured_basic() or _configured_header())
 
 
+def alertmanager_auth_mechanisms() -> list[str]:
+    """Configured auth mechanism names only — never secret values (M8)."""
+    mechanisms: list[str] = []
+    if _configured_bearer():
+        mechanisms.append("bearer")
+    if _configured_basic():
+        mechanisms.append("basic")
+    if _configured_header() is not None:
+        mechanisms.append("custom_header")
+    return mechanisms
+
+
+def alertmanager_custom_header_name() -> str | None:
+    """Header name if custom-header auth is configured (value never returned)."""
+    configured = _configured_header()
+    return None if configured is None else configured[0]
+
+
 def _const_eq(a: str, b: str) -> bool:
     return hmac.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
 
