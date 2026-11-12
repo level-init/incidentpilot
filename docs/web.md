@@ -68,6 +68,27 @@ curl -s -H 'Authorization: Bearer local-dev' \
   "http://localhost:8000/hypotheses?incident_id=<uuid>"
 ```
 
+## Postmortem + audit / provenance (M9)
+
+On `/incidents/[id]`:
+
+| Section | Who | Notes |
+| --- | --- | --- |
+| Postmortem | Viewer read; Responder/Admin draft + finalize | After RESOLVED; export when FINAL |
+| Audit | Viewer+ | Compliance trail (`GET …/audit`), not Timeline |
+| AI provenance | **Admin only** | List invocations + open lineage; hidden for others |
+
+```bash
+curl -s -H 'Authorization: Bearer local-dev-viewer' \
+  http://localhost:8000/incidents/<uuid>/audit?order=asc
+curl -s -H 'Authorization: Bearer local-dev-admin' \
+  http://localhost:8000/incidents/<uuid>/ai-invocations
+curl -s -H 'Authorization: Bearer local-dev-admin' \
+  http://localhost:8000/ai-invocations/<invocation>/provenance
+```
+
+Eval snapshot UI remains out of scope.
+
 ## Admin: policies / runbooks / integrations (M8)
 
 `/admin` is **Admin-only** (`requireAdmin` + `admin:config` APIs). Tabs:

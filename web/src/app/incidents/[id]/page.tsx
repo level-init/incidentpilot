@@ -4,10 +4,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { AiProvenancePanel } from "@/components/AiProvenancePanel";
 import { AppShell } from "@/components/AppShell";
+import { AuditTrailPanel } from "@/components/AuditTrailPanel";
 import { EvidenceHypothesesPanes } from "@/components/EvidenceHypothesesPanes";
 import { InvestigationContext } from "@/components/InvestigationContext";
 import { ManualResolvePanel } from "@/components/ManualResolvePanel";
+import { PostmortemPanel } from "@/components/PostmortemPanel";
 import { RemediationPanel } from "@/components/RemediationPanel";
 import {
   formatDuration,
@@ -135,6 +138,16 @@ export default function IncidentDetailPage() {
             incidentId={incident.id}
             onResolved={() => void load()}
           />
+
+          <PostmortemPanel
+            incidentId={incident.id}
+            incidentState={incident.state}
+            onChanged={() => void load()}
+          />
+
+          <AuditTrailPanel incidentId={incident.id} />
+
+          <AiProvenancePanel incidentId={incident.id} />
 
           <section className="timeline-pane" aria-label="Timeline">
             <div className="timeline-head">

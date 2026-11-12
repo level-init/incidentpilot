@@ -50,6 +50,12 @@ M6 context:
 - `GET /incidents/{id}/runbook` — pinned runbook with `allowed_action_types`
   (authority) and `body_markdown` (untrusted prose)
 
+M9 postmortem / audit / provenance:
+
+- `GET /incidents/{id}/postmortem` (+ draft/finalize/export) — Viewer read; write = Responder+
+- `GET /incidents/{id}/audit` — Viewer+
+- `GET /incidents/{id}/ai-invocations` + `GET /ai-invocations/{id}/provenance` — **Admin only**
+
 M8 admin (Admin / `admin:config` only):
 
 - `GET /admin/policies` — policy keys + active/latest versions

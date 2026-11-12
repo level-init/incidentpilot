@@ -412,6 +412,152 @@ export async function listAdminIntegrations(): Promise<IntegrationStatus[]> {
   return (await res.json()) as IntegrationStatus[];
 }
 
+export type Postmortem = {
+  id: string;
+  incident_id: string;
+  status: string;
+  title: string;
+  body_markdown: string;
+  corrective_actions: Array<Record<string, unknown>>;
+};
+
+export type AuditEvent = {
+  id: string;
+  incident_id: string | null;
+  action: string;
+  actor: string;
+  resource_type: string;
+  resource_id: string | null;
+  outcome: string;
+  occurred_at: string;
+  details: Record<string, unknown>;
+};
+
+export type AiInvocationSummary = {
+  invocation_id: string;
+  incident_id: string | null;
+  purpose: string;
+  provider: string;
+  model: string;
+  status: string;
+  artifact_uri: string | null;
+  created_at: string;
+};
+
+export type AiInvocationProvenance = {
+  invocation_id: string;
+  incident_id: string | null;
+  purpose: string;
+  provider: string;
+  model: string;
+  status: string;
+  prompt_version: string | null;
+  input_evidence_ids: string[];
+  artifact_uri: string | null;
+  request_metadata: Record<string, unknown>;
+  response_metadata: Record<string, unknown>;
+  error_summary: string | null;
+  created_at: string;
+  prompt_hash: string | null;
+  response_hash: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  latency_ms: number | null;
+};
+
+export async function getPostmortem(
+  incidentId: string,
+): Promise<Postmortem | null> {
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/postmortem`,
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error((await res.text()) || `postmortem failed (${res.status})`);
+  }
+  return (await res.json()) as Postmortem;
+}
+
+export async function createPostmortemDraft(
+  incidentId: string,
+  body: Record<string, unknown> = {},
+): Promise<void> {
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/postmortem/draft`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `draft failed (${res.status})`);
+  }
+}
+
+export async function finalizePostmortem(
+  incidentId: string,
+  corrective_actions: Array<Record<string, unknown>>,
+): Promise<void> {
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/postmortem/finalize`,
+    {
+      method: "POST",
+      body: JSON.stringify({ corrective_actions }),
+    },
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `finalize failed (${res.status})`);
+  }
+}
+
+export async function exportPostmortem(
+  incidentId: string,
+): Promise<Record<string, unknown>> {
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/postmortem/export`,
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `export failed (${res.status})`);
+  }
+  return (await res.json()) as Record<string, unknown>;
+}
+
+export async function listAudit(
+  incidentId: string,
+  order: "asc" | "desc" = "asc",
+): Promise<AuditEvent[]> {
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/audit?order=${order}`,
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `audit failed (${res.status})`);
+  }
+  return (await res.json()) as AuditEvent[];
+}
+
+export async function listIncidentAiInvocations(
+  incidentId: string,
+): Promise<AiInvocationSummary[]> {
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/ai-invocations`,
+  );
+  if (!res.ok) {
+    throw new Error(
+      (await res.text()) || `ai-invocations failed (${res.status})`,
+    );
+  }
+  return (await res.json()) as AiInvocationSummary[];
+}
+
+export async function getAiInvocationProvenance(
+  invocationId: string,
+): Promise<AiInvocationProvenance> {
+  const res = await apiFetch(
+    `/ai-invocations/${encodeURIComponent(invocationId)}/provenance`,
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `provenance failed (${res.status})`);
+  }
+  return (await res.json()) as AiInvocationProvenance;
+}
+
 export type RemediationAttempt = {
   id: string;
   action_version: number;

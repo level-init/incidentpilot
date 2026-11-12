@@ -3093,6 +3093,70 @@
         }
       }
     },
+    "/incidents/{incident_id}/ai-invocations": {
+      "get": {
+        "tags": [
+          "ai-invocations"
+        ],
+        "summary": "List AI invocations for an incident (Admin / M9)",
+        "description": "Admin-only index so provenance lineage can be opened from the UI.",
+        "operationId": "list_incident_ai_invocations_incidents__incident_id__ai_invocations_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiInvocationSummaryOut"
+                  },
+                  "title": "Response List Incident Ai Invocations Incidents  Incident Id  Ai Invocations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ai-invocations/{invocation_id}/provenance": {
       "get": {
         "tags": [
@@ -4004,6 +4068,70 @@
           "created_at"
         ],
         "title": "AiInvocationProvenanceOut"
+      },
+      "AiInvocationSummaryOut": {
+        "properties": {
+          "invocation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Invocation Id"
+          },
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "purpose": {
+            "type": "string",
+            "title": "Purpose"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "artifact_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Uri"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "invocation_id",
+          "purpose",
+          "provider",
+          "model",
+          "status",
+          "created_at"
+        ],
+        "title": "AiInvocationSummaryOut",
+        "description": "Admin list row for incident-scoped AI invocations (M9)."
       },
       "AlertIngressAccepted": {
         "properties": {
