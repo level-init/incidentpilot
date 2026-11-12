@@ -50,6 +50,15 @@ M6 context:
 - `GET /incidents/{id}/runbook` — pinned runbook with `allowed_action_types`
   (authority) and `body_markdown` (untrusted prose)
 
+M8 admin (Admin / `admin:config` only):
+
+- `GET /admin/policies` — policy keys + active/latest versions
+- `GET/POST /admin/runbooks`, `POST …/versions`, `POST …/publish` — catalog + publish
+- `GET /admin/integrations` — connector scope/health; **never returns secrets**
+
+Policy version history/publish/activate remain under `/policies/{key}/versions`
+(I7). Dashboard admin UI: [web.md](web.md).
+
 M7 contextual manual resolve (no generic Resolve):
 
 - `GET /incidents/{id}/resolve-context` — `eligible` only when state is

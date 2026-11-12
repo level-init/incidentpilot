@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from incidentpilot_api.auth import reject_spoofed_identity
 from incidentpilot_api.routes import (
+    admin,
     ai_invocations,
     auth,
     evidence,
@@ -56,6 +57,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(incidents.router)
 app.include_router(resources.router)
 app.include_router(evidence.router)

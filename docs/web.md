@@ -68,6 +68,27 @@ curl -s -H 'Authorization: Bearer local-dev' \
   "http://localhost:8000/hypotheses?incident_id=<uuid>"
 ```
 
+## Admin: policies / runbooks / integrations (M8)
+
+`/admin` is **Admin-only** (`requireAdmin` + `admin:config` APIs). Tabs:
+
+| Tab | APIs | Notes |
+| --- | --- | --- |
+| Policies | `GET /admin/policies`, `GET/POST /policies/{key}/versions`, activate | Version history visible |
+| Runbooks | `GET/POST /admin/runbooks`, draft version, publish | Authority = `allowed_action_types` |
+| Integrations | `GET /admin/integrations` | Scope/health flags only |
+
+**Secrets are never shown** — integration responses expose configured/mechanism
+flags (`signing_secret_configured`, `auth_mechanisms_configured`, …) and set
+`secrets_exposed: false`. Token/password/signing-secret values are omitted.
+
+```bash
+curl -s -H 'Authorization: Bearer local-dev-admin' \
+  http://localhost:8000/admin/policies
+curl -s -H 'Authorization: Bearer local-dev-admin' \
+  http://localhost:8000/admin/integrations
+```
+
 ## Contextual manual resolve (M7)
 
 No generic always-on **Resolve** control on the automated path. The detail page

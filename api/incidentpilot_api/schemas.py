@@ -347,6 +347,66 @@ class PinnedRunbookOut(BaseModel):
     )
 
 
+class PolicyKeyOut(BaseModel):
+    """Admin summary of a policy_key (M8)."""
+
+    policy_key: str
+    version_count: int
+    latest_version: int
+    active_version: int | None = None
+
+
+class AdminRunbookVersionOut(BaseModel):
+    runbook_version_id: UUID
+    runbook_id: UUID
+    version: int
+    status: str
+    allowed_action_types: list[str] = Field(default_factory=list)
+    proposed_by: str | None = None
+    created_at: str | None = None
+
+
+class AdminRunbookOut(BaseModel):
+    runbook_id: UUID
+    key: str
+    title: str
+    hypothesis_class: str | None = None
+    description: str | None = None
+    service_key: str | None = None
+    active_version_id: UUID | None = None
+    active_version: int | None = None
+    active_status: str | None = None
+    active_allowed_action_types: list[str] = Field(default_factory=list)
+    versions: list[AdminRunbookVersionOut] = Field(default_factory=list)
+
+
+class AdminRunbookCreate(BaseModel):
+    key: str = Field(min_length=1, max_length=200)
+    title: str = Field(min_length=1, max_length=500)
+    hypothesis_class: str | None = None
+    description: str | None = None
+    service_key: str | None = None
+    environment: str = "local"
+
+
+class AdminRunbookVersionCreate(BaseModel):
+    body_markdown: str = ""
+    allowed_action_types: list[str] = Field(min_length=1)
+
+
+class IntegrationStatusOut(BaseModel):
+    """Connector scope/health for admin — secrets_exposed always false (M8)."""
+
+    key: str
+    display_name: str
+    kind: str
+    configured: bool
+    endpoint: str | None = None
+    scope: dict[str, Any] = Field(default_factory=dict)
+    secrets_exposed: bool = False
+    notes: str | None = None
+
+
 class ResolveHealthOut(BaseModel):
     outcome: str | None = None
     criteria: dict[str, Any] = Field(default_factory=dict)
