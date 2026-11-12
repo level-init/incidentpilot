@@ -69,6 +69,27 @@ async function apiFetch(path: string, init: RequestInit = {}): Promise<Response>
   return fetch(`${apiBase()}${path}`, { ...init, headers });
 }
 
+/** HTTP error with status — used for stale concurrency handling (M10). */
+export class ApiError extends Error {
+  status: number;
+  body: string;
+
+  constructor(status: number, body: string, fallback: string) {
+    super(body || fallback);
+    this.name = "ApiError";
+    this.status = status;
+    this.body = body;
+  }
+
+  get isStale(): boolean {
+    return (
+      this.status === 409 &&
+      (/STALE_ACTION_VERSION/i.test(this.body) ||
+        /stale revision/i.test(this.body))
+    );
+  }
+}
+
 export async function listIncidents(
   filters: IncidentListFilters = {},
 ): Promise<Incident[]> {
@@ -246,7 +267,11 @@ export async function manualResolve(
     },
   );
   if (!res.ok) {
-    throw new Error((await res.text()) || `resolve failed (${res.status})`);
+    throw new ApiError(
+      res.status,
+      await res.text(),
+      `resolve failed (${res.status})`,
+    );
   }
 }
 
@@ -608,16 +633,21 @@ export async function listRemediation(
 export async function decideApproval(
   approvalId: string,
   status: "APPROVED" | "REJECTED",
+  actionVersion: number,
 ): Promise<void> {
   const res = await apiFetch(
     `/approvals/${encodeURIComponent(approvalId)}/decide`,
     {
       method: "POST",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, action_version: actionVersion }),
     },
   );
   if (!res.ok) {
-    throw new Error((await res.text()) || `decide failed (${res.status})`);
+    throw new ApiError(
+      res.status,
+      await res.text(),
+      `decide failed (${res.status})`,
+    );
   }
 }
 

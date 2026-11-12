@@ -153,7 +153,7 @@ def test_remediation_shows_scope_and_unknown_unsafe(client: TestClient) -> None:
     decide = client.post(
         f"/approvals/{approval_id}/decide",
         headers=headers,
-        json={"status": "APPROVED"},
+        json={"status": "APPROVED", "action_version": 1},
     )
     assert decide.status_code == 200, decide.text
     refreshed = client.get(f"/incidents/{iid}/remediation", headers=headers)

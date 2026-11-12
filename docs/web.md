@@ -68,6 +68,18 @@ curl -s -H 'Authorization: Bearer local-dev' \
   "http://localhost:8000/hypotheses?incident_id=<uuid>"
 ```
 
+## Stale revision / version UX (M10)
+
+Mutating UI sends concurrency tokens; stale SoR state is **rejected**, never
+silently ignored, and never shown as success.
+
+| Action | Token | On 409 stale |
+| --- | --- | --- |
+| Approve / Reject remediation | `action_version` on `POST /approvals/{id}/decide` | Banner + panel refresh |
+| Manual resolve | `expected_revision` on `POST …/resolve` | Banner + context refresh |
+
+Success stays a silent refresh (no success toast).
+
 ## Postmortem + audit / provenance (M9)
 
 On `/incidents/[id]`:

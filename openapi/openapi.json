@@ -4234,11 +4234,18 @@
             "type": "string",
             "title": "Status",
             "description": "APPROVED or REJECTED"
+          },
+          "action_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Action Version",
+            "description": "Client concurrency token \u2014 must match approval.action_version (M10/I4)"
           }
         },
         "type": "object",
         "required": [
-          "status"
+          "status",
+          "action_version"
         ],
         "title": "ApprovalDecideBody"
       },

@@ -31,7 +31,8 @@ in `sessionStorage`.
   Remediation panel with approve/reject + UNKNOWN unsafe-to-retry (M5);
   Contextual Manual resolve only when RECOVERED (reason + health + audit) (M7)
   — no generic Resolve; Postmortem + Audit (Viewer limited) and Admin-only
-  AI provenance lineage (M9).
+  AI provenance lineage (M9); stale approve/resolve shows rejection + refresh,
+  no success toast (M10).
 
 Port **3000** matches `INCIDENTPILOT_WEB_BASE_URL` deep links. If Compose
 Grafana is also on 3000 (evidence profile), stop Grafana or remap one of them.

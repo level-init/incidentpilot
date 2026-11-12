@@ -48,7 +48,8 @@ Session identity on human actions:
 
 - `POST /incidents/{id}/observations` → Evidence `HUMAN_OBSERVATION` with
   `provenance.actor_id` = session (K5; Responder+; not absolute truth)
-- `POST /approvals/{id}/decide` → `decided_by` = session `actor_id`
+- `POST /approvals/{id}/decide` → `decided_by` = session `actor_id`;
+  body must include `action_version` (M10 stale guard)
 - `POST /eval/approvals/{id}/decide` (I6 harness) → `decided_by = harness:<actor_id>`;
   requires `eval_entitled` (ops Responder alone → **403**)
 
