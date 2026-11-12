@@ -15,6 +15,8 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | Doc | Purpose |
 | --- | --- |
 | [docs/product-overview.md](docs/product-overview.md) | Product goal, closed loop, locked design decisions |
+| [docs/scenarios.md](docs/scenarios.md) | Scenario runner (N1): baseline gate, FAILED vs scored |
+| [docs/sim-baseline.md](docs/sim-baseline.md) | Sim health/ready baseline contract (E4) |
 | [docs/git-standards.md](docs/git-standards.md) | Branching, commits, PRs (`main` / `dev`) |
 | [docs/repo-layout.md](docs/repo-layout.md) | Monorepo packages ↔ deployables |
 | [docs/local-compose.md](docs/local-compose.md) | Compose profiles (`core` / `evidence` / `simulation` / `full`) |

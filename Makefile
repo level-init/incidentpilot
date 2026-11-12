@@ -20,7 +20,8 @@ RPS ?= 1
 	compose-core compose-full compose-up compose-down compose-ps compose-config \
 	migrate db-verify-isolation verify-local-infra openapi-export api-run web-dev \
 	temporal-queue-smoke test-temporal-d6 sim-happy-path sim-contract-scan test-sim-contract \
-	obs-smoke sim-traffic sim-baseline-gate sim-inject
+	obs-smoke sim-traffic sim-baseline-gate sim-inject \
+	scenario-list scenario-run scenario-reset
 
 help:
 	@echo "Targets:"
@@ -46,6 +47,9 @@ help:
 	@echo "  make sim-baseline-gate     - curl all /healthz + gateway /readyz (E4)"
 	@echo "  make sim-traffic           - baseline load (DURATION=60 RPS=1)"
 	@echo "  make sim-inject ARGS='…'   - fault injectors (list|activate|reset|status)"
+	@echo "  make scenario-list         - list scenarios.scenario catalog (N1)"
+	@echo "  make scenario-run ARGS='…' - run scenario (baseline→inject; FAILED if dirty)"
+	@echo "  make scenario-reset        - clear faults; keep ScenarioRun history"
 	@echo "  make obs-smoke             - Prom/Loki/Tempo/Grafana/AM health (evidence profile)"
 	@echo "  make openapi-export        - write openapi/openapi.json"
 	@echo "  make api-run               - run FastAPI on :8000"
@@ -130,6 +134,18 @@ sim-traffic: $(VENV)
 
 sim-inject: $(VENV)
 	./scripts/sim_inject.sh $(ARGS)
+
+scenario-list: $(VENV)
+	PYTHONPATH="$(CURDIR)/scenario_runner:$(CURDIR)/simulation" \
+		$(BIN)/python -m incidentpilot_scenario_runner list
+
+scenario-run: $(VENV)
+	PYTHONPATH="$(CURDIR)/scenario_runner:$(CURDIR)/simulation" \
+		$(BIN)/python -m incidentpilot_scenario_runner run $(ARGS)
+
+scenario-reset: $(VENV)
+	PYTHONPATH="$(CURDIR)/scenario_runner:$(CURDIR)/simulation" \
+		$(BIN)/python -m incidentpilot_scenario_runner reset
 
 obs-smoke:
 	./scripts/verify_obs_stack.sh
