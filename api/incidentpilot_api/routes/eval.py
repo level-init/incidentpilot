@@ -31,6 +31,14 @@ from incidentpilot_shared.operational_evaluation import (
     get_operational_evaluation_for_run,
     pin_operational_evaluation,
 )
+from incidentpilot_shared.postmortem_evaluation import (
+    PostmortemEvalError,
+    PostmortemEvaluationView,
+    get_postmortem_evaluation,
+    get_postmortem_evaluation_for_run,
+    list_evaluation_family,
+    pin_postmortem_evaluation,
+)
 from incidentpilot_shared.scenario_lifecycle import (
     IllegalScenarioTransition,
     ScenarioRunView,
@@ -150,6 +158,62 @@ def _operational_out(view: OperationalEvaluationView) -> OperationalEvaluationOu
         environment_manifest_id=view.environment_manifest_id,
         ground_truth_id=view.ground_truth_id,
         ground_truth_version=view.ground_truth_version,
+        scenario_key=view.scenario_key,
+        passed=view.passed,
+        score=view.score,
+        hard_fail=view.hard_fail,
+        threshold=view.threshold,
+        metrics_payload=list(view.metrics_payload),
+        summary=dict(view.summary),
+        metric_engine_version=view.metric_engine_version,
+        created_at=view.created_at,
+        idempotent_hit=view.idempotent_hit,
+    )
+
+
+class PostmortemPinBody(BaseModel):
+    incident_id: UUID
+    threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+
+
+class PostmortemEvaluationOut(BaseModel):
+    id: UUID
+    scenario_run_id: UUID
+    operational_evaluation_id: UUID
+    incident_id: UUID
+    postmortem_id: UUID
+    pinned_incident_revision: int
+    environment_manifest_id: UUID | None = None
+    ground_truth_id: UUID | None = None
+    scenario_key: str
+    passed: bool
+    score: float | None = None
+    hard_fail: bool = False
+    threshold: float
+    metrics_payload: list[dict[str, object]] = Field(default_factory=list)
+    summary: dict[str, object] = Field(default_factory=dict)
+    metric_engine_version: str
+    created_at: datetime | None = None
+    idempotent_hit: bool = False
+
+
+class EvaluationFamilyOut(BaseModel):
+    scenario_run_id: str
+    operational_evaluation: dict[str, object] | None = None
+    postmortem_evaluation: dict[str, object] | None = None
+    count: int
+
+
+def _postmortem_out(view: PostmortemEvaluationView) -> PostmortemEvaluationOut:
+    return PostmortemEvaluationOut(
+        id=view.id,
+        scenario_run_id=view.scenario_run_id,
+        operational_evaluation_id=view.operational_evaluation_id,
+        incident_id=view.incident_id,
+        postmortem_id=view.postmortem_id,
+        pinned_incident_revision=view.pinned_incident_revision,
+        environment_manifest_id=view.environment_manifest_id,
+        ground_truth_id=view.ground_truth_id,
         scenario_key=view.scenario_key,
         passed=view.passed,
         score=view.score,
@@ -308,6 +372,74 @@ def get_operational_evaluation_route(
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post(
+    "/scenario-runs/{run_id}/postmortem-evaluation",
+    response_model=PostmortemEvaluationOut,
+)
+def pin_postmortem_evaluation_route(
+    run_id: UUID,
+    body: PostmortemPinBody,
+    conn: Annotated[Connection, Depends(get_eval_conn_with_entitlement)],
+) -> PostmortemEvaluationOut:
+    """N7: pin immutable postmortem score at CLOSED (requires operational pin)."""
+    try:
+        view = pin_postmortem_evaluation(
+            conn,
+            scenario_run_id=run_id,
+            incident_id=body.incident_id,
+            threshold=body.threshold,
+            commit=True,
+        )
+    except PostmortemEvalError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return _postmortem_out(view)
+
+
+@router.get(
+    "/scenario-runs/{run_id}/postmortem-evaluation",
+    response_model=PostmortemEvaluationOut,
+)
+def get_postmortem_evaluation_for_run_route(
+    run_id: UUID,
+    conn: Annotated[Connection, Depends(get_eval_conn_with_entitlement)],
+) -> PostmortemEvaluationOut:
+    view = get_postmortem_evaluation_for_run(conn, scenario_run_id=run_id)
+    if view is None:
+        raise HTTPException(status_code=404, detail="postmortem evaluation not found")
+    return _postmortem_out(view)
+
+
+@router.get(
+    "/postmortem-evaluations/{evaluation_id}",
+    response_model=PostmortemEvaluationOut,
+)
+def get_postmortem_evaluation_route(
+    evaluation_id: UUID,
+    conn: Annotated[Connection, Depends(get_eval_conn_with_entitlement)],
+) -> PostmortemEvaluationOut:
+    try:
+        return _postmortem_out(
+            get_postmortem_evaluation(conn, evaluation_id=evaluation_id)
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get(
+    "/scenario-runs/{run_id}/evaluation-family",
+    response_model=EvaluationFamilyOut,
+)
+def get_evaluation_family_route(
+    run_id: UUID,
+    conn: Annotated[Connection, Depends(get_eval_conn_with_entitlement)],
+) -> EvaluationFamilyOut:
+    """N7 AC: both EvaluationResults for a scored run family."""
+    family = list_evaluation_family(conn, scenario_run_id=run_id)
+    return EvaluationFamilyOut(**family)
 
 
 @router.get("/ground-truth", response_model=list[GroundTruthOut])

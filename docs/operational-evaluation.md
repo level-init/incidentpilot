@@ -34,4 +34,5 @@ Non-`RESOLVED` incidents → **409**. `FAILED` ScenarioRuns → **409**.
 `eval.operational_evaluation` — see migration `0023`. Linked
 `scenarios.scenario_run.incident_id` is set on pin.
 
-N7 adds a postmortem-stage evaluation that links to this operational pin.
+N7 adds a postmortem-stage evaluation that links to this operational pin —
+[postmortem-evaluation.md](postmortem-evaluation.md).
