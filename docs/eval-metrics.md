@@ -4,7 +4,8 @@ Deterministic operational scoring for ScenarioRuns. **No LLM wording /
 prose-similarity metrics.** GroundTruth drives match specs; IncidentPilot SoR
 supplies observations.
 
-Package: `incidentpilot_evaluator.metrics`.
+Package: `incidentpilot_shared.eval_metrics` (re-exported as
+`incidentpilot_evaluator.metrics`).
 
 ## Inputs
 

@@ -49,6 +49,8 @@ curl -s -H 'Authorization: Bearer local-dev-evaluator' \
 # → environment_manifest: { environment_class, git_sha, python_version, … }
 ```
 
+Operational score pin at RESOLVED: [operational-evaluation.md](operational-evaluation.md) (N6).
+
 ## CLI
 
 Uses `DATABASE_URL_RUNNER` (`ip_runner`).

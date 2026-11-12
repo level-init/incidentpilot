@@ -6,9 +6,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "shared"))
 sys.path.insert(0, str(ROOT / "evaluator"))
 
-from incidentpilot_evaluator.metrics import (  # noqa: E402
+from incidentpilot_shared.eval_metrics import (  # noqa: E402
     IncidentScoreInput,
     RootCauseMatchSpec,
     evaluate_operational,
@@ -150,8 +151,8 @@ def test_evaluate_scored_fail_without_hard_fail() -> None:
 
 
 def test_no_llm_wording_metric_exported() -> None:
-    import incidentpilot_evaluator.metrics as m
-    import incidentpilot_evaluator.metrics.engine as eng
+    import incidentpilot_shared.eval_metrics as m
+    import incidentpilot_shared.eval_metrics.engine as eng
 
     names = set(dir(m)) | set(dir(eng))
     assert not any("wording" in n.lower() or "bleu" in n.lower() for n in names)
