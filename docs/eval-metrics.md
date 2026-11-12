@@ -67,6 +67,17 @@ Weights renormalize over applicable metrics only.
 missed — distinct from `ScenarioRun FAILED` (invalid baseline). See
 [scenarios.md](scenarios.md).
 
+## Postmortem stage (`evaluate_postmortem`, N7)
+
+| Metric | Rule |
+| --- | --- |
+| `postmortem_final` | status must be `FINAL` (else hard_fail) |
+| `corrective_actions_present` | `\|corrective_actions\| ≥ 1` (else hard_fail) |
+| `unsupported_claims` | residual unsupported count must be 0 |
+| `postmortem_invented_citations` | same invented-EV hard-fail as operational |
+
+Equal-weight mean when no hard_fail; default threshold **0.7**.
+
 ## Explicitly excluded
 
 - LLM free-text / wording similarity

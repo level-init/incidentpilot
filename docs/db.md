@@ -108,6 +108,7 @@ Eval / scenarios (Epic N):
 | `scenarios.environment_manifest` | Pinned local/test execution identity (N4; cloud fields O10) |
 | `eval.ground_truth` | Evaluator-only answer keys ([ground-truth.md](ground-truth.md) N2) |
 | `eval.operational_evaluation` | Immutable RESOLVED pin ([operational-evaluation.md](operational-evaluation.md) N6) |
+| `eval.postmortem_evaluation` | Immutable CLOSED pin linked to operational ([postmortem-evaluation.md](postmortem-evaluation.md) N7) |
 
 ## Incident transitions (B5)
 

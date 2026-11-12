@@ -19,6 +19,7 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/ground-truth.md](docs/ground-truth.md) | Evaluator-only GroundTruth schema + isolation (N2) |
 | [docs/eval-metrics.md](docs/eval-metrics.md) | Operational metric formulas + RootCauseMatchSpec (N5) |
 | [docs/operational-evaluation.md](docs/operational-evaluation.md) | Immutable OperationalEvaluation pin at RESOLVED (N6) |
+| [docs/postmortem-evaluation.md](docs/postmortem-evaluation.md) | PostmortemEvaluation pin at CLOSED + eval family (N7) |
 | [docs/sim-baseline.md](docs/sim-baseline.md) | Sim health/ready baseline contract (E4) |
 | [docs/git-standards.md](docs/git-standards.md) | Branching, commits, PRs (`main` / `dev`) |
 | [docs/repo-layout.md](docs/repo-layout.md) | Monorepo packages ↔ deployables |

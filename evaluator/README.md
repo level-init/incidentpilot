@@ -10,7 +10,8 @@ helpers. Implementation lives in `incidentpilot_shared.eval_metrics` and
 `incidentpilot_shared.operational_evaluation` so the API eval routes stay
 decoupled. See [docs/eval-metrics.md](../docs/eval-metrics.md).
 
-**Owns (later):** PostmortemEvaluation pins (N7).
+**Owns (N7 surface):** postmortem-stage pin re-exported via shared
+`postmortem_evaluation` (CLOSED + link to operational).
 
 **Must not:** be imported by investigation path (`api`, `worker`, remediation).
 
