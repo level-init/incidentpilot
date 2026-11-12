@@ -33,6 +33,11 @@ create_postmortem_draft_command(conn, incident_id=incident_id)
 - Persists `domain.postmortem` (`DRAFT`), `cited_evidence_ids`, `provenance.claims`
 - Refreshing an existing DRAFT is allowed; FINAL is immutable (L5)
 
+## Web UI (M9)
+
+Incident detail shows a **Postmortem** panel: Viewers read; Responders/Admins
+create drafts and finalize. See [web.md](web.md).
+
 ## HTTP
 
 ```http

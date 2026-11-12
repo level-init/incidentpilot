@@ -254,6 +254,19 @@ class AuditEventOut(BaseModel):
     details: dict[str, Any] = Field(default_factory=dict)
 
 
+class AiInvocationSummaryOut(BaseModel):
+    """Admin list row for incident-scoped AI invocations (M9)."""
+
+    invocation_id: UUID
+    incident_id: UUID | None = None
+    purpose: str
+    provider: str
+    model: str
+    status: str
+    artifact_uri: str | None = None
+    created_at: datetime
+
+
 class PostmortemOut(BaseModel):
     id: UUID
     incident_id: UUID

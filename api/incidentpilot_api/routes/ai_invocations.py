@@ -1,4 +1,4 @@
-"""L3: AIInvocation provenance API (Admin-gated)."""
+"""L3/M9: AIInvocation provenance API (Admin-gated)."""
 
 from __future__ import annotations
 
@@ -8,14 +8,19 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from psycopg import Connection
+from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
-from incidentpilot_api.auth import Principal, get_principal
-from incidentpilot_api.db import get_conn
-from incidentpilot_api.rbac import Permission, require_permission
+from incidentpilot_api.db import get_conn_with_permission
+from incidentpilot_api.rbac import Permission
+from incidentpilot_api.schemas import AiInvocationSummaryOut
 from incidentpilot_shared.ai_invocation import get_ai_invocation_provenance
 
 router = APIRouter(tags=["ai-invocations"])
+
+_AdminConn = Annotated[
+    Connection, Depends(get_conn_with_permission(Permission.ADMIN_CONFIG))
+]
 
 
 class AiInvocationProvenanceOut(BaseModel):
@@ -40,16 +45,52 @@ class AiInvocationProvenanceOut(BaseModel):
 
 
 @router.get(
+    "/incidents/{incident_id}/ai-invocations",
+    response_model=list[AiInvocationSummaryOut],
+    summary="List AI invocations for an incident (Admin / M9)",
+)
+def list_incident_ai_invocations(
+    incident_id: UUID,
+    conn: _AdminConn,
+) -> list[AiInvocationSummaryOut]:
+    """Admin-only index so provenance lineage can be opened from the UI."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            SELECT id, incident_id, purpose, provider, model, status,
+                   artifact_uri, created_at
+            FROM domain.ai_invocation
+            WHERE incident_id = %s
+            ORDER BY created_at DESC
+            LIMIT 100
+            """,
+            (str(incident_id),),
+        )
+        rows = cur.fetchall()
+    return [
+        AiInvocationSummaryOut(
+            invocation_id=r["id"],
+            incident_id=r["incident_id"],
+            purpose=str(r["purpose"]),
+            provider=str(r["provider"]),
+            model=str(r["model"]),
+            status=str(r["status"]),
+            artifact_uri=None if r["artifact_uri"] is None else str(r["artifact_uri"]),
+            created_at=r["created_at"],
+        )
+        for r in rows
+    ]
+
+
+@router.get(
     "/ai-invocations/{invocation_id}/provenance",
     response_model=AiInvocationProvenanceOut,
 )
 def get_provenance(
     invocation_id: UUID,
-    principal: Annotated[Principal, Depends(get_principal)],
-    conn: Annotated[Connection, Depends(get_conn)],
+    conn: _AdminConn,
 ) -> AiInvocationProvenanceOut:
     """Admin: what Evidence IDs were supplied + outputs / artifact URI (L3)."""
-    require_permission(principal, Permission.ADMIN_CONFIG)
     row = get_ai_invocation_provenance(conn, invocation_id=invocation_id)
     if row is None:
         raise HTTPException(status_code=404, detail="ai_invocation not found")

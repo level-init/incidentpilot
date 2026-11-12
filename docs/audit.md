@@ -32,6 +32,12 @@ Helper: `incidentpilot_shared.audit.append_audit_event` (caller owns TX).
 | `incident.manual_resolve` | Contextual human resolve `RECOVERED→RESOLVED` with reason + health (M7) |
 | `hypothesis.confirm` | SYSTEM confirmation gate |
 
+## Web UI (M9)
+
+Incident detail **Audit** panel lists these events (oldest first). Distinct
+from Timeline. AI provenance lineage is a separate Admin-only panel
+([web.md](web.md)).
+
 ## HTTP
 
 ```http
