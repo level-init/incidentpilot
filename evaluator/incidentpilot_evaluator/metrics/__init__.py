@@ -1,27 +1,4 @@
-"""Eval metric engine (N5) — applicability, formulas, RootCauseMatchSpec."""
+"""Re-export N5 metrics from shared (evaluator convenience)."""
 
-from incidentpilot_evaluator.metrics.engine import (
-    AggregateResult,
-    IncidentScoreInput,
-    MetricResult,
-    RootCauseMatchSpec,
-    evaluate_operational,
-    metric_action_type_match,
-    metric_invented_evidence_citations,
-    metric_root_cause_match,
-    metric_severity_match,
-    parse_root_cause_match_spec,
-)
-
-__all__ = [
-    "AggregateResult",
-    "IncidentScoreInput",
-    "MetricResult",
-    "RootCauseMatchSpec",
-    "evaluate_operational",
-    "metric_action_type_match",
-    "metric_invented_evidence_citations",
-    "metric_root_cause_match",
-    "metric_severity_match",
-    "parse_root_cause_match_spec",
-]
+from incidentpilot_shared.eval_metrics import *  # noqa: F403
+from incidentpilot_shared.eval_metrics import __all__ as __all__  # noqa: F401

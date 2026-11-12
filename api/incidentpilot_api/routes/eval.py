@@ -24,6 +24,13 @@ from incidentpilot_api.rbac import (
 from incidentpilot_api.schemas import ApprovalOut
 from incidentpilot_api.temporal import get_temporal_client
 from incidentpilot_shared.approval_harness import harness_decide_approval
+from incidentpilot_shared.operational_evaluation import (
+    OperationalEvalError,
+    OperationalEvaluationView,
+    get_operational_evaluation,
+    get_operational_evaluation_for_run,
+    pin_operational_evaluation,
+)
 from incidentpilot_shared.scenario_lifecycle import (
     IllegalScenarioTransition,
     ScenarioRunView,
@@ -107,6 +114,53 @@ class ScenarioRunOut(BaseModel):
 class ScenarioRunEvaluateBody(BaseModel):
     passed: bool
     summary: dict[str, object] = Field(default_factory=dict)
+
+
+class OperationalPinBody(BaseModel):
+    incident_id: UUID
+    threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+
+
+class OperationalEvaluationOut(BaseModel):
+    id: UUID
+    scenario_run_id: UUID
+    incident_id: UUID
+    pinned_incident_revision: int
+    environment_manifest_id: UUID | None = None
+    ground_truth_id: UUID | None = None
+    ground_truth_version: int | None = None
+    scenario_key: str
+    passed: bool
+    score: float | None = None
+    hard_fail: bool = False
+    threshold: float
+    metrics_payload: list[dict[str, object]] = Field(default_factory=list)
+    summary: dict[str, object] = Field(default_factory=dict)
+    metric_engine_version: str
+    created_at: datetime | None = None
+    idempotent_hit: bool = False
+
+
+def _operational_out(view: OperationalEvaluationView) -> OperationalEvaluationOut:
+    return OperationalEvaluationOut(
+        id=view.id,
+        scenario_run_id=view.scenario_run_id,
+        incident_id=view.incident_id,
+        pinned_incident_revision=view.pinned_incident_revision,
+        environment_manifest_id=view.environment_manifest_id,
+        ground_truth_id=view.ground_truth_id,
+        ground_truth_version=view.ground_truth_version,
+        scenario_key=view.scenario_key,
+        passed=view.passed,
+        score=view.score,
+        hard_fail=view.hard_fail,
+        threshold=view.threshold,
+        metrics_payload=list(view.metrics_payload),
+        summary=dict(view.summary),
+        metric_engine_version=view.metric_engine_version,
+        created_at=view.created_at,
+        idempotent_hit=view.idempotent_hit,
+    )
 
 
 def _scenario_run_out(view: ScenarioRunView) -> ScenarioRunOut:
@@ -199,6 +253,61 @@ def evaluate_scenario_run(
     except IllegalScenarioTransition as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return _scenario_run_out(view)
+
+
+@router.post(
+    "/scenario-runs/{run_id}/operational-evaluation",
+    response_model=OperationalEvaluationOut,
+)
+def pin_operational_evaluation_route(
+    run_id: UUID,
+    body: OperationalPinBody,
+    conn: Annotated[Connection, Depends(get_eval_conn_with_entitlement)],
+) -> OperationalEvaluationOut:
+    """N6: pin immutable operational score at RESOLVED (idempotent)."""
+    try:
+        view = pin_operational_evaluation(
+            conn,
+            scenario_run_id=run_id,
+            incident_id=body.incident_id,
+            threshold=body.threshold,
+            commit=True,
+        )
+    except OperationalEvalError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return _operational_out(view)
+
+
+@router.get(
+    "/scenario-runs/{run_id}/operational-evaluation",
+    response_model=OperationalEvaluationOut,
+)
+def get_operational_evaluation_for_run_route(
+    run_id: UUID,
+    conn: Annotated[Connection, Depends(get_eval_conn_with_entitlement)],
+) -> OperationalEvaluationOut:
+    view = get_operational_evaluation_for_run(conn, scenario_run_id=run_id)
+    if view is None:
+        raise HTTPException(status_code=404, detail="operational evaluation not found")
+    return _operational_out(view)
+
+
+@router.get(
+    "/operational-evaluations/{evaluation_id}",
+    response_model=OperationalEvaluationOut,
+)
+def get_operational_evaluation_route(
+    evaluation_id: UUID,
+    conn: Annotated[Connection, Depends(get_eval_conn_with_entitlement)],
+) -> OperationalEvaluationOut:
+    try:
+        return _operational_out(
+            get_operational_evaluation(conn, evaluation_id=evaluation_id)
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/ground-truth", response_model=list[GroundTruthOut])

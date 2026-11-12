@@ -1,4 +1,4 @@
-"""Deterministic operational metrics (N5).
+"""Deterministic operational metrics (N5) — shared library.
 
 No LLM wording / prose similarity scores. Invented evidence citations hard-fail.
 """
