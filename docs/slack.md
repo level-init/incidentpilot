@@ -95,7 +95,7 @@ enqueue_slack_lifecycle_thread(
 | `status` `evidence` `hypotheses` `timeline` `impact` | any verified Slack user | Read incident summary |
 | `approve` `reject` | responder allowlist | Decide PENDING approval |
 | `escalate` | responder allowlist | HUMAN_OBSERVATION note; DEGRADED when legal |
-| `resolve` | responder allowlist | `RECOVERED` → `RESOLVED` when legal |
+| `resolve` | responder allowlist | `RECOVERED` → `RESOLVED` when legal (same edge as web M7 contextual resolve) |
 | `help` | any | Command list |
 
 ```text

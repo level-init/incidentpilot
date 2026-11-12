@@ -20,6 +20,7 @@ AUDIT_ACTIONS: Final[frozenset[str]] = frozenset(
     {
         "incident.create",
         "incident.severity_update",
+        "incident.manual_resolve",
         "policy.publish",
         "policy.activate",
         "policy.evaluate",

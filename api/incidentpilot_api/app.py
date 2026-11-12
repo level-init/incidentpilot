@@ -16,6 +16,7 @@ from incidentpilot_api.routes import (
     history,
     human,
     incidents,
+    manual_resolve,
     remediation,
     resources,
     runbooks,
@@ -61,6 +62,7 @@ app.include_router(evidence.router)
 app.include_router(runbooks.router)
 app.include_router(history.router)
 app.include_router(human.router)
+app.include_router(manual_resolve.router)
 app.include_router(remediation.router)
 app.include_router(ai_invocations.router)
 app.include_router(eval_routes.router)

@@ -16,6 +16,7 @@ transitions, and outbox rules cannot be bypassed.
 | Command | Purpose |
 | --- | --- |
 | `transition_incident_command` | State machine + revision + timeline + outbox; CLOSED gated on FINAL postmortem (L5) |
+| `manual_resolve_incident_command` | M7: human `RECOVERED→RESOLVED` with non-empty reason + `incident.manual_resolve` audit (no generic bypass) |
 | `append_evidence_command` | Producer-gated Evidence insert; fingerprint dedup (G1); rejects fake HIGH RAW without `blob_uri` (G5) |
 | `append_raw_evidence_with_blob` | Collector helper: S3/MinIO upload then append with honest RAW provenance (G5) |
 | `append_derived_evidence_command` | DETERMINISTIC_DERIVED + DERIVED_FROM parents (G4) |

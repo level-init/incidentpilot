@@ -423,6 +423,10 @@ class CompensationActionTypeRequired(ValueError):
     """Parent has no usable reverse_action_type; caller must pass action_type."""
 
 
+class ManualResolveNotAllowed(ValueError):
+    """Raised when contextual manual resolve is not allowed (M7)."""
+
+
 class ParentApprovalReuseDenied(PermissionError):
     """Parent Approval/PolicyDecision cannot authorize a compensation Action (J9)."""
 
@@ -526,6 +530,97 @@ def transition_incident_command(
     )
     if commit:
         uow.commit()
+    return result
+
+
+def _latest_validation_health(
+    conn: Connection, *, incident_id: UUID
+) -> dict[str, Any] | None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT outcome, criteria, observations, decided_at
+            FROM domain.validation_result
+            WHERE incident_id = %s
+            ORDER BY decided_at DESC
+            LIMIT 1
+            """,
+            (str(incident_id),),
+        )
+        row = cur.fetchone()
+    if row is None:
+        return None
+    return {
+        "outcome": str(row[0]),
+        "criteria": dict(row[1] or {}),
+        "observations": dict(row[2] or {}),
+        "decided_at": row[3].isoformat() if row[3] is not None else None,
+    }
+
+
+def manual_resolve_incident_command(
+    conn: Connection,
+    *,
+    incident_id: UUID,
+    expected_revision: int,
+    reason: str,
+    actor: str,
+    commit: bool = True,
+) -> TransitionResult:
+    """Contextual human resolve: RECOVERED → RESOLVED with reason + audit (M7).
+
+    Not a generic bypass — refused unless current state is RECOVERED and reason
+    is non-empty. Automated validation path remains the default to RESOLVED.
+    """
+    from incidentpilot_shared.audit import append_audit_event
+
+    note = reason.strip()
+    if not note:
+        raise ManualResolveNotAllowed("manual resolve requires a non-empty reason")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT state FROM domain.incident WHERE id = %s",
+            (str(incident_id),),
+        )
+        row = cur.fetchone()
+    if row is None:
+        raise LookupError(f"incident not found: {incident_id}")
+    state = str(row[0])
+    if state != IncidentState.RECOVERED.value:
+        raise ManualResolveNotAllowed(
+            f"manual resolve requires RECOVERED (current {state})"
+        )
+
+    health = _latest_validation_health(conn, incident_id=incident_id)
+    result = transition_incident_command(
+        conn,
+        incident_id=incident_id,
+        expected_revision=expected_revision,
+        to_state=IncidentState.RESOLVED,
+        actor=actor,
+        commit=False,
+    )
+    append_audit_event(
+        conn,
+        action="incident.manual_resolve",
+        actor=actor,
+        resource_type="incident",
+        resource_id=str(incident_id),
+        incident_id=incident_id,
+        outcome="success",
+        details={
+            "reason": note,
+            "from_state": result.from_state.value,
+            "to_state": result.to_state.value,
+            "previous_revision": result.previous_revision,
+            "new_revision": result.new_revision,
+            "health": health,
+            "path": "contextual_manual",
+        },
+    )
+    if commit:
+        conn.commit()
     return result
 
 

@@ -208,6 +208,48 @@ export async function getPinnedRunbook(
   return (await res.json()) as PinnedRunbook;
 }
 
+export type ResolveContext = {
+  eligible: boolean;
+  current_state: string;
+  incident_revision: number;
+  reason_required: boolean;
+  message: string;
+  health: {
+    outcome: string | null;
+    criteria: Record<string, unknown>;
+    observations: Record<string, unknown>;
+    decided_at: string | null;
+  } | null;
+};
+
+export async function fetchResolveContext(
+  incidentId: string,
+): Promise<ResolveContext> {
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/resolve-context`,
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `resolve-context failed (${res.status})`);
+  }
+  return (await res.json()) as ResolveContext;
+}
+
+export async function manualResolve(
+  incidentId: string,
+  body: { reason: string; expected_revision: number },
+): Promise<void> {
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/resolve`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `resolve failed (${res.status})`);
+  }
+}
+
 export type RemediationAttempt = {
   id: string;
   action_version: number;
