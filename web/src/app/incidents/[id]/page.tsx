@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
 import { EvidenceHypothesesPanes } from "@/components/EvidenceHypothesesPanes";
+import { InvestigationContext } from "@/components/InvestigationContext";
 import { RemediationPanel } from "@/components/RemediationPanel";
 import {
   formatDuration,
@@ -124,6 +125,8 @@ export default function IncidentDetailPage() {
           </header>
 
           <EvidenceHypothesesPanes incidentId={incident.id} />
+
+          <InvestigationContext incidentId={incident.id} />
 
           <RemediationPanel incidentId={incident.id} />
 

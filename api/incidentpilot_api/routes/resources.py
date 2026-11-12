@@ -46,6 +46,7 @@ from incidentpilot_api.schemas import (
     AuditEventOut,
     AutonomyConfigOut,
     AutonomyConfigUpsert,
+    ChangeOut,
     EvidenceOut,
     HypothesisConfirmOut,
     HypothesisOut,
@@ -491,6 +492,40 @@ def list_impact_snapshots(
             (str(incident_id),),
         )
         return [ImpactSnapshotOut(**row) for row in cur.fetchall()]
+
+
+@router.get(
+    "/incidents/{incident_id}/changes",
+    response_model=list[ChangeOut],
+    summary="Changes for services linked to the incident (M6)",
+)
+def list_incident_changes(
+    incident_id: UUID,
+    principal: Annotated[Principal, Depends(get_principal)],
+    conn: Annotated[Connection, Depends(get_conn)],
+) -> list[ChangeOut]:
+    require_permission(principal, Permission.INCIDENT_READ)
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("SELECT 1 FROM domain.incident WHERE id = %s", (str(incident_id),))
+        if cur.fetchone() is None:
+            raise HTTPException(status_code=404, detail="incident not found")
+        cur.execute(
+            """
+            SELECT c.id, c.change_key, c.change_type, s.key AS service_key,
+                   c.summary, c.source, c.external_ref, c.observed_at, c.payload
+            FROM domain.change c
+            LEFT JOIN domain.service s ON s.id = c.service_id
+            WHERE c.service_id IN (
+                SELECT isv.service_id
+                FROM domain.incident_service isv
+                WHERE isv.incident_id = %s
+            )
+            ORDER BY c.observed_at DESC
+            LIMIT 100
+            """,
+            (str(incident_id),),
+        )
+        return [ChangeOut(**row) for row in cur.fetchall()]
 
 
 @router.post(

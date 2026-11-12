@@ -68,6 +68,21 @@ curl -s -H 'Authorization: Bearer local-dev' \
   "http://localhost:8000/hypotheses?incident_id=<uuid>"
 ```
 
+## Impact / Changes / Runbook (M6)
+
+Three investigation-context sections on the detail page:
+
+| Section | API | Notes |
+| --- | --- | --- |
+| Impact | `GET /incidents/{id}/impact-snapshots` | Customer / severity snapshots (H7) |
+| Changes | `GET /incidents/{id}/changes` | Changes for linked services |
+| Runbook | `GET /incidents/{id}/runbook` | Pinned version if any |
+
+Runbook UI split:
+
+- **Allowed actions** — `allowed_action_types` (executable **authority**)
+- **Body markdown** — labeled **untrusted prose** (not an allowlist)
+
 ## Remediation panel (M5)
 
 Detail page includes a **Remediation** panel from

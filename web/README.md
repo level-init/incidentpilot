@@ -26,6 +26,7 @@ in `sessionStorage`.
   service / duration) via `GET /incidents` (M2).
 - **`/incidents/[id]`** — detail header (id / state / severity / env) +
   timeline pane (M3); Evidence vs Hypotheses panes with provenance (M4);
+  Impact / Changes / Runbook (authority vs untrusted prose) (M6);
   Remediation panel with approve/reject + UNKNOWN unsafe-to-retry (M5).
 
 Port **3000** matches `INCIDENTPILOT_WEB_BASE_URL` deep links. If Compose
