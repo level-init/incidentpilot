@@ -9,7 +9,7 @@ PostgreSQL is the system of record. GroundTruth lives in schema `eval` and is
 | --- | --- |
 | `domain` | IncidentPilot SoR (entity tables in Epic B) |
 | `scenarios` | Scenario definitions / run metadata (runner) — N1: `scenario`, `scenario_run` |
-| `eval` | GroundTruth + evaluation pins (evaluator) |
+| `eval` | GroundTruth + evaluation pins (evaluator) — N2: full `ground_truth` |
 
 Temporal uses separate databases `temporal` / `temporal_visibility` (Compose init).
 
@@ -99,6 +99,13 @@ Migrations are recorded in `public.schema_migrations`.
 | `domain.slack_incident_thread` | Slack root `thread_ts` per incident (K4 lifecycle replies) |
 | `domain.ai_invocation` | AI provenance (H2) + optional `artifact_uri` S3 package (L3; [llm.md](llm.md)) |
 | `domain.postmortem` | DRAFT/FINAL; `corrective_actions` JSON array ([postmortem.md](postmortem.md) L4+) |
+
+Eval / scenarios (Epic N):
+
+| Table | Notes |
+| --- | --- |
+| `scenarios.scenario` / `scenario_run` | Runner catalog + runs (N1) |
+| `eval.ground_truth` | Evaluator-only answer keys ([ground-truth.md](ground-truth.md) N2) |
 
 ## Incident transitions (B5)
 

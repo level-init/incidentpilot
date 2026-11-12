@@ -58,11 +58,20 @@ expect_fail "ip_app SELECT eval.ground_truth" \
 expect_fail "ip_runner SELECT eval.ground_truth" \
   run_as ip_runner "${RUNNER_PW}" -c "SELECT 1 FROM eval.ground_truth LIMIT 1"
 
+expect_fail "ip_app INSERT eval.ground_truth" \
+  run_as ip_app "${APP_PW}" -c "INSERT INTO eval.ground_truth (scenario_key, answer_payload) VALUES ('_deny', '{}'::jsonb)"
+
+expect_fail "ip_runner INSERT eval.ground_truth" \
+  run_as ip_runner "${RUNNER_PW}" -c "INSERT INTO eval.ground_truth (scenario_key, answer_payload) VALUES ('_deny', '{}'::jsonb)"
+
 expect_fail "ip_app DDL CREATE TABLE" \
   run_as ip_app "${APP_PW}" -c "CREATE TABLE domain._should_not_exist (id int)"
 
 expect_ok "ip_evaluator SELECT eval.ground_truth" \
   run_as ip_evaluator "${EVAL_PW}" -c "SELECT count(*) FROM eval.ground_truth"
+
+expect_ok "ip_evaluator SELECT structured GT columns" \
+  run_as ip_evaluator "${EVAL_PW}" -c "SELECT scenario_key, origin_service_keys, match_spec FROM eval.ground_truth WHERE scenario_key = 'bad_deploy'"
 
 expect_ok "migrator DDL in domain" \
   run_as migrator "${MIG_PW}" -c "CREATE TABLE IF NOT EXISTS domain._migrator_ddl_probe (id int PRIMARY KEY); DROP TABLE domain._migrator_ddl_probe"

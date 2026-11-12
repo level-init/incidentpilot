@@ -1,7 +1,7 @@
 # Scenario runner (N1)
 
 Scenarios define **reality** (faults + baseline). The runner never reads
-GroundTruth (`eval.ground_truth`) — that stays evaluator-only (N2+).
+GroundTruth (`eval.ground_truth`) — evaluator-only; see [ground-truth.md](ground-truth.md).
 
 ## Schema (`scenarios`)
 

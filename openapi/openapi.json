@@ -4965,15 +4965,83 @@
             "type": "string",
             "title": "Scenario Key"
           },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 1
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
+          },
+          "origin_service_keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Origin Service Keys"
+          },
+          "expected_hypothesis_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Hypothesis Class"
+          },
+          "expected_action_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Expected Action Types"
+          },
+          "expected_severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Severity"
+          },
+          "match_spec": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Match Spec"
+          },
           "answer_payload": {
             "additionalProperties": true,
             "type": "object",
             "title": "Answer Payload"
           },
+          "notes": {
+            "type": "string",
+            "title": "Notes",
+            "default": ""
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "type": "object",
