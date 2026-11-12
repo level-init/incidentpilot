@@ -10,17 +10,31 @@ GroundTruth (`eval.ground_truth`) — evaluator-only; see [ground-truth.md](grou
 | `scenarios.scenario` | Catalog (key, injector_id, autonomy_level) |
 | `scenarios.scenario_run` | Per-run record + baseline payload |
 
-### ScenarioRun status (N1)
+### ScenarioRun status (N1 / N3)
 
-| Status | Meaning |
-| --- | --- |
-| `PENDING` | Created |
-| `BASELINE_PASSED` | Health/ready gate green |
-| `FAULT_INJECTED` | Injector activated after baseline |
-| `FAILED` | Invalid run (baseline/infra/inject) — **not** a scored miss |
+| Status | `passed` | `outcome` (API) | Meaning |
+| --- | --- | --- | --- |
+| `PENDING` | null | `IN_PROGRESS` | Created |
+| `BASELINE_PASSED` | null | `IN_PROGRESS` | Health/ready gate green |
+| `FAULT_INJECTED` | null | `IN_PROGRESS` | Injector activated after baseline |
+| `FAILED` | **null** | `INVALID_RUN` | Invalid env/baseline/infra — **not** a scored miss |
+| `EVALUATED` | **true\|false** | `SCORED_PASS` / `SCORED_FAIL` | Env valid; score pinned |
 
-`EVALUATED` arrives in N3 when the metric engine pins scores. Product rule:
-unhealthy baseline → `FAILED`, never a false “IncidentPilot was wrong.”
+Product rule: unhealthy baseline → `FAILED`, never `EVALUATED` with
+`passed=false`. A scored miss is only `EVALUATED` + `passed=false`.
+
+Eval APIs (entitlement required):
+
+```bash
+curl -s -H 'Authorization: Bearer local-dev-evaluator' \
+  'http://localhost:8000/eval/scenario-runs?status=EVALUATED'
+curl -s -X POST -H 'Authorization: Bearer local-dev-evaluator' \
+  -H 'Content-Type: application/json' \
+  -d '{"passed":false,"summary":{"root_cause_match":0}}' \
+  http://localhost:8000/eval/scenario-runs/<run_uuid>/evaluate
+```
+
+`POST …/evaluate` refuses `FAILED` runs (HTTP 409).
 
 ## CLI
 

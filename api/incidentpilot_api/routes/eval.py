@@ -24,6 +24,13 @@ from incidentpilot_api.rbac import (
 from incidentpilot_api.schemas import ApprovalOut
 from incidentpilot_api.temporal import get_temporal_client
 from incidentpilot_shared.approval_harness import harness_decide_approval
+from incidentpilot_shared.scenario_lifecycle import (
+    IllegalScenarioTransition,
+    ScenarioRunView,
+    get_scenario_run,
+    list_scenario_runs,
+    mark_evaluated,
+)
 
 router = APIRouter(prefix="/eval", tags=["eval"])
 
@@ -56,6 +63,101 @@ class HarnessDecideOut(BaseModel):
     noop: bool
     workflow_signaled: bool
     signal_error: str | None = None
+
+
+class ScenarioRunOut(BaseModel):
+    """N3: FAILED (invalid run) vs EVALUATED+passed=false (scored miss)."""
+
+    id: UUID
+    scenario_key: str
+    status: str
+    passed: bool | None = None
+    outcome: str
+    failure_kind: str | None = None
+    failure_detail: str | None = None
+    baseline_ok: bool | None = None
+    evaluation_summary: dict[str, object] = Field(default_factory=dict)
+    injector_id: str | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    evaluated_at: datetime | None = None
+    reset_at: datetime | None = None
+
+
+class ScenarioRunEvaluateBody(BaseModel):
+    passed: bool
+    summary: dict[str, object] = Field(default_factory=dict)
+
+
+def _scenario_run_out(view: ScenarioRunView) -> ScenarioRunOut:
+    return ScenarioRunOut(
+        id=view.id,
+        scenario_key=view.scenario_key,
+        status=view.status,
+        passed=view.passed,
+        outcome=view.outcome,
+        failure_kind=view.failure_kind,
+        failure_detail=view.failure_detail,
+        baseline_ok=view.baseline_ok,
+        evaluation_summary=dict(view.evaluation_summary or {}),
+        injector_id=view.injector_id,
+        started_at=view.started_at,
+        finished_at=view.finished_at,
+        evaluated_at=view.evaluated_at,
+        reset_at=view.reset_at,
+    )
+
+
+@router.get("/scenario-runs", response_model=list[ScenarioRunOut])
+def list_eval_scenario_runs(
+    conn: Annotated[Connection, Depends(get_eval_conn_with_entitlement)],
+    status_filter: str | None = Query(default=None, alias="status"),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> list[ScenarioRunOut]:
+    """List ScenarioRuns — eval entitlement. Distinguishes FAILED vs EVALUATED."""
+    return [
+        _scenario_run_out(v)
+        for v in list_scenario_runs(conn, status=status_filter, limit=limit)
+    ]
+
+
+@router.get("/scenario-runs/{run_id}", response_model=ScenarioRunOut)
+def get_eval_scenario_run(
+    run_id: UUID,
+    conn: Annotated[Connection, Depends(get_eval_conn_with_entitlement)],
+) -> ScenarioRunOut:
+    try:
+        return _scenario_run_out(get_scenario_run(conn, run_id=run_id))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post(
+    "/scenario-runs/{run_id}/evaluate",
+    response_model=ScenarioRunOut,
+)
+def evaluate_scenario_run(
+    run_id: UUID,
+    body: ScenarioRunEvaluateBody,
+    conn: Annotated[Connection, Depends(get_eval_conn_with_entitlement)],
+) -> ScenarioRunOut:
+    """Harness/score pin: FAULT_INJECTED → EVALUATED (passed true|false).
+
+    Refuses FAILED runs — invalid baseline is not a scored miss.
+    """
+    try:
+        view = mark_evaluated(
+            conn,
+            run_id=run_id,
+            passed=body.passed,
+            summary=dict(body.summary),
+            commit=True,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except IllegalScenarioTransition as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return _scenario_run_out(view)
 
 
 @router.get("/ground-truth", response_model=list[GroundTruthOut])
