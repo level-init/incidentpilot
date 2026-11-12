@@ -29,6 +29,7 @@ Helper: `incidentpilot_shared.audit.append_audit_event` (caller owns TX).
 | `policy.evaluate` / `policy.publish` / `policy.activate` | Policy gate + admin policy versions |
 | `admin.autonomy_upsert` | Autonomy config insert/update |
 | `incident.create` / `incident.severity_update` | Incident create / severity rules |
+| `incident.manual_resolve` | Contextual human resolve `RECOVERED→RESOLVED` with reason + health (M7) |
 | `hypothesis.confirm` | SYSTEM confirmation gate |
 
 ## HTTP

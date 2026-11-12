@@ -743,6 +743,26 @@ select {
   margin-bottom: 1.25rem;
 }
 
+.manual-resolve {
+  background: var(--bg-elevated);
+  border: 1px solid #7da89f;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem 1.5rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.health-block {
+  margin: 0.75rem 0 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: #eef6f4;
+  border: 1px solid #b5d0ca;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
 .remediation-list {
   list-style: none;
   margin: 0;

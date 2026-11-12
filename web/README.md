@@ -27,7 +27,9 @@ in `sessionStorage`.
 - **`/incidents/[id]`** — detail header (id / state / severity / env) +
   timeline pane (M3); Evidence vs Hypotheses panes with provenance (M4);
   Impact / Changes / Runbook (authority vs untrusted prose) (M6);
-  Remediation panel with approve/reject + UNKNOWN unsafe-to-retry (M5).
+  Remediation panel with approve/reject + UNKNOWN unsafe-to-retry (M5);
+  Contextual Manual resolve only when RECOVERED (reason + health + audit) (M7)
+  — no generic Resolve.
 
 Port **3000** matches `INCIDENTPILOT_WEB_BASE_URL` deep links. If Compose
 Grafana is also on 3000 (evidence profile), stop Grafana or remap one of them.

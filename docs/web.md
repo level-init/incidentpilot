@@ -68,6 +68,30 @@ curl -s -H 'Authorization: Bearer local-dev' \
   "http://localhost:8000/hypotheses?incident_id=<uuid>"
 ```
 
+## Contextual manual resolve (M7)
+
+No generic always-on **Resolve** control on the automated path. The detail page
+shows **Manual resolve** only when `GET /incidents/{id}/resolve-context` reports
+`eligible: true` (incident state `RECOVERED`).
+
+When shown:
+
+- Validation health from the latest `ValidationResult` (outcome / observations)
+- Required reason → `POST /incidents/{id}/resolve`
+- Success writes `incident.manual_resolve` audit (`docs/audit.md`) and
+  transitions `RECOVERED → RESOLVED` (same legal edge as Slack `/ip resolve`)
+
+Viewers can see eligibility/health but cannot POST.
+
+```bash
+curl -s -H 'Authorization: Bearer local-dev' \
+  http://localhost:8000/incidents/<uuid>/resolve-context
+curl -s -X POST -H 'Authorization: Bearer local-dev' \
+  -H 'Content-Type: application/json' \
+  -d '{"reason":"health stable","expected_revision":3}' \
+  http://localhost:8000/incidents/<uuid>/resolve
+```
+
 ## Impact / Changes / Runbook (M6)
 
 Three investigation-context sections on the detail page:

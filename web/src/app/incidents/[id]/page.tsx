@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { EvidenceHypothesesPanes } from "@/components/EvidenceHypothesesPanes";
 import { InvestigationContext } from "@/components/InvestigationContext";
+import { ManualResolvePanel } from "@/components/ManualResolvePanel";
 import { RemediationPanel } from "@/components/RemediationPanel";
 import {
   formatDuration,
@@ -129,6 +130,11 @@ export default function IncidentDetailPage() {
           <InvestigationContext incidentId={incident.id} />
 
           <RemediationPanel incidentId={incident.id} />
+
+          <ManualResolvePanel
+            incidentId={incident.id}
+            onResolved={() => void load()}
+          />
 
           <section className="timeline-pane" aria-label="Timeline">
             <div className="timeline-head">

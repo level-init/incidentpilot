@@ -50,6 +50,13 @@ M6 context:
 - `GET /incidents/{id}/runbook` — pinned runbook with `allowed_action_types`
   (authority) and `body_markdown` (untrusted prose)
 
+M7 contextual manual resolve (no generic Resolve):
+
+- `GET /incidents/{id}/resolve-context` — `eligible` only when state is
+  `RECOVERED`; includes validation health
+- `POST /incidents/{id}/resolve` — reason + revision; audits
+  `incident.manual_resolve`; `RECOVERED → RESOLVED`
+
 Dashboard: [web.md](web.md) (`make web-dev`).
 
 Published contract: [openapi/openapi.json](../openapi/openapi.json) (`make openapi-export`).

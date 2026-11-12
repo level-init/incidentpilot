@@ -2548,6 +2548,134 @@
         }
       }
     },
+    "/incidents/{incident_id}/resolve-context": {
+      "get": {
+        "tags": [
+          "resolve"
+        ],
+        "summary": "When contextual manual resolve is allowed (no generic Resolve)",
+        "operationId": "get_resolve_context_incidents__incident_id__resolve_context_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolveContextOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incidents/{incident_id}/resolve": {
+      "post": {
+        "tags": [
+          "resolve"
+        ],
+        "summary": "Contextual manual resolve with reason + audit (M7)",
+        "operationId": "post_manual_resolve_incidents__incident_id__resolve_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualResolveBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualResolveOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/incidents/{incident_id}/remediation": {
       "get": {
         "tags": [
@@ -4430,6 +4558,76 @@
         ],
         "title": "IncidentTransition"
       },
+      "ManualResolveBody": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Revision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason",
+          "expected_revision"
+        ],
+        "title": "ManualResolveBody"
+      },
+      "ManualResolveOut": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "public_id": {
+            "type": "string",
+            "title": "Public Id"
+          },
+          "from_state": {
+            "type": "string",
+            "title": "From State"
+          },
+          "to_state": {
+            "type": "string",
+            "title": "To State"
+          },
+          "previous_revision": {
+            "type": "integer",
+            "title": "Previous Revision"
+          },
+          "new_revision": {
+            "type": "integer",
+            "title": "New Revision"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "audited": {
+            "type": "boolean",
+            "title": "Audited",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "public_id",
+          "from_state",
+          "to_state",
+          "previous_revision",
+          "new_revision",
+          "reason"
+        ],
+        "title": "ManualResolveOut"
+      },
       "PinnedRunbookOut": {
         "properties": {
           "pinned": {
@@ -5199,6 +5397,88 @@
           "decision"
         ],
         "title": "RemediationPolicyOut"
+      },
+      "ResolveContextOut": {
+        "properties": {
+          "eligible": {
+            "type": "boolean",
+            "title": "Eligible"
+          },
+          "current_state": {
+            "type": "string",
+            "title": "Current State"
+          },
+          "incident_revision": {
+            "type": "integer",
+            "title": "Incident Revision"
+          },
+          "reason_required": {
+            "type": "boolean",
+            "title": "Reason Required",
+            "default": true
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "health": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolveHealthOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "eligible",
+          "current_state",
+          "incident_revision",
+          "message"
+        ],
+        "title": "ResolveContextOut",
+        "description": "Eligibility for contextual manual resolve (M7) \u2014 never a generic always-on Resolve."
+      },
+      "ResolveHealthOut": {
+        "properties": {
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "criteria": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Criteria"
+          },
+          "observations": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Observations"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          }
+        },
+        "type": "object",
+        "title": "ResolveHealthOut"
       },
       "RunbookHitOut": {
         "properties": {

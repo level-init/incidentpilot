@@ -347,6 +347,40 @@ class PinnedRunbookOut(BaseModel):
     )
 
 
+class ResolveHealthOut(BaseModel):
+    outcome: str | None = None
+    criteria: dict[str, Any] = Field(default_factory=dict)
+    observations: dict[str, Any] = Field(default_factory=dict)
+    decided_at: str | None = None
+
+
+class ResolveContextOut(BaseModel):
+    """Eligibility for contextual manual resolve (M7) — never a generic always-on Resolve."""
+
+    eligible: bool
+    current_state: str
+    incident_revision: int
+    reason_required: bool = True
+    message: str
+    health: ResolveHealthOut | None = None
+
+
+class ManualResolveBody(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+    expected_revision: int = Field(ge=1)
+
+
+class ManualResolveOut(BaseModel):
+    incident_id: UUID
+    public_id: str
+    from_state: str
+    to_state: str
+    previous_revision: int
+    new_revision: int
+    reason: str
+    audited: bool = True
+
+
 class SloBurnOut(BaseModel):
     id: UUID
     incident_id: UUID
