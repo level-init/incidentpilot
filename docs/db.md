@@ -104,7 +104,8 @@ Eval / scenarios (Epic N):
 
 | Table | Notes |
 | --- | --- |
-| `scenarios.scenario` / `scenario_run` | Runner catalog + runs (N1) |
+| `scenarios.scenario` / `scenario_run` | Runner catalog + runs (N1); lifecycle N3 |
+| `scenarios.environment_manifest` | Pinned local/test execution identity (N4; cloud fields O10) |
 | `eval.ground_truth` | Evaluator-only answer keys ([ground-truth.md](ground-truth.md) N2) |
 
 ## Incident transitions (B5)

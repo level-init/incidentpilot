@@ -65,8 +65,26 @@ class HarnessDecideOut(BaseModel):
     signal_error: str | None = None
 
 
+class EnvironmentManifestOut(BaseModel):
+    """N4: pinned local/test execution identity (cloud fields optional / O10)."""
+
+    id: str
+    environment_class: str
+    git_sha: str | None = None
+    git_dirty: bool | None = None
+    python_version: str | None = None
+    platform: str | None = None
+    compose_project: str | None = None
+    image_digests: dict[str, object] = Field(default_factory=dict)
+    helm_chart_hash: str | None = None
+    terraform_revision: str | None = None
+    cloud_env_id: str | None = None
+    extras: dict[str, object] = Field(default_factory=dict)
+    captured_at: datetime | None = None
+
+
 class ScenarioRunOut(BaseModel):
-    """N3: FAILED (invalid run) vs EVALUATED+passed=false (scored miss)."""
+    """N3/N4: FAILED vs EVALUATED+passed=false; pinned environment_manifest."""
 
     id: UUID
     scenario_key: str
@@ -78,6 +96,8 @@ class ScenarioRunOut(BaseModel):
     baseline_ok: bool | None = None
     evaluation_summary: dict[str, object] = Field(default_factory=dict)
     injector_id: str | None = None
+    environment_manifest_id: UUID | None = None
+    environment_manifest: EnvironmentManifestOut | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
     evaluated_at: datetime | None = None
@@ -90,6 +110,25 @@ class ScenarioRunEvaluateBody(BaseModel):
 
 
 def _scenario_run_out(view: ScenarioRunView) -> ScenarioRunOut:
+    manifest_out: EnvironmentManifestOut | None = None
+    if view.environment_manifest:
+        m = dict(view.environment_manifest)
+        captured = m.get("captured_at")
+        manifest_out = EnvironmentManifestOut(
+            id=str(m.get("id") or ""),
+            environment_class=str(m.get("environment_class") or "local"),
+            git_sha=m.get("git_sha"),
+            git_dirty=m.get("git_dirty"),
+            python_version=m.get("python_version"),
+            platform=m.get("platform"),
+            compose_project=m.get("compose_project"),
+            image_digests=dict(m.get("image_digests") or {}),
+            helm_chart_hash=m.get("helm_chart_hash"),
+            terraform_revision=m.get("terraform_revision"),
+            cloud_env_id=m.get("cloud_env_id"),
+            extras=dict(m.get("extras") or {}),
+            captured_at=captured,
+        )
     return ScenarioRunOut(
         id=view.id,
         scenario_key=view.scenario_key,
@@ -101,6 +140,8 @@ def _scenario_run_out(view: ScenarioRunView) -> ScenarioRunOut:
         baseline_ok=view.baseline_ok,
         evaluation_summary=dict(view.evaluation_summary or {}),
         injector_id=view.injector_id,
+        environment_manifest_id=view.environment_manifest_id,
+        environment_manifest=manifest_out,
         started_at=view.started_at,
         finished_at=view.finished_at,
         evaluated_at=view.evaluated_at,

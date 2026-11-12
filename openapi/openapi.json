@@ -5072,6 +5072,135 @@
         ],
         "title": "DependencyNodeOut"
       },
+      "EnvironmentManifestOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "environment_class": {
+            "type": "string",
+            "title": "Environment Class"
+          },
+          "git_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Git Sha"
+          },
+          "git_dirty": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Git Dirty"
+          },
+          "python_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Python Version"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
+          },
+          "compose_project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compose Project"
+          },
+          "image_digests": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Image Digests"
+          },
+          "helm_chart_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Helm Chart Hash"
+          },
+          "terraform_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terraform Revision"
+          },
+          "cloud_env_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloud Env Id"
+          },
+          "extras": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Extras"
+          },
+          "captured_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captured At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "environment_class"
+        ],
+        "title": "EnvironmentManifestOut",
+        "description": "N4: pinned local/test execution identity (cloud fields optional / O10)."
+      },
       "EvidenceOut": {
         "properties": {
           "id": {
@@ -7074,6 +7203,28 @@
             ],
             "title": "Injector Id"
           },
+          "environment_manifest_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment Manifest Id"
+          },
+          "environment_manifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EnvironmentManifestOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "started_at": {
             "anyOf": [
               {
@@ -7131,7 +7282,7 @@
           "outcome"
         ],
         "title": "ScenarioRunOut",
-        "description": "N3: FAILED (invalid run) vs EVALUATED+passed=false (scored miss)."
+        "description": "N3/N4: FAILED vs EVALUATED+passed=false; pinned environment_manifest."
       },
       "SessionOut": {
         "properties": {
