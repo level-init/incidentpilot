@@ -36,6 +36,19 @@ curl -s -X POST -H 'Authorization: Bearer local-dev-evaluator' \
 
 `POST …/evaluate` refuses `FAILED` runs (HTTP 409).
 
+## Environment manifest pin (N4)
+
+Every new `ScenarioRun` captures a `scenarios.environment_manifest` row and
+stores `environment_manifest_id` (immutable pin). Local/test fields include
+`git_sha`, `python_version`, `platform`, `compose_project`. Cloud digest /
+Helm / Terraform columns exist as nullable placeholders for O10.
+
+```bash
+curl -s -H 'Authorization: Bearer local-dev-evaluator' \
+  http://localhost:8000/eval/scenario-runs/<run_uuid>
+# → environment_manifest: { environment_class, git_sha, python_version, … }
+```
+
 ## CLI
 
 Uses `DATABASE_URL_RUNNER` (`ip_runner`).

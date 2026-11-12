@@ -48,6 +48,8 @@ class ScenarioRunView:
     evaluated_at: Any
     reset_at: Any
     injector_id: str | None
+    environment_manifest_id: UUID | None = None
+    environment_manifest: dict[str, Any] | None = None
 
 
 def outcome_for(*, status: str, passed: bool | None) -> str:
@@ -62,9 +64,38 @@ def outcome_for(*, status: str, passed: bool | None) -> str:
     return OUTCOME_IN_PROGRESS
 
 
-def _row_to_view(row: dict[str, Any]) -> ScenarioRunView:
+def _load_manifest_dict(
+    conn: Connection, manifest_id: UUID | None
+) -> dict[str, Any] | None:
+    if manifest_id is None:
+        return None
+    from incidentpilot_shared.environment_manifest import get_environment_manifest
+
+    m = get_environment_manifest(conn, manifest_id=manifest_id)
+    return {
+        "id": str(m.id),
+        "environment_class": m.environment_class,
+        "git_sha": m.git_sha,
+        "git_dirty": m.git_dirty,
+        "python_version": m.python_version,
+        "platform": m.platform,
+        "compose_project": m.compose_project,
+        "image_digests": m.image_digests,
+        "helm_chart_hash": m.helm_chart_hash,
+        "terraform_revision": m.terraform_revision,
+        "cloud_env_id": m.cloud_env_id,
+        "extras": m.extras,
+        "captured_at": m.captured_at,
+    }
+
+
+def _row_to_view(
+    row: dict[str, Any], *, manifest: dict[str, Any] | None = None
+) -> ScenarioRunView:
     passed = row.get("passed")
     status = str(row["status"])
+    mid_raw = row.get("environment_manifest_id")
+    mid = UUID(str(mid_raw)) if mid_raw is not None else None
     return ScenarioRunView(
         id=UUID(str(row["id"])),
         scenario_key=str(row["scenario_key"]),
@@ -80,6 +111,8 @@ def _row_to_view(row: dict[str, Any]) -> ScenarioRunView:
         evaluated_at=row.get("evaluated_at"),
         reset_at=row.get("reset_at"),
         injector_id=row.get("injector_id"),
+        environment_manifest_id=mid,
+        environment_manifest=manifest,
     )
 
 
@@ -89,6 +122,7 @@ def get_scenario_run(conn: Connection, *, run_id: UUID) -> ScenarioRunView:
             """
             SELECT r.id, r.status, r.passed, r.failure_kind, r.failure_detail,
                    r.baseline_ok, r.evaluation_summary, r.injector_id,
+                   r.environment_manifest_id,
                    r.started_at, r.finished_at, r.evaluated_at, r.reset_at,
                    s.key AS scenario_key
             FROM scenarios.scenario_run r
@@ -100,7 +134,10 @@ def get_scenario_run(conn: Connection, *, run_id: UUID) -> ScenarioRunView:
         row = cur.fetchone()
     if row is None:
         raise KeyError(f"unknown scenario_run: {run_id}")
-    return _row_to_view(dict(row))
+    data = dict(row)
+    mid_raw = data.get("environment_manifest_id")
+    mid = UUID(str(mid_raw)) if mid_raw is not None else None
+    return _row_to_view(data, manifest=_load_manifest_dict(conn, mid))
 
 
 def list_scenario_runs(
@@ -112,6 +149,7 @@ def list_scenario_runs(
     sql = """
         SELECT r.id, r.status, r.passed, r.failure_kind, r.failure_detail,
                r.baseline_ok, r.evaluation_summary, r.injector_id,
+               r.environment_manifest_id,
                r.started_at, r.finished_at, r.evaluated_at, r.reset_at,
                s.key AS scenario_key
         FROM scenarios.scenario_run r
@@ -125,6 +163,7 @@ def list_scenario_runs(
     params.append(limit)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(sql, params)
+        # List omits nested manifest payload for brevity; id is present.
         return [_row_to_view(dict(r)) for r in cur.fetchall()]
 
 

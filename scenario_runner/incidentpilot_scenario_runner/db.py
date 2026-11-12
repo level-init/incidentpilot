@@ -71,16 +71,28 @@ def create_scenario_run(
     *,
     scenario_id: UUID,
     injector_id: str,
+    environment_manifest_id: UUID | None = None,
 ) -> UUID:
+    """Create a ScenarioRun. Pins environment_manifest (N4) when not provided."""
+    from incidentpilot_shared.environment_manifest import (
+        capture_local_manifest,
+        insert_environment_manifest,
+    )
+
+    mid = environment_manifest_id
+    if mid is None:
+        mid = insert_environment_manifest(
+            conn, fields=capture_local_manifest(), commit=False
+        )
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO scenarios.scenario_run (
-                scenario_id, status, injector_id
-            ) VALUES (%s, 'PENDING', %s)
+                scenario_id, status, injector_id, environment_manifest_id
+            ) VALUES (%s, 'PENDING', %s, %s)
             RETURNING id
             """,
-            (str(scenario_id), injector_id),
+            (str(scenario_id), injector_id, str(mid)),
         )
         run_id = cur.fetchone()[0]
     conn.commit()
@@ -191,7 +203,8 @@ def get_scenario_run(conn: psycopg.Connection, run_id: UUID) -> dict[str, Any]:
             """
             SELECT r.id, r.status, r.passed, r.failure_kind, r.failure_detail,
                    r.baseline_ok, r.baseline_payload, r.injector_id,
-                   r.evaluation_summary, r.started_at, r.finished_at,
+                   r.evaluation_summary, r.environment_manifest_id,
+                   r.started_at, r.finished_at,
                    r.evaluated_at, r.reset_at,
                    s.key AS scenario_key
             FROM scenarios.scenario_run r
