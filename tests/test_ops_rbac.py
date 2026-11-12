@@ -77,7 +77,7 @@ def test_viewer_cannot_approve(client: TestClient) -> None:
     res = client.post(
         f"/approvals/{uuid.uuid4()}/decide",
         headers={"Authorization": "Bearer local-dev-viewer"},
-        json={"status": "APPROVED"},
+        json={"status": "APPROVED", "action_version": 1},
     )
     assert res.status_code == 403
     assert "approval:decide" in res.json()["detail"]
@@ -141,7 +141,7 @@ def test_responder_can_approve_when_require_approval(client: TestClient) -> None
     res = client.post(
         f"/approvals/{approval_id}/decide",
         headers={"Authorization": "Bearer local-dev"},
-        json={"status": "APPROVED"},
+        json={"status": "APPROVED", "action_version": 1},
     )
     assert res.status_code == 200, res.text
     assert res.json()["status"] == "APPROVED"
@@ -154,7 +154,7 @@ def test_admin_cannot_approve_when_policy_block(client: TestClient) -> None:
     res = client.post(
         f"/approvals/{approval_id}/decide",
         headers={"Authorization": "Bearer local-dev-admin"},
-        json={"status": "APPROVED"},
+        json={"status": "APPROVED", "action_version": 1},
     )
     assert res.status_code == 403, res.text
     assert "cannot override BLOCK" in res.json()["detail"]

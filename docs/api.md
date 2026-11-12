@@ -50,6 +50,12 @@ M6 context:
 - `GET /incidents/{id}/runbook` — pinned runbook with `allowed_action_types`
   (authority) and `body_markdown` (untrusted prose)
 
+M10 concurrency tokens:
+
+- `POST /approvals/{id}/decide` requires `action_version` (client token).
+  Mismatch → **409** `STALE_ACTION_VERSION` (refresh UI; no success).
+- `POST /incidents/{id}/resolve` requires `expected_revision` (same pattern).
+
 M9 postmortem / audit / provenance:
 
 - `GET /incidents/{id}/postmortem` (+ draft/finalize/export) — Viewer read; write = Responder+

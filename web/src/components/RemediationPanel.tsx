@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  ApiError,
   decideApproval,
   listRemediation,
   type RemediationAction,
@@ -45,6 +46,7 @@ export function RemediationPanel({ incidentId }: Props) {
     session.role === "responder" || session.role === "admin";
   const [cards, setCards] = useState<RemediationAction[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -64,14 +66,27 @@ export function RemediationPanel({ incidentId }: Props) {
   async function onDecide(
     approvalId: string,
     status: "APPROVED" | "REJECTED",
+    actionVersion: number,
   ) {
     setBusyId(approvalId);
     setError(null);
+    setStale(false);
     try {
-      await decideApproval(approvalId, status);
+      await decideApproval(approvalId, status, actionVersion);
+      // Success: silent refresh — no success toast (M10).
       await load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "decide failed");
+      const staleHit = err instanceof ApiError && err.isStale;
+      setStale(staleHit);
+      setError(
+        staleHit
+          ? "Stale action version — approval rejected. Panel refreshed; review and retry."
+          : err instanceof Error
+            ? err.message
+            : "decide failed",
+      );
+      // Always refresh on failure so UI matches SoR (buttons may disappear).
+      await load();
     } finally {
       setBusyId(null);
     }
@@ -91,7 +106,14 @@ export function RemediationPanel({ incidentId }: Props) {
         </button>
       </header>
 
-      {error ? <p className="login-error">{error}</p> : null}
+      {stale ? (
+        <div className="stale-banner" role="alert">
+          <strong>Stale version rejected</strong>
+          <p>{error}</p>
+        </div>
+      ) : error ? (
+        <p className="login-error">{error}</p>
+      ) : null}
 
       {cards === null ? (
         <p>Loading remediation…</p>
@@ -235,7 +257,11 @@ export function RemediationPanel({ incidentId }: Props) {
                           className="btn-primary observe-submit"
                           disabled={busyId === card.approval.id}
                           onClick={() =>
-                            void onDecide(card.approval!.id, "APPROVED")
+                            void onDecide(
+                              card.approval!.id,
+                              "APPROVED",
+                              card.approval!.action_version,
+                            )
                           }
                         >
                           Approve v{card.approval.action_version}
@@ -245,7 +271,11 @@ export function RemediationPanel({ incidentId }: Props) {
                           className="btn-ghost"
                           disabled={busyId === card.approval.id}
                           onClick={() =>
-                            void onDecide(card.approval!.id, "REJECTED")
+                            void onDecide(
+                              card.approval!.id,
+                              "REJECTED",
+                              card.approval!.action_version,
+                            )
                           }
                         >
                           Reject

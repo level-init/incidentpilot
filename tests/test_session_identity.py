@@ -69,7 +69,7 @@ def test_spoofed_decided_by_rejected(client: TestClient) -> None:
     res = client.post(
         f"/approvals/{uuid.uuid4()}/decide",
         headers={"Authorization": "Bearer local-dev"},
-        json={"status": "APPROVED", "decided_by": "evil"},
+        json={"status": "APPROVED", "action_version": 1, "decided_by": "evil"},
     )
     assert res.status_code == 400
     assert "decided_by" in res.json()["detail"]
@@ -173,7 +173,7 @@ def test_approval_decide_uses_session_actor(client: TestClient) -> None:
     decided = client.post(
         f"/approvals/{approval_id}/decide",
         headers=headers,
-        json={"status": "APPROVED"},
+        json={"status": "APPROVED", "action_version": 1},
     )
     assert decided.status_code == 200, decided.text
     assert decided.json()["decided_by"] == "user_local_dev"

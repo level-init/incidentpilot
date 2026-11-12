@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
+  ApiError,
   fetchResolveContext,
   manualResolve,
   type ResolveContext,
@@ -21,6 +22,7 @@ export function ManualResolvePanel({ incidentId, onResolved }: Props) {
   const [ctx, setCtx] = useState<ResolveContext | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -42,6 +44,7 @@ export function ManualResolvePanel({ incidentId, onResolved }: Props) {
     if (!ctx?.eligible || !reason.trim()) return;
     setBusy(true);
     setError(null);
+    setStale(false);
     try {
       await manualResolve(incidentId, {
         reason: reason.trim(),
@@ -51,7 +54,16 @@ export function ManualResolvePanel({ incidentId, onResolved }: Props) {
       onResolved?.();
       await load();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "resolve failed");
+      const staleHit = err instanceof ApiError && err.isStale;
+      setStale(staleHit);
+      setError(
+        staleHit
+          ? "Stale revision — resolve rejected. Context refreshed; retry if still eligible."
+          : err instanceof Error
+            ? err.message
+            : "resolve failed",
+      );
+      await load();
     } finally {
       setBusy(false);
     }
@@ -97,7 +109,14 @@ export function ManualResolvePanel({ incidentId, onResolved }: Props) {
         )}
       </div>
 
-      {error ? <p className="login-error">{error}</p> : null}
+      {stale ? (
+        <div className="stale-banner" role="alert">
+          <strong>Stale revision rejected</strong>
+          <p>{error}</p>
+        </div>
+      ) : error ? (
+        <p className="login-error">{error}</p>
+      ) : null}
 
       {canWrite ? (
         <form className="observe-form" onSubmit={onSubmit}>

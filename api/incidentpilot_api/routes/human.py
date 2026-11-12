@@ -32,6 +32,10 @@ class HumanObservationCreate(BaseModel):
 
 class ApprovalDecideBody(BaseModel):
     status: str = Field(description="APPROVED or REJECTED")
+    action_version: int = Field(
+        ge=1,
+        description="Client concurrency token — must match approval.action_version (M10/I4)",
+    )
 
 
 @router.post(
@@ -119,6 +123,15 @@ def decide_approval(
         row = cur.fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="approval not found")
+    current_version = int(row["action_version"])
+    if body.action_version != current_version:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"STALE_ACTION_VERSION: client action_version={body.action_version} "
+                f"does not match approval v{current_version}; refresh and retry"
+            ),
+        )
     # Duplicate decide with same status is a safe no-op (I4); other
     # non-PENDING states still conflict inside decide_approval_command.
     if row["approval_status"] != "PENDING" and row["approval_status"] != body.status:
@@ -132,7 +145,7 @@ def decide_approval(
         decide_approval_command(
             conn,
             action_id=UUID(str(row["action_id"])),
-            action_version=int(row["action_version"]),
+            action_version=current_version,
             status=body.status,
             decided_by=principal.actor_id,
             commit=True,
