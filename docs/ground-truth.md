@@ -45,3 +45,8 @@ Ops Responder/Admin → **403**. DB role denial is the second line of defense.
 
 Migration `0020` seeds the eight scenario classes. N9 tightens `bad_deploy`
 match specs for the first scored vertical; N5 documents formulas.
+
+## Related
+
+ScenarioRun lifecycle (`FAILED` vs `EVALUATED`+`passed=false`):
+[scenarios.md](scenarios.md) (N3).

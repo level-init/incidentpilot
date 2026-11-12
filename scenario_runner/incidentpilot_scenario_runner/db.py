@@ -189,9 +189,10 @@ def get_scenario_run(conn: psycopg.Connection, run_id: UUID) -> dict[str, Any]:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
-            SELECT r.id, r.status, r.failure_kind, r.failure_detail,
+            SELECT r.id, r.status, r.passed, r.failure_kind, r.failure_detail,
                    r.baseline_ok, r.baseline_payload, r.injector_id,
-                   r.started_at, r.finished_at, r.reset_at,
+                   r.evaluation_summary, r.started_at, r.finished_at,
+                   r.evaluated_at, r.reset_at,
                    s.key AS scenario_key
             FROM scenarios.scenario_run r
             JOIN scenarios.scenario s ON s.id = r.scenario_id
