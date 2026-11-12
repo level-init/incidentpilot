@@ -68,6 +68,27 @@ curl -s -H 'Authorization: Bearer local-dev' \
   "http://localhost:8000/hypotheses?incident_id=<uuid>"
 ```
 
+## Service dependency map (M11)
+
+Catalog edges live in Postgres `domain.service_dependency` (not Neo4j). Sim seed
+wires gateway → auth / inventory / payment / checkout / notification.
+
+| Surface | Route / API |
+| --- | --- |
+| Ops Topology page | `/topology` → `GET /topology/dependencies` |
+| Incident detail panel | `GET /incidents/{id}/dependency-map` |
+
+Incident overlay marks **linked** services, **downstream** callers (blast
+radius), and **upstream** callees, and highlights 1-hop propagation edges —
+enough to demo a cascading payment+inventory failure affecting gateway.
+
+```bash
+curl -s -H 'Authorization: Bearer local-dev' \
+  'http://localhost:8000/topology/dependencies?environment=local'
+curl -s -H 'Authorization: Bearer local-dev' \
+  http://localhost:8000/incidents/<uuid>/dependency-map
+```
+
 ## Stale revision / version UX (M10)
 
 Mutating UI sends concurrency tokens; stale SoR state is **rejected**, never
@@ -183,7 +204,7 @@ curl -s -H 'Authorization: Bearer local-dev' \
 
 | Section | Who sees it | Routes |
 | --- | --- | --- |
-| Ops | viewer / responder / admin | `/incidents` |
+| Ops | viewer / responder / admin | `/incidents`, `/topology` |
 | Admin | admin only | `/admin` |
 | Eval | none (out of scope) | — |
 

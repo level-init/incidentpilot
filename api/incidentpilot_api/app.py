@@ -21,6 +21,7 @@ from incidentpilot_api.routes import (
     remediation,
     resources,
     runbooks,
+    topology,
     webhooks_alerts,
     webhooks_slack,
 )
@@ -60,6 +61,7 @@ app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(incidents.router)
 app.include_router(resources.router)
+app.include_router(topology.router)
 app.include_router(evidence.router)
 app.include_router(runbooks.router)
 app.include_router(history.router)
