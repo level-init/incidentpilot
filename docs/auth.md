@@ -77,8 +77,9 @@ GroundTruth / answer-key APIs use `principal.eval_entitled`, **not** ops role.
 | Responder / Admin (ops only) | **403** |
 | Evaluator stub (`local-dev-evaluator`) | **200** (uses `ip_evaluator` DB role) |
 
-Ops Admin does **not** imply eval access. DB isolation (`ip_app` denied on
-`eval.ground_truth`) remains the second line of defense.
+Ops Admin does **not** imply eval access. DB isolation (`ip_app` / `ip_runner`
+denied on `eval.ground_truth`) remains the second line of defense — see
+[ground-truth.md](ground-truth.md) (N2).
 
 ## Swap stub → OIDC (`AUTH_MODE=oidc`)
 

@@ -31,8 +31,17 @@ router = APIRouter(prefix="/eval", tags=["eval"])
 class GroundTruthOut(BaseModel):
     id: UUID
     scenario_key: str
+    version: int = 1
+    title: str = ""
+    origin_service_keys: list[str] = Field(default_factory=list)
+    expected_hypothesis_class: str | None = None
+    expected_action_types: list[str] = Field(default_factory=list)
+    expected_severity: str | None = None
+    match_spec: dict[str, object] = Field(default_factory=dict)
     answer_payload: dict[str, object] = Field(default_factory=dict)
+    notes: str = ""
     created_at: datetime
+    updated_at: datetime | None = None
 
 
 class HarnessDecideBody(BaseModel):
@@ -56,7 +65,11 @@ def list_ground_truth(
 ) -> list[GroundTruthOut]:
     """Read GroundTruth — requires eval entitlement (not ops Admin/Responder)."""
     sql = """
-        SELECT id, scenario_key, answer_payload, created_at
+        SELECT id, scenario_key, version, title,
+               origin_service_keys, expected_hypothesis_class,
+               expected_action_types, expected_severity,
+               match_spec, answer_payload, notes,
+               created_at, updated_at
         FROM eval.ground_truth
     """
     params: list[object] = []
@@ -66,7 +79,15 @@ def list_ground_truth(
     sql += " ORDER BY created_at DESC LIMIT 100"
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(sql, params)
-        return [GroundTruthOut(**row) for row in cur.fetchall()]
+        rows = []
+        for row in cur.fetchall():
+            data = dict(row)
+            data["origin_service_keys"] = list(data.get("origin_service_keys") or [])
+            data["expected_action_types"] = list(
+                data.get("expected_action_types") or []
+            )
+            rows.append(GroundTruthOut(**data))
+        return rows
 
 
 @router.post(
