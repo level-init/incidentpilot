@@ -697,6 +697,64 @@ export function formatDuration(
   return rh ? `${days}d ${rh}h` : `${days}d`;
 }
 
+export type DependencyNode = {
+  service_id: string;
+  key: string;
+  display_name: string;
+  environment: string;
+  criticality: string;
+  linked: boolean;
+  upstream: boolean;
+  downstream: boolean;
+};
+
+export type DependencyEdge = {
+  edge_id: string;
+  from_key: string;
+  to_key: string;
+  dependency_type: string;
+  discovery_source: string;
+  confidence_tier: string;
+  on_propagation_path: boolean;
+};
+
+export type DependencyMap = {
+  environment: string;
+  nodes: DependencyNode[];
+  edges: DependencyEdge[];
+  linked_service_keys: string[];
+  upstream_keys: string[];
+  downstream_keys: string[];
+  propagation_edge_ids: string[];
+};
+
+export async function getTopologyDependencies(
+  environment: string = "local",
+): Promise<DependencyMap> {
+  const qs = new URLSearchParams({ environment });
+  const res = await apiFetch(`/topology/dependencies?${qs}`);
+  if (!res.ok) {
+    throw new Error((await res.text()) || `topology failed (${res.status})`);
+  }
+  return (await res.json()) as DependencyMap;
+}
+
+export async function getIncidentDependencyMap(
+  incidentId: string,
+  environment: string = "local",
+): Promise<DependencyMap> {
+  const qs = new URLSearchParams({ environment });
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/dependency-map?${qs}`,
+  );
+  if (!res.ok) {
+    throw new Error(
+      (await res.text()) || `dependency-map failed (${res.status})`,
+    );
+  }
+  return (await res.json()) as DependencyMap;
+}
+
 const TERMINAL = new Set(["RESOLVED", "CLOSED"]);
 
 export function overviewMetrics(incidents: Incident[]) {

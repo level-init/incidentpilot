@@ -485,3 +485,36 @@ class HypothesisConfirmOut(BaseModel):
     reason: str
     quality_rule_id: str
     inputs: dict[str, Any] = Field(default_factory=dict)
+
+
+class DependencyNodeOut(BaseModel):
+    service_id: str
+    key: str
+    display_name: str
+    environment: str
+    criticality: str
+    linked: bool = False
+    upstream: bool = False
+    downstream: bool = False
+
+
+class DependencyEdgeOut(BaseModel):
+    edge_id: str
+    from_key: str
+    to_key: str
+    dependency_type: str
+    discovery_source: str
+    confidence_tier: str
+    on_propagation_path: bool = False
+
+
+class DependencyMapOut(BaseModel):
+    """Service dependency catalog + optional incident blast-radius overlay (M11)."""
+
+    environment: str
+    nodes: list[DependencyNodeOut] = Field(default_factory=list)
+    edges: list[DependencyEdgeOut] = Field(default_factory=list)
+    linked_service_keys: list[str] = Field(default_factory=list)
+    upstream_keys: list[str] = Field(default_factory=list)
+    downstream_keys: list[str] = Field(default_factory=list)
+    propagation_edge_ids: list[str] = Field(default_factory=list)

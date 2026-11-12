@@ -12,6 +12,7 @@ import { InvestigationContext } from "@/components/InvestigationContext";
 import { ManualResolvePanel } from "@/components/ManualResolvePanel";
 import { PostmortemPanel } from "@/components/PostmortemPanel";
 import { RemediationPanel } from "@/components/RemediationPanel";
+import { ServiceDependencyMap } from "@/components/ServiceDependencyMap";
 import {
   formatDuration,
   getIncident,
@@ -131,6 +132,12 @@ export default function IncidentDetailPage() {
           <EvidenceHypothesesPanes incidentId={incident.id} />
 
           <InvestigationContext incidentId={incident.id} />
+
+          <ServiceDependencyMap
+            incidentId={incident.id}
+            environment={incident.environments[0] ?? "local"}
+            compact
+          />
 
           <RemediationPanel incidentId={incident.id} />
 

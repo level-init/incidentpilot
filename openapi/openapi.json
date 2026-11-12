@@ -2367,6 +2367,140 @@
         }
       }
     },
+    "/topology/dependencies": {
+      "get": {
+        "tags": [
+          "topology"
+        ],
+        "summary": "Get Topology Dependencies",
+        "description": "Catalog service dependency graph for the environment.",
+        "operationId": "get_topology_dependencies_topology_dependencies_get",
+        "parameters": [
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "default": "local",
+              "title": "Environment"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DependencyMapOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incidents/{incident_id}/dependency-map": {
+      "get": {
+        "tags": [
+          "topology"
+        ],
+        "summary": "Get Incident Dependency Map",
+        "description": "Incident overlay: linked services + 1-hop upstream/downstream propagation.",
+        "operationId": "get_incident_dependency_map_incidents__incident_id__dependency_map_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "default": "local",
+              "title": "Environment"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DependencyMapOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/incidents/{incident_id}/evidence": {
       "post": {
         "tags": [
@@ -4579,6 +4713,153 @@
           "observed_at"
         ],
         "title": "ChangeOut"
+      },
+      "DependencyEdgeOut": {
+        "properties": {
+          "edge_id": {
+            "type": "string",
+            "title": "Edge Id"
+          },
+          "from_key": {
+            "type": "string",
+            "title": "From Key"
+          },
+          "to_key": {
+            "type": "string",
+            "title": "To Key"
+          },
+          "dependency_type": {
+            "type": "string",
+            "title": "Dependency Type"
+          },
+          "discovery_source": {
+            "type": "string",
+            "title": "Discovery Source"
+          },
+          "confidence_tier": {
+            "type": "string",
+            "title": "Confidence Tier"
+          },
+          "on_propagation_path": {
+            "type": "boolean",
+            "title": "On Propagation Path",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "edge_id",
+          "from_key",
+          "to_key",
+          "dependency_type",
+          "discovery_source",
+          "confidence_tier"
+        ],
+        "title": "DependencyEdgeOut"
+      },
+      "DependencyMapOut": {
+        "properties": {
+          "environment": {
+            "type": "string",
+            "title": "Environment"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/DependencyNodeOut"
+            },
+            "type": "array",
+            "title": "Nodes"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/DependencyEdgeOut"
+            },
+            "type": "array",
+            "title": "Edges"
+          },
+          "linked_service_keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Linked Service Keys"
+          },
+          "upstream_keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Upstream Keys"
+          },
+          "downstream_keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Downstream Keys"
+          },
+          "propagation_edge_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Propagation Edge Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "environment"
+        ],
+        "title": "DependencyMapOut",
+        "description": "Service dependency catalog + optional incident blast-radius overlay (M11)."
+      },
+      "DependencyNodeOut": {
+        "properties": {
+          "service_id": {
+            "type": "string",
+            "title": "Service Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "environment": {
+            "type": "string",
+            "title": "Environment"
+          },
+          "criticality": {
+            "type": "string",
+            "title": "Criticality"
+          },
+          "linked": {
+            "type": "boolean",
+            "title": "Linked",
+            "default": false
+          },
+          "upstream": {
+            "type": "boolean",
+            "title": "Upstream",
+            "default": false
+          },
+          "downstream": {
+            "type": "boolean",
+            "title": "Downstream",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_id",
+          "key",
+          "display_name",
+          "environment",
+          "criticality"
+        ],
+        "title": "DependencyNodeOut"
       },
       "EvidenceOut": {
         "properties": {

@@ -20,6 +20,7 @@ type Props = {
 
 const OPS_LINKS = [
   { href: "/incidents", label: "Incidents" },
+  { href: "/topology", label: "Topology" },
 ] as const;
 
 const ADMIN_LINKS = [
