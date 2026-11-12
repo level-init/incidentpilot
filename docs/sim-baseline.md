@@ -37,6 +37,9 @@ under demo stock (100 widgets / 50 gadgets) at these settings.
 
 ## Gate for scenario runner
 
+The N1 runner (`make scenario-run`) records a `ScenarioRun` and marks it
+`FAILED` when this gate is red — see [scenarios.md](scenarios.md).
+
 Before injecting faults:
 
 ```bash

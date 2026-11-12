@@ -8,7 +8,7 @@ PostgreSQL is the system of record. GroundTruth lives in schema `eval` and is
 | Schema | Purpose |
 | --- | --- |
 | `domain` | IncidentPilot SoR (entity tables in Epic B) |
-| `scenarios` | Scenario definitions / run metadata (runner) |
+| `scenarios` | Scenario definitions / run metadata (runner) — N1: `scenario`, `scenario_run` |
 | `eval` | GroundTruth + evaluation pins (evaluator) |
 
 Temporal uses separate databases `temporal` / `temporal_visibility` (Compose init).
