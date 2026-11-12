@@ -15,7 +15,7 @@ from incidentpilot_api.commands import (
     create_runbook_version_command,
     publish_runbook_version_command,
 )
-from incidentpilot_api.db import get_conn
+from incidentpilot_api.db import get_conn_with_permission
 from incidentpilot_api.integrations_status import list_integration_status
 from incidentpilot_api.rbac import Permission, require_permission
 from incidentpilot_api.schemas import (
@@ -29,17 +29,17 @@ from incidentpilot_api.schemas import (
 
 router = APIRouter(tags=["admin"])
 
+_AdminConn = Annotated[
+    Connection, Depends(get_conn_with_permission(Permission.ADMIN_CONFIG))
+]
+
 
 @router.get(
     "/admin/policies",
     response_model=list[PolicyKeyOut],
     summary="Policy keys + active version (admin)",
 )
-def list_policy_keys(
-    principal: Annotated[Principal, Depends(get_principal)],
-    conn: Annotated[Connection, Depends(get_conn)],
-) -> list[PolicyKeyOut]:
-    require_permission(principal, Permission.ADMIN_CONFIG)
+def list_policy_keys(conn: _AdminConn) -> list[PolicyKeyOut]:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
@@ -74,11 +74,7 @@ def list_policy_keys(
     response_model=list[AdminRunbookOut],
     summary="Runbook catalog for admin publish",
 )
-def list_admin_runbooks(
-    principal: Annotated[Principal, Depends(get_principal)],
-    conn: Annotated[Connection, Depends(get_conn)],
-) -> list[AdminRunbookOut]:
-    require_permission(principal, Permission.ADMIN_CONFIG)
+def list_admin_runbooks(conn: _AdminConn) -> list[AdminRunbookOut]:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
@@ -162,9 +158,8 @@ def list_admin_runbooks(
 def create_admin_runbook(
     body: AdminRunbookCreate,
     principal: Annotated[Principal, Depends(get_principal)],
-    conn: Annotated[Connection, Depends(get_conn)],
+    conn: _AdminConn,
 ) -> AdminRunbookOut:
-    require_permission(principal, Permission.ADMIN_CONFIG)
     try:
         created = create_runbook_command(
             conn,
@@ -199,9 +194,8 @@ def create_admin_runbook_version(
     runbook_id: UUID,
     body: AdminRunbookVersionCreate,
     principal: Annotated[Principal, Depends(get_principal)],
-    conn: Annotated[Connection, Depends(get_conn)],
+    conn: _AdminConn,
 ) -> AdminRunbookVersionOut:
-    require_permission(principal, Permission.ADMIN_CONFIG)
     try:
         created = create_runbook_version_command(
             conn,
@@ -230,11 +224,9 @@ def create_admin_runbook_version(
 )
 def publish_admin_runbook_version(
     runbook_version_id: UUID,
-    principal: Annotated[Principal, Depends(get_principal)],
-    conn: Annotated[Connection, Depends(get_conn)],
+    conn: _AdminConn,
     set_active: bool = True,
 ) -> AdminRunbookVersionOut:
-    require_permission(principal, Permission.ADMIN_CONFIG)
     try:
         published = publish_runbook_version_command(
             conn,
@@ -261,5 +253,6 @@ def publish_admin_runbook_version(
 def get_integrations(
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> list[IntegrationStatusOut]:
+    # No DB — RBAC only (unit CI must not open Postgres).
     require_permission(principal, Permission.ADMIN_CONFIG)
     return [IntegrationStatusOut.model_validate(r) for r in list_integration_status()]
