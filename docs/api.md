@@ -44,6 +44,12 @@ accepts UUID or `public_id` (M3 header + Slack deep links).
 `GET /incidents/{id}/remediation` returns remediation cards (params, risk,
 policy, approval, attempts with `unsafe_to_retry` for UNKNOWN/PARTIAL) for M5.
 
+M6 context:
+
+- `GET /incidents/{id}/changes` — changes for linked services
+- `GET /incidents/{id}/runbook` — pinned runbook with `allowed_action_types`
+  (authority) and `body_markdown` (untrusted prose)
+
 Dashboard: [web.md](web.md) (`make web-dev`).
 
 Published contract: [openapi/openapi.json](../openapi/openapi.json) (`make openapi-export`).

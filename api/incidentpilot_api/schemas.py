@@ -319,6 +319,34 @@ class ImpactSnapshotOut(BaseModel):
     provenance: dict[str, Any] = Field(default_factory=dict)
 
 
+class ChangeOut(BaseModel):
+    id: UUID
+    change_key: str
+    change_type: str
+    service_key: str | None = None
+    summary: str
+    source: str
+    external_ref: str | None = None
+    observed_at: datetime
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class PinnedRunbookOut(BaseModel):
+    """Pinned runbook for the incident — authority vs untrusted prose (M6/H6)."""
+
+    pinned: bool
+    runbook_key: str | None = None
+    title: str | None = None
+    version: int | None = None
+    runbook_version_id: UUID | None = None
+    allowed_action_types: list[str] = Field(default_factory=list)
+    body_markdown: str | None = None
+    authority_note: str = (
+        "allowed_action_types is executable authority; "
+        "body_markdown is untrusted human prose"
+    )
+
+
 class SloBurnOut(BaseModel):
     id: UUID
     incident_id: UUID

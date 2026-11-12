@@ -140,6 +140,74 @@ export async function createHumanObservation(
   return (await res.json()) as Evidence;
 }
 
+export type ImpactSnapshot = {
+  id: string;
+  incident_id: string;
+  captured_at: string;
+  severity: string | null;
+  customer_impact_summary: string | null;
+  estimated_affected_users: number | null;
+  metrics: Record<string, unknown>;
+  provenance: Record<string, unknown>;
+};
+
+export type ChangeRecord = {
+  id: string;
+  change_key: string;
+  change_type: string;
+  service_key: string | null;
+  summary: string;
+  source: string;
+  external_ref: string | null;
+  observed_at: string;
+  payload: Record<string, unknown>;
+};
+
+export type PinnedRunbook = {
+  pinned: boolean;
+  runbook_key: string | null;
+  title: string | null;
+  version: number | null;
+  runbook_version_id: string | null;
+  allowed_action_types: string[];
+  body_markdown: string | null;
+  authority_note: string;
+};
+
+export async function listImpactSnapshots(
+  incidentId: string,
+): Promise<ImpactSnapshot[]> {
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/impact-snapshots`,
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `impact failed (${res.status})`);
+  }
+  return (await res.json()) as ImpactSnapshot[];
+}
+
+export async function listChanges(incidentId: string): Promise<ChangeRecord[]> {
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/changes`,
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `changes failed (${res.status})`);
+  }
+  return (await res.json()) as ChangeRecord[];
+}
+
+export async function getPinnedRunbook(
+  incidentId: string,
+): Promise<PinnedRunbook> {
+  const res = await apiFetch(
+    `/incidents/${encodeURIComponent(incidentId)}/runbook`,
+  );
+  if (!res.ok) {
+    throw new Error((await res.text()) || `runbook failed (${res.status})`);
+  }
+  return (await res.json()) as PinnedRunbook;
+}
+
 export type RemediationAttempt = {
   id: string;
   action_version: number;
