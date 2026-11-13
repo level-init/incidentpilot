@@ -17,6 +17,10 @@ expected_action_types:
 expected_severity: SEV2
 expected_hypothesis_class: bad_deployment
 ground_truth_key: bad_deploy
+seed_change_type: DEPLOYMENT
+action_parameters:
+  revision: prev
+  deployment: checkout
 notes: >
   First portfolio vertical: FAULT_INJECTED → Level-2 REQUIRE_APPROVAL
   (eval harness, no Slack) → RESOLVED ops pin → CLOSED postmortem pin →

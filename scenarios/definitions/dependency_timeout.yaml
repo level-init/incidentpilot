@@ -1,0 +1,29 @@
+# N10 / #107 — dependency timeout scored scenario (Level 2 harness).
+key: dependency_timeout
+aliases:
+  - dependency-timeout
+  - dependency_timeout
+title: Dependency timeout
+injector_id: dependency_timeout
+autonomy_level: 2
+harness: level2
+origin_service: payment
+symptom_services:
+  - payment
+  - gateway
+expected_action_types:
+  - REROUTE_TRAFFIC
+expected_severity: SEV2
+expected_hypothesis_class: dependency_timeout
+ground_truth_key: dependency_timeout
+# No DEPLOYMENT change — timeout class, not a bad rollout.
+seed_change_type: null
+action_parameters:
+  service: payment
+  weights:
+    primary: 0
+    drain: 100
+notes: >
+  N10 scored path: payment latency injector → Level-2 REQUIRE_APPROVAL
+  (REROUTE_TRAFFIC) → dual-stage eval → ScenarioRun EVALUATED.
+  Runner never reads GroundTruth.

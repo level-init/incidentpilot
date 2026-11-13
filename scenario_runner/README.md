@@ -15,8 +15,9 @@ PYTHONPATH=scenario_runner:simulation \
 PYTHONPATH=scenario_runner:simulation \
   python -m incidentpilot_scenario_runner reset
 
-# N9 first scored vertical (Level 2 harness → dual-stage eval)
+# Scored verticals (Level 2 harness → dual-stage eval)
 make scenario NAME=bad-deployment && make eval
+make scenario NAME=dependency-timeout && make eval
 ```
 
 YAML definitions live under `scenarios/definitions/` (loaded by the runner;

@@ -59,17 +59,22 @@ make test-isolation
 
 See [isolation.md](isolation.md) (N8).
 
-## First scored vertical (N9)
+## Scored scenarios (N9+)
 
-YAML definition: `scenarios/definitions/bad_deploy.yaml` (aliases
-`bad-deployment` / `bad_deployment`). Level **2** approval via the I6 eval
-harness (no Slack / Level 3). Dual-stage pins: Operational @ RESOLVED,
-Postmortem @ CLOSED → `ScenarioRun EVALUATED` with manifest pinned.
+YAML definitions live under `scenarios/definitions/`. Level **2** approval via
+the I6 eval harness (no Slack / Level 3). Dual-stage pins: Operational @
+RESOLVED, Postmortem @ CLOSED → `ScenarioRun EVALUATED` with manifest pinned.
+
+| NAME | Key | Action |
+| --- | --- | --- |
+| `bad-deployment` | `bad_deploy` | `ROLLBACK_DEPLOYMENT` (N9) |
+| `dependency-timeout` | `dependency_timeout` | `REROUTE_TRAFFIC` (N10) |
 
 ```bash
 make migrate
 make test-isolation
 make scenario NAME=bad-deployment && make eval
+make scenario NAME=dependency-timeout && make eval
 ```
 
 `make scenario` records a FAULT_INJECTED run + Level-2 harness path.
