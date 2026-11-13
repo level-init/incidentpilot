@@ -51,3 +51,5 @@ match specs for the first scored vertical. Formulas:
 
 ScenarioRun lifecycle (`FAILED` vs `EVALUATED`+`passed=false`):
 [scenarios.md](scenarios.md) (N3).
+
+Isolation suite (N8): [isolation.md](isolation.md) — `make test-isolation`.
