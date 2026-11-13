@@ -107,6 +107,12 @@ def _default_action_parameters(action_type: str, *, service: str) -> dict[str, A
         return {"workload": service}
     if action_type == "SCALE_WORKLOAD":
         return {"workload": service, "replicas": 4}
+    if action_type == "DISABLE_FEATURE_FLAG":
+        return {"flag": "strict_jwt", "service": service}
+    if action_type == "RESTORE_FEATURE_FLAG":
+        return {"flag": "strict_jwt", "service": service, "value": False}
+    if action_type == "RESTORE_CONFIG":
+        return {"key": "jwt_skew_seconds", "service": service, "value": 30}
     return {}
 
 

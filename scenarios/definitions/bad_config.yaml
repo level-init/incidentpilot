@@ -1,0 +1,29 @@
+# N15 / #112 — bad config/flag scored scenario (Level 2 harness).
+key: bad_config
+aliases:
+  - bad-config
+  - bad_config
+  - bad-flag
+  - bad_flag
+title: Bad configuration / feature flag
+injector_id: bad_config
+autonomy_level: 2
+harness: level2
+origin_service: auth
+symptom_services:
+  - auth
+  - gateway
+expected_action_types:
+  - DISABLE_FEATURE_FLAG
+expected_severity: SEV2
+expected_hypothesis_class: bad_config
+ground_truth_key: bad_config
+seed_change_type: FEATURE_FLAG
+action_parameters:
+  flag: strict_jwt
+  service: auth
+notes: >
+  N15 scored path: auth bad-config/flag injector → Level-2 REQUIRE_APPROVAL
+  (DISABLE_FEATURE_FLAG) → dual-stage eval → ScenarioRun EVALUATED.
+  GT corrects legacy TOGGLE_FEATURE_FLAG seed to DISABLE_FEATURE_FLAG.
+  Runner never reads GroundTruth.
