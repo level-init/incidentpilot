@@ -70,6 +70,7 @@ RESOLVED, Postmortem @ CLOSED → `ScenarioRun EVALUATED` with manifest pinned.
 | `bad-deployment` | `bad_deploy` | `ROLLBACK_DEPLOYMENT` (N9) |
 | `dependency-timeout` | `dependency_timeout` | `REROUTE_TRAFFIC` (N10) |
 | `db-exhaustion` | `db_exhaustion` | `SCALE_WORKLOAD` (N11) |
+| `memory-leak` | `memory_leak` | `RESTART_WORKLOAD` (N12) |
 
 ```bash
 make migrate
@@ -77,6 +78,7 @@ make test-isolation
 make scenario NAME=bad-deployment && make eval
 make scenario NAME=dependency-timeout && make eval
 make scenario NAME=db-exhaustion && make eval
+make scenario NAME=memory-leak && make eval
 ```
 
 `make scenario` records a FAULT_INJECTED run + Level-2 harness path.

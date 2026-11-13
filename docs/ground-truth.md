@@ -50,6 +50,7 @@ Migration `0020` seeds the eight scenario classes. Tightened scored keys:
 | `0025` (N9) | `bad_deploy` | payment + `DEPLOYMENT` + `ROLLBACK_DEPLOYMENT` |
 | `0026` (N10) | `dependency_timeout` | payment + `REROUTE_TRAFFIC` |
 | `0027` (N11) | `db_exhaustion` | inventory + `SCALE_WORKLOAD` / `resource_exhaustion` |
+| `0028` (N12) | `memory_leak` | checkout + `RESTART_WORKLOAD` / `resource_exhaustion` |
 
 Formulas: [eval-metrics.md](eval-metrics.md) (N5). Scored path:
 [scenarios.md](scenarios.md).
