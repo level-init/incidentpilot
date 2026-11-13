@@ -16,6 +16,8 @@ type Props = {
   children: ReactNode;
   /** Require admin role for this page. */
   requireAdmin?: boolean;
+  /** Require eval entitlement (orthogonal to ops role). */
+  requireEval?: boolean;
 };
 
 const OPS_LINKS = [
@@ -27,7 +29,16 @@ const ADMIN_LINKS = [
   { href: "/admin", label: "Admin" },
 ] as const;
 
-export function AppShell({ children, requireAdmin = false }: Props) {
+const EVAL_LINKS = [
+  { href: "/eval", label: "Scenario runs" },
+  { href: "/eval/ground-truth", label: "Ground truth" },
+] as const;
+
+export function AppShell({
+  children,
+  requireAdmin = false,
+  requireEval = false,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [session, setSession] = useState<Session | null>(null);
@@ -47,6 +58,10 @@ export function AppShell({ children, requireAdmin = false }: Props) {
           router.replace("/incidents");
           return;
         }
+        if (requireEval && !s.eval_entitled) {
+          router.replace("/incidents");
+          return;
+        }
         setSession(s);
       })
       .catch((err: unknown) => {
@@ -58,7 +73,7 @@ export function AppShell({ children, requireAdmin = false }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [pathname, requireAdmin, router]);
+  }, [pathname, requireAdmin, requireEval, router]);
 
   function signOut() {
     clearStoredToken();
@@ -74,18 +89,23 @@ export function AppShell({ children, requireAdmin = false }: Props) {
   }
 
   const isAdmin = session.role === "admin";
+  const isEval = session.eval_entitled;
+  const onEvalSurface = pathname.startsWith("/eval");
 
   return (
-    <div className="shell">
+    <div className={onEvalSurface ? "shell shell-eval" : "shell"}>
       <header className="shell-header">
         <div className="shell-brand">
           <Link href="/incidents" className="brand-mark">
             IncidentPilot
           </Link>
-          <span className="brand-sub">control plane</span>
+          <span className="brand-sub">
+            {onEvalSurface ? "evaluation" : "control plane"}
+          </span>
         </div>
         <div className="shell-user">
           <span className="user-role">{session.role}</span>
+          {isEval ? <span className="user-eval">eval</span> : null}
           <span className="user-email">{session.email ?? session.actor_id}</span>
           <button type="button" className="btn-ghost" onClick={signOut}>
             Sign out
@@ -125,6 +145,31 @@ export function AppShell({ children, requireAdmin = false }: Props) {
                     </Link>
                   </li>
                 ))}
+              </ul>
+            </>
+          ) : null}
+
+          {isEval ? (
+            <>
+              <p className="nav-section">Eval</p>
+              <ul>
+                {EVAL_LINKS.map((link) => {
+                  const active =
+                    link.href === "/eval"
+                      ? pathname === "/eval" ||
+                        pathname.startsWith("/eval/runs")
+                      : pathname.startsWith(link.href);
+                  return (
+                    <li key={link.href}>
+                      <Link
+                        href={link.href}
+                        className={active ? "active" : undefined}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </>
           ) : null}

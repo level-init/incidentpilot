@@ -81,8 +81,9 @@ function LoginForm() {
 
         <p className="hint">
           Uses <code>GET /auth/me</code> with{" "}
-          <code>Authorization: Bearer …</code>. Admin nav appears only for{" "}
-          <code>local-dev-admin</code>. Eval UI is intentionally omitted.
+          <code>Authorization: Bearer …</code>. Admin nav for{" "}
+          <code>local-dev-admin</code>; Eval nav for{" "}
+          <code>local-dev-evaluator</code> only.
         </p>
       </form>
     </div>
