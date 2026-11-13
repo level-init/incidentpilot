@@ -52,6 +52,7 @@ Migration `0020` seeds the eight scenario classes. Tightened scored keys:
 | `0027` (N11) | `db_exhaustion` | inventory + `SCALE_WORKLOAD` / `resource_exhaustion` |
 | `0028` (N12) | `memory_leak` | checkout + `RESTART_WORKLOAD` / `resource_exhaustion` |
 | `0029` (N13) | `cpu_exhaustion` | checkout + `SCALE_WORKLOAD` / `resource_exhaustion` |
+| `0030` (N14) | `queue_backlog` | notification + `SCALE_WORKLOAD` / `queue_backlog` (SEV3) |
 
 Formulas: [eval-metrics.md](eval-metrics.md) (N5). Scored path:
 [scenarios.md](scenarios.md).

@@ -361,9 +361,19 @@ def evaluate_scored_vertical(
             raise RuntimeError("no cached incident — run `make scenario` first")
         incident_id = UUID(str(cache["incident_id"]))
 
-    scenario_key = str(cache.get("scenario_key") or (name or "bad_deploy"))
+    # Prefer cache key from last `make scenario` so `make eval` alone is correct.
+    cached_key = str(cache["scenario_key"]) if cache.get("scenario_key") else None
     if name:
-        scenario_key = resolve_scenario_name(name).key
+        named = resolve_scenario_name(name).key
+        if cached_key and named != cached_key:
+            raise RuntimeError(
+                f"--name {name!r} resolves to {named!r} but cache has "
+                f"{cached_key!r}; omit --name to eval the last scored run, "
+                f"or re-run make scenario NAME={name}"
+            )
+        scenario_key = named
+    else:
+        scenario_key = cached_key or "bad_deploy"
 
     with psycopg.connect(_eval_dsn()) as conn:
         ops = pin_operational_evaluation(

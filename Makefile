@@ -166,12 +166,15 @@ scenario-reset: $(VENV)
 	PYTHONPATH="$(CURDIR)/scenario_runner:$(CURDIR)/simulation" \
 		$(BIN)/python -m incidentpilot_scenario_runner reset
 
-# N9: first scored vertical. Verify with: make scenario NAME=bad-deployment && make eval
+# Scored verticals (N9+). Example: make scenario NAME=queue-backlog && make eval
 # Do not inherit ambient shell NAME= (often the hostname); only honor CLI NAME=….
+# `make eval` alone uses .cache/last_scenario_run.json from the prior `make scenario`.
 ifeq ($(origin NAME),command line)
   SCENARIO := $(NAME)
+  EVAL_NAME_FLAG := --name $(NAME)
 else
   SCENARIO ?= bad-deployment
+  EVAL_NAME_FLAG :=
 endif
 SCENARIO_PYTHONPATH := $(CURDIR)/scenario_runner:$(CURDIR)/simulation:$(CURDIR)/shared:$(CURDIR)/adapters:$(CURDIR)/evaluator
 
@@ -181,7 +184,7 @@ scenario: $(VENV)
 
 eval: $(VENV)
 	PYTHONPATH="$(SCENARIO_PYTHONPATH)" \
-		$(BIN)/python -m incidentpilot_scenario_runner eval --name $(SCENARIO)
+		$(BIN)/python -m incidentpilot_scenario_runner eval $(EVAL_NAME_FLAG)
 
 obs-smoke:
 	./scripts/verify_obs_stack.sh
