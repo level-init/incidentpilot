@@ -391,7 +391,7 @@ def evaluate_scored_vertical(
                 (
                     str(incident_id),
                     f"scored postmortem {scenario_key}",
-                    f"Root cause: {scenario_key}. Corrective: harden dependency timeouts.",
+                    f"Root cause: {scenario_key}. Corrective: prevent recurrence.",
                 ),
             )
             cur.execute(

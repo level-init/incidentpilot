@@ -1,0 +1,27 @@
+# N11 / #108 — DB exhaustion scored scenario (Level 2 harness).
+key: db_exhaustion
+aliases:
+  - db-exhaustion
+  - db_exhaustion
+  - database-exhaustion
+title: Database connection exhaustion
+injector_id: db_exhaustion
+autonomy_level: 2
+harness: level2
+origin_service: inventory
+symptom_services:
+  - inventory
+  - checkout
+expected_action_types:
+  - SCALE_WORKLOAD
+expected_severity: SEV2
+expected_hypothesis_class: resource_exhaustion
+ground_truth_key: db_exhaustion
+seed_change_type: null
+action_parameters:
+  workload: inventory
+  replicas: 4
+notes: >
+  N11 scored path: inventory pool exhaustion injector → Level-2 REQUIRE_APPROVAL
+  (SCALE_WORKLOAD) → dual-stage eval → ScenarioRun EVALUATED.
+  Runner never reads GroundTruth.

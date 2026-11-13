@@ -2,7 +2,7 @@
 
 Prove GroundTruth never enters the investigation path. **Required before
 scored ScenarioRuns** (N9+: `make scenario NAME=bad-deployment && make eval`;
-N10+: `NAME=dependency-timeout`).
+also `dependency-timeout`, `db-exhaustion`, …).
 
 ## Suite
 
