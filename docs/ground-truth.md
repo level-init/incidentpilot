@@ -54,6 +54,7 @@ Migration `0020` seeds the eight scenario classes. Tightened scored keys:
 | `0029` (N13) | `cpu_exhaustion` | checkout + `SCALE_WORKLOAD` / `resource_exhaustion` |
 | `0030` (N14) | `queue_backlog` | notification + `SCALE_WORKLOAD` / `queue_backlog` (SEV3) |
 | `0031` (N15) | `bad_config` | auth + `DISABLE_FEATURE_FLAG` / `FEATURE_FLAG` (replaces invalid `TOGGLE_FEATURE_FLAG`) |
+| `0032` (N16) | `cascading_failure` | payment+inventory origins, gateway symptom, SEV1 `ROLLBACK_DEPLOYMENT` |
 
 Formulas: [eval-metrics.md](eval-metrics.md) (N5). Scored path:
 [scenarios.md](scenarios.md).

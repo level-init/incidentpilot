@@ -127,6 +127,7 @@ def _drive_level2_path(
     """
     from incidentpilot_shared.approval_harness import harness_actor_id
     from incidentpilot_shared.domain.commands import (
+        _ensure_service_id,
         create_incident_command,
         create_runbook_command,
         create_runbook_version_command,
@@ -153,6 +154,20 @@ def _drive_level2_path(
         commit=False,
     )
     incident_id = created.incident_id
+
+    # Multi-origin scenarios (e.g. cascading): attach remaining origin services.
+    for extra in definition.additional_origin_services:
+        sid = _ensure_service_id(conn, service_key=extra, environment="local")
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO domain.incident_service (
+                    incident_id, service_id, involvement
+                ) VALUES (%s, %s, 'affected')
+                ON CONFLICT DO NOTHING
+                """,
+                (str(incident_id), str(sid)),
+            )
 
     if definition.seed_change_type:
         upsert_change_command(
