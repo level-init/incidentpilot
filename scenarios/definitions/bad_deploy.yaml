@@ -1,0 +1,23 @@
+# N9 / #106 — first scored vertical (Level 2 harness).
+# Catalog key remains ``bad_deploy``; aliases match make NAME=bad-deployment.
+key: bad_deploy
+aliases:
+  - bad-deployment
+  - bad_deployment
+title: Bad application deployment
+injector_id: bad_deploy
+autonomy_level: 2
+harness: level2
+origin_service: payment
+symptom_services:
+  - payment
+  - gateway
+expected_action_types:
+  - ROLLBACK_DEPLOYMENT
+expected_severity: SEV2
+expected_hypothesis_class: bad_deployment
+ground_truth_key: bad_deploy
+notes: >
+  First portfolio vertical: FAULT_INJECTED → Level-2 REQUIRE_APPROVAL
+  (eval harness, no Slack) → RESOLVED ops pin → CLOSED postmortem pin →
+  ScenarioRun EVALUATED. Runner never reads GroundTruth.

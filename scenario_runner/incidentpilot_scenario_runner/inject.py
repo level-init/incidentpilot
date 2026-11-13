@@ -29,10 +29,7 @@ def activate_injector(injector_id: str) -> dict[str, Any]:
     with httpx.Client(timeout=5.0) as client:
         for step in plan:
             service = step["service"]
-            url = (
-                f"{control_base_url(service).rstrip('/')}"
-                f"/v1/injectors/{injector_id}/activate"
-            )
+            url = f"{control_base_url(service).rstrip('/')}/v1/injectors/{injector_id}/activate"
             res = client.post(url, json={})
             res.raise_for_status()
             results.append(res.json())

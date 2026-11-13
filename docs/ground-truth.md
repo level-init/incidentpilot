@@ -43,9 +43,11 @@ Ops Responder/Admin → **403**. DB role denial is the second line of defense.
 
 ## Seeds
 
-Migration `0020` seeds the eight scenario classes. N9 tightens `bad_deploy`
-match specs for the first scored vertical. Formulas:
-[eval-metrics.md](eval-metrics.md) (N5).
+Migration `0020` seeds the eight scenario classes. Migration `0025` (N9)
+bumps `bad_deploy` to version 2 with a tightened `match_spec` (payment +
+`DEPLOYMENT` + `bad_deployment` + Level-2 harness metadata). Formulas:
+[eval-metrics.md](eval-metrics.md) (N5). Scored path:
+[scenarios.md](scenarios.md) (`make scenario NAME=bad-deployment && make eval`).
 
 ## Related
 

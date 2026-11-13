@@ -59,6 +59,24 @@ make test-isolation
 
 See [isolation.md](isolation.md) (N8).
 
+## First scored vertical (N9)
+
+YAML definition: `scenarios/definitions/bad_deploy.yaml` (aliases
+`bad-deployment` / `bad_deployment`). Level **2** approval via the I6 eval
+harness (no Slack / Level 3). Dual-stage pins: Operational @ RESOLVED,
+Postmortem @ CLOSED → `ScenarioRun EVALUATED` with manifest pinned.
+
+```bash
+make migrate
+make test-isolation
+make scenario NAME=bad-deployment && make eval
+```
+
+`make scenario` records a FAULT_INJECTED run + Level-2 harness path.
+`make eval` pins both evaluation stages and asserts family count = 2.
+CI keeps `LLM_PROVIDER=fake`; optional local Gemini is documented in
+[llm.md](llm.md).
+
 ## CLI
 
 Uses `DATABASE_URL_RUNNER` (`ip_runner`).
@@ -72,6 +90,8 @@ make scenario-list
 make scenario-run ARGS='bad_deploy'          # baseline → inject
 make scenario-run ARGS='bad_deploy --no-inject'
 make scenario-reset                          # clear faults; keep run history
+make scenario NAME=bad-deployment            # N9 scored vertical
+make eval                                    # N9 dual-stage pins
 PYTHONPATH=scenario_runner:simulation \
   .venv/bin/python -m incidentpilot_scenario_runner show <run_uuid>
 ```

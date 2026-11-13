@@ -2,6 +2,7 @@
 
 from incidentpilot_adapters.llm.factory import resolve_llm_provider
 from incidentpilot_adapters.llm.fake import FakeLLMProvider, json_response
+from incidentpilot_adapters.llm.gemini import GeminiLLMProvider
 from incidentpilot_adapters.llm.protocol import (
     LLMMessage,
     LLMProvider,
@@ -16,6 +17,7 @@ from incidentpilot_adapters.llm.validate import (
 
 __all__ = [
     "FakeLLMProvider",
+    "GeminiLLMProvider",
     "LLMMessage",
     "LLMProvider",
     "LLMRequest",

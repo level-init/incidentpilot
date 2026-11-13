@@ -81,9 +81,7 @@ def create_scenario_run(
 
     mid = environment_manifest_id
     if mid is None:
-        mid = insert_environment_manifest(
-            conn, fields=capture_local_manifest(), commit=False
-        )
+        mid = insert_environment_manifest(conn, fields=capture_local_manifest(), commit=False)
     with conn.cursor() as cur:
         cur.execute(
             """
