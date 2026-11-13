@@ -1,4 +1,4 @@
-"""N9 scored vertical — Level 2 harness path to dual-stage eval.
+"""Scored scenario verticals (N9+) — Level 2 harness path to dual-stage eval.
 
 Does **not** read GroundTruth (evaluator pins do). Isolation must be green
 before scoring (``make test-isolation`` / ``--require-isolation``).
@@ -98,12 +98,24 @@ def ensure_isolation_green(*, skip: bool = False) -> None:
         )
 
 
+def _default_action_parameters(action_type: str, *, service: str) -> dict[str, Any]:
+    if action_type == "ROLLBACK_DEPLOYMENT":
+        return {"revision": "prev", "deployment": "checkout"}
+    if action_type == "REROUTE_TRAFFIC":
+        return {"service": service, "weights": {"primary": 0, "drain": 100}}
+    if action_type == "RESTART_WORKLOAD":
+        return {"workload": service}
+    if action_type == "SCALE_WORKLOAD":
+        return {"workload": service, "replicas": 4}
+    return {}
+
+
 def _drive_level2_path(
     conn: Any,
     *,
     definition: ScenarioDefinition,
 ) -> tuple[UUID, UUID, UUID]:
-    """Propose rollback → REQUIRE_APPROVAL → harness APPROVED → SUCCEEDED.
+    """Propose action → REQUIRE_APPROVAL → harness APPROVED → SUCCEEDED.
 
     Returns (incident_id, action_id, approval_id).
     """
@@ -121,9 +133,14 @@ def _drive_level2_path(
     )
 
     service = definition.origin_service
+    action_type = definition.primary_action_type
+    params = dict(definition.action_parameters) or _default_action_parameters(
+        action_type, service=service
+    )
+
     created = create_incident_command(
         conn,
-        title=f"N9 scored {definition.key}",
+        title=f"scored {definition.key}",
         severity=definition.expected_severity or "SEV2",
         service_key=service,
         environment="local",
@@ -131,33 +148,34 @@ def _drive_level2_path(
     )
     incident_id = created.incident_id
 
-    upsert_change_command(
-        conn,
-        change_type="DEPLOYMENT",
-        service_key=service,
-        observed_at=datetime.now(UTC),
-        source_ref=f"n9/{definition.key}/{uuid4().hex[:8]}",
-        source="scenario_runner",
-        fingerprint=f"n9-bad-deploy-{uuid4().hex}",
-        summary="bad revision rolled out",
-        payload={"revision": "bad", "deployment": "checkout"},
-        provenance={"layer": "CHANGE", "scenario": definition.key},
-        environment="local",
-        commit=False,
-    )
+    if definition.seed_change_type:
+        upsert_change_command(
+            conn,
+            change_type=definition.seed_change_type,
+            service_key=service,
+            observed_at=datetime.now(UTC),
+            source_ref=f"scored/{definition.key}/{uuid4().hex[:8]}",
+            source="scenario_runner",
+            fingerprint=f"scored-{definition.key}-{uuid4().hex}",
+            summary=f"{definition.key} change seed",
+            payload={"scenario": definition.key},
+            provenance={"layer": "CHANGE", "scenario": definition.key},
+            environment="local",
+            commit=False,
+        )
 
     rb = create_runbook_command(
         conn,
-        key=f"n9.rb.{uuid4().hex[:8]}",
-        title="N9 bad-deploy rollback",
+        key=f"scored.rb.{uuid4().hex[:8]}",
+        title=f"scored {definition.key}",
         service_key=service,
         commit=False,
     )
     ver = create_runbook_version_command(
         conn,
         runbook_id=rb.runbook_id,
-        body_markdown="# N9 bad deploy — rollback payment/checkout revision",
-        allowed_action_types=list(definition.expected_action_types or ("ROLLBACK_DEPLOYMENT",)),
+        body_markdown=f"# scored {definition.key} — {action_type}",
+        allowed_action_types=list(definition.expected_action_types or (action_type,)),
         commit=False,
     )
     published = publish_runbook_version_command(
@@ -173,8 +191,8 @@ def _drive_level2_path(
     proposed = propose_action_command(
         conn,
         incident_id=incident_id,
-        action_type="ROLLBACK_DEPLOYMENT",
-        parameters={"revision": "prev", "deployment": "checkout"},
+        action_type=action_type,
+        parameters=params,
         commit=False,
     )
     decision = evaluate_policy_command(
@@ -185,8 +203,10 @@ def _drive_level2_path(
     )
     if decision.decision != "REQUIRE_APPROVAL":
         raise RuntimeError(f"expected REQUIRE_APPROVAL for Level 2, got {decision.decision}")
-    if decision.autonomy_level != 2:
-        raise RuntimeError(f"expected autonomy_level=2, got {decision.autonomy_level}")
+    if decision.autonomy_level != definition.autonomy_level:
+        raise RuntimeError(
+            f"expected autonomy_level={definition.autonomy_level}, got {decision.autonomy_level}"
+        )
 
     with conn.cursor() as cur:
         cur.execute(
@@ -207,11 +227,11 @@ def _drive_level2_path(
         action_id=proposed.action_id,
         action_version=proposed.version,
         status="APPROVED",
-        decided_by=harness_actor_id("n9"),
+        decided_by=harness_actor_id(definition.key),
         commit=False,
     )
 
-    # Simulate successful remediation after harness APPROVED (J10 spine without Temporal).
+    # Simulate successful remediation after harness APPROVED (without Temporal).
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -221,7 +241,7 @@ def _drive_level2_path(
             """,
             (str(proposed.action_id),),
         )
-        hyp_class = definition.expected_hypothesis_class or "bad_deployment"
+        hyp_class = definition.expected_hypothesis_class or definition.key
         cur.execute(
             """
             INSERT INTO domain.hypothesis (
@@ -233,7 +253,7 @@ def _drive_level2_path(
             """,
             (
                 str(incident_id),
-                f"{definition.key}: confirmed bad deployment",
+                f"{definition.key}: confirmed {hyp_class}",
                 hyp_class,
             ),
         )
@@ -262,7 +282,7 @@ def run_scored_vertical(
     outcome = run_scenario(
         definition.key,
         baseline_fn=lambda: BaselineGateResult(
-            ok=True, payload={"n9": True}, detail="scored-vertical-mock"
+            ok=True, payload={"scored": True}, detail="scored-vertical-mock"
         ),
         inject=inject,
     )
@@ -364,14 +384,14 @@ def evaluate_scored_vertical(
                 ) VALUES (
                     %s, 'FINAL', %s, %s,
                     '[{"title":"Canary + auto-rollback gate"}]'::jsonb,
-                    '{}'::uuid[], 'harness:n9', '{"claims":[]}'::jsonb, now()
+                    '{}'::uuid[], 'harness:scored', '{"claims":[]}'::jsonb, now()
                 )
                 ON CONFLICT (incident_id) DO NOTHING
                 """,
                 (
                     str(incident_id),
-                    f"N9 postmortem {scenario_key}",
-                    "Root cause: bad deployment. Corrective: tighten canary.",
+                    f"scored postmortem {scenario_key}",
+                    f"Root cause: {scenario_key}. Corrective: harden dependency timeouts.",
                 ),
             )
             cur.execute(

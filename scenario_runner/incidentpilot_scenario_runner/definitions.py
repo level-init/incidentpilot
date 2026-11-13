@@ -1,4 +1,4 @@
-"""Load scenario YAML definitions (N9). Never reads GroundTruth."""
+"""Load scenario YAML definitions (N9+). Never reads GroundTruth."""
 
 from __future__ import annotations
 
@@ -25,6 +25,9 @@ class ScenarioDefinition:
     expected_severity: str | None = None
     expected_hypothesis_class: str | None = None
     ground_truth_key: str | None = None
+    # Optional domain.change seed for root_cause change_recall (e.g. DEPLOYMENT).
+    seed_change_type: str | None = None
+    action_parameters: dict[str, Any] = field(default_factory=dict)
     aliases: tuple[str, ...] = ()
     notes: str = ""
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
@@ -32,6 +35,12 @@ class ScenarioDefinition:
     @property
     def gt_key(self) -> str:
         return self.ground_truth_key or self.key
+
+    @property
+    def primary_action_type(self) -> str:
+        if self.expected_action_types:
+            return self.expected_action_types[0]
+        return "ROLLBACK_DEPLOYMENT"
 
 
 def _parse(doc: dict[str, Any]) -> ScenarioDefinition:
@@ -41,6 +50,10 @@ def _parse(doc: dict[str, Any]) -> ScenarioDefinition:
     actions = tuple(
         str(a).strip() for a in (doc.get("expected_action_types") or []) if str(a).strip()
     )
+    params = doc.get("action_parameters")
+    action_parameters = dict(params) if isinstance(params, dict) else {}
+    seed = doc.get("seed_change_type")
+    seed_change_type = str(seed).strip() if seed else None
     return ScenarioDefinition(
         key=key,
         title=str(doc.get("title") or key),
@@ -55,6 +68,8 @@ def _parse(doc: dict[str, Any]) -> ScenarioDefinition:
             str(doc["expected_hypothesis_class"]) if doc.get("expected_hypothesis_class") else None
         ),
         ground_truth_key=(str(doc["ground_truth_key"]) if doc.get("ground_truth_key") else None),
+        seed_change_type=seed_change_type,
+        action_parameters=action_parameters,
         aliases=aliases,
         notes=str(doc.get("notes") or "").strip(),
         raw=dict(doc),
