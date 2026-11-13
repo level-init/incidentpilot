@@ -335,6 +335,17 @@ def run_scored_vertical(
         incident_id, action_id, approval_id = _drive_level2_path(conn, definition=definition)
         conn.commit()
 
+    # N18: link run → incident so validation/RESOLVED can enqueue the eval hook.
+    from incidentpilot_shared.eval_pin_hook import link_scenario_run_incident
+
+    with get_runner_conn() as conn:
+        link_scenario_run_incident(
+            conn,
+            scenario_run_id=outcome.run_id,
+            incident_id=incident_id,
+            commit=True,
+        )
+
     result = ScoredVerticalResult(
         scenario_key=definition.key,
         run_id=outcome.run_id,

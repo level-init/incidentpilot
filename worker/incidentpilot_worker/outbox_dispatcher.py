@@ -23,6 +23,7 @@ from incidentpilot_shared.domain.outbox import (
     release_outbox_lease,
 )
 from incidentpilot_shared.incident_workflow import incident_workflow_id
+from incidentpilot_shared.eval_pin_hook import EVAL_OPERATIONAL_PIN_EVENT
 from incidentpilot_shared.slack_notify import SLACK_NOTIFY_EVENT
 from incidentpilot_shared.temporal_queues import TaskQueue
 from incidentpilot_worker.db import connect
@@ -95,7 +96,8 @@ async def dispatch_once(
     published = 0
     for message in messages:
         # K1: Slack notifies are delivered by the notify process (dedicated cred).
-        if message.event_type == SLACK_NOTIFY_EVENT:
+        # N18: eval pins are delivered by the evaluator process (ip_evaluator; GT).
+        if message.event_type in {SLACK_NOTIFY_EVENT, EVAL_OPERATIONAL_PIN_EVENT}:
             with connect() as conn:
                 release_outbox_lease(conn, message.id)
                 conn.commit()

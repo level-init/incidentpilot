@@ -39,6 +39,9 @@ curl -s -X POST -H 'Authorization: Bearer local-dev-evaluator' \
 Eval UI (N17) surfaces the same distinction under `/eval` — see
 [web.md](web.md#eval-ui-n17).
 
+RESOLVED → evaluator pin hook (N18): workers enqueue `scenario_run_id` only;
+see [eval-pin-hook.md](eval-pin-hook.md).
+
 ## Environment manifest pin (N4)
 
 Every new `ScenarioRun` captures a `scenarios.environment_manifest` row and

@@ -19,6 +19,7 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/ground-truth.md](docs/ground-truth.md) | Evaluator-only GroundTruth schema + isolation (N2) |
 | [docs/eval-metrics.md](docs/eval-metrics.md) | Operational metric formulas + RootCauseMatchSpec (N5) |
 | [docs/operational-evaluation.md](docs/operational-evaluation.md) | Immutable OperationalEvaluation pin at RESOLVED (N6) |
+| [docs/eval-pin-hook.md](docs/eval-pin-hook.md) | RESOLVED → evaluator hook; workers pass scenario_run_id only (N18) |
 | [docs/postmortem-evaluation.md](docs/postmortem-evaluation.md) | PostmortemEvaluation pin at CLOSED + eval family (N7) |
 | [docs/isolation.md](docs/isolation.md) | Isolation-integrity suite — GT never in investigation path (N8) |
 | [docs/sim-baseline.md](docs/sim-baseline.md) | Sim health/ready baseline contract (E4) |

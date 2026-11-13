@@ -619,6 +619,10 @@ def manual_resolve_incident_command(
             "path": "contextual_manual",
         },
     )
+    # N18: same RESOLVED → evaluator hook as J8 automated path.
+    from incidentpilot_shared.eval_pin_hook import request_operational_evaluation_hook
+
+    request_operational_evaluation_hook(conn, incident_id=incident_id, commit=False)
     if commit:
         conn.commit()
     return result
@@ -1771,6 +1775,15 @@ def route_validation_outcome_command(
             _advance(IncidentState.RECOVERED)
         if current == IncidentState.RECOVERED.value:
             _advance(IncidentState.RESOLVED)
+        # N18: join point — enqueue evaluator pin (scenario_run_id only; no GT).
+        if current == IncidentState.RESOLVED.value:
+            from incidentpilot_shared.eval_pin_hook import (
+                request_operational_evaluation_hook,
+            )
+
+            request_operational_evaluation_hook(
+                conn, incident_id=incident_id, commit=False
+            )
     elif route == ROUTE_PLANNING_REMEDIATION:
         if current == IncidentState.VALIDATING.value:
             _advance(IncidentState.DEGRADED)

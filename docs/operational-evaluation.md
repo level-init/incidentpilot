@@ -32,7 +32,14 @@ Non-`RESOLVED` incidents → **409**. `FAILED` ScenarioRuns → **409**.
 ## Schema
 
 `eval.operational_evaluation` — see migration `0023`. Linked
-`scenarios.scenario_run.incident_id` is set on pin.
+`scenarios.scenario_run.incident_id` is set on pin (and earlier by the N18
+harness link so the RESOLVED hook can find the run).
+
+## RESOLVED hook (N18)
+
+J8 validation routing / manual resolve enqueue
+`eval.operational_pin_requested` with **`scenario_run_id` only**. The evaluator
+process pins — workers never read GT. See [eval-pin-hook.md](eval-pin-hook.md).
 
 N7 adds a postmortem-stage evaluation that links to this operational pin —
 [postmortem-evaluation.md](postmortem-evaluation.md).

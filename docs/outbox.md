@@ -53,16 +53,22 @@ Process placement is flexible (local: `incidentpilot-worker`). Mapping:
 | `incident.created` | `incident-{aggregate_id}` | `domain_event` |
 | `approval.decided` | `incident-{…}` | `approval_decision` |
 | `slack.notify` | — | **not** a Temporal signal (K1 notify process) |
+| `eval.operational_pin_requested` | — | **not** a Temporal signal (N18 evaluator pin) |
 
 ```bash
 python -m incidentpilot_worker dispatch once   # one poll batch (Temporal signals)
 python -m incidentpilot_worker dispatch        # loop
 python -m incidentpilot_worker notify once     # Slack BEST_EFFORT (K1)
 python -m incidentpilot_worker notify
+python -m incidentpilot_evaluator pin once     # N18 operational pin (GT role)
+python -m incidentpilot_evaluator pin          # loop
 ```
 
 `slack.notify` delivery: [slack.md](slack.md). Temporal `dispatch` releases
-those rows without signaling so Slack creds stay off the AI worker.
+`slack.notify` and `eval.operational_pin_requested` without signaling so Slack
+creds and GroundTruth stay off the AI worker.
+
+Eval pin hook: [eval-pin-hook.md](eval-pin-hook.md).
 
 Crash mid-flight: row stays `pending` under a visibility lease; a later poll
 re-signals. `IncidentWorkflow.domain_event` ignores duplicate `message_id`s and
