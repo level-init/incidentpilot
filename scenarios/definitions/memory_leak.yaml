@@ -1,0 +1,25 @@
+# N12 / #109 — memory leak scored scenario (Level 2 harness).
+key: memory_leak
+aliases:
+  - memory-leak
+  - memory_leak
+title: Memory leak
+injector_id: memory_leak
+autonomy_level: 2
+harness: level2
+origin_service: checkout
+symptom_services:
+  - checkout
+  - gateway
+expected_action_types:
+  - RESTART_WORKLOAD
+expected_severity: SEV2
+expected_hypothesis_class: resource_exhaustion
+ground_truth_key: memory_leak
+seed_change_type: null
+action_parameters:
+  workload: checkout
+notes: >
+  N12 scored path: checkout memory-leak injector → Level-2 REQUIRE_APPROVAL
+  (RESTART_WORKLOAD) → dual-stage eval → ScenarioRun EVALUATED.
+  Runner never reads GroundTruth.
