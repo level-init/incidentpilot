@@ -20,6 +20,7 @@ RPS ?= 1
 	compose-core compose-full compose-up compose-down compose-ps compose-config \
 	migrate db-verify-isolation verify-local-infra openapi-export api-run web-dev \
 	temporal-queue-smoke test-temporal-d6 sim-happy-path sim-contract-scan test-sim-contract \
+	test-isolation isolation-scan \
 	obs-smoke sim-traffic sim-baseline-gate sim-inject \
 	scenario-list scenario-run scenario-reset
 
@@ -44,6 +45,8 @@ help:
 	@echo "  make sim-happy-path        - curl checkout happy path via sim-gateway :8100"
 	@echo "  make sim-contract-scan     - fail if sim exposes GT / root-cause cheat routes"
 	@echo "  make test-sim-contract     - pytest contract suite + sim_contract_scan (E6/CI)"
+	@echo "  make test-isolation        - N8 isolation-integrity suite (required for scored runs)"
+	@echo "  make isolation-scan        - static GT-leak scan of investigation path"
 	@echo "  make sim-baseline-gate     - curl all /healthz + gateway /readyz (E4)"
 	@echo "  make sim-traffic           - baseline load (DURATION=60 RPS=1)"
 	@echo "  make sim-inject ARGS='…'   - fault injectors (list|activate|reset|status)"
@@ -123,6 +126,20 @@ sim-contract-scan: $(VENV)
 	$(BIN)/python scripts/sim_contract_scan.py
 
 test-sim-contract: $(VENV)
+	$(PYTEST) tests/test_sim_contract.py tests/test_sim_services.py -k "contract or forbidden" -q
+	$(BIN)/python scripts/sim_contract_scan.py
+
+isolation-scan: $(VENV)
+	$(BIN)/python scripts/scan_isolation_integrity.py
+
+# N8: GT never enters investigation path. Required before scored ScenarioRuns (N9).
+test-isolation: $(VENV)
+	$(BIN)/python scripts/scan_isolation_integrity.py
+	$(PYTEST) tests/test_isolation_integrity_n8.py \
+		tests/test_ground_truth_n2.py \
+		tests/test_scenario_runner_n1.py::test_runner_cannot_select_ground_truth \
+		tests/test_eval_entitlement.py \
+		-q
 	$(PYTEST) tests/test_sim_contract.py tests/test_sim_services.py -k "contract or forbidden" -q
 	$(BIN)/python scripts/sim_contract_scan.py
 

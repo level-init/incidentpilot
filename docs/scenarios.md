@@ -51,6 +51,14 @@ curl -s -H 'Authorization: Bearer local-dev-evaluator' \
 
 Operational score pin at RESOLVED: [operational-evaluation.md](operational-evaluation.md) (N6).
 
+Scored runs (N9+) require a green isolation suite first:
+
+```bash
+make test-isolation
+```
+
+See [isolation.md](isolation.md) (N8).
+
 ## CLI
 
 Uses `DATABASE_URL_RUNNER` (`ip_runner`).

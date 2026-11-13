@@ -20,6 +20,7 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/eval-metrics.md](docs/eval-metrics.md) | Operational metric formulas + RootCauseMatchSpec (N5) |
 | [docs/operational-evaluation.md](docs/operational-evaluation.md) | Immutable OperationalEvaluation pin at RESOLVED (N6) |
 | [docs/postmortem-evaluation.md](docs/postmortem-evaluation.md) | PostmortemEvaluation pin at CLOSED + eval family (N7) |
+| [docs/isolation.md](docs/isolation.md) | Isolation-integrity suite — GT never in investigation path (N8) |
 | [docs/sim-baseline.md](docs/sim-baseline.md) | Sim health/ready baseline contract (E4) |
 | [docs/git-standards.md](docs/git-standards.md) | Branching, commits, PRs (`main` / `dev`) |
 | [docs/repo-layout.md](docs/repo-layout.md) | Monorepo packages ↔ deployables |
@@ -102,6 +103,7 @@ make format      # auto-fix lint + format (optional)
 | `make compose-config` | Validate compose YAML for `PROFILE` (default `core`) |
 | `make migrate` | Apply SQL migrations (`domain` / `scenarios` / `eval` + roles) |
 | `make db-verify-isolation` | Prove GroundTruth denied for `ip_app` / `ip_runner` |
+| `make test-isolation` | N8 isolation suite (static + pytest + sim contract); required for scored runs |
 | `make verify-local-infra` | Temporal UI + local S3 put/get smoke |
 | `make temporal-queue-smoke` | Workers subscribe to general / evidence / remediation |
 | `make sim-happy-path` | Curl sim-gateway checkout happy path (`:8100`) |
