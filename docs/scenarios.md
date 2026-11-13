@@ -72,6 +72,7 @@ RESOLVED, Postmortem @ CLOSED → `ScenarioRun EVALUATED` with manifest pinned.
 | `db-exhaustion` | `db_exhaustion` | `SCALE_WORKLOAD` (N11) |
 | `memory-leak` | `memory_leak` | `RESTART_WORKLOAD` (N12) |
 | `cpu-exhaustion` | `cpu_exhaustion` | `SCALE_WORKLOAD` (N13) |
+| `queue-backlog` | `queue_backlog` | `SCALE_WORKLOAD` (N14, SEV3) |
 
 ```bash
 make migrate
@@ -81,10 +82,13 @@ make scenario NAME=dependency-timeout && make eval
 make scenario NAME=db-exhaustion && make eval
 make scenario NAME=memory-leak && make eval
 make scenario NAME=cpu-exhaustion && make eval
+make scenario NAME=queue-backlog && make eval
 ```
 
 `make scenario` records a FAULT_INJECTED run + Level-2 harness path.
-`make eval` pins both evaluation stages and asserts family count = 2.
+`make eval` pins both evaluation stages for the **last cached** run
+(`.cache/last_scenario_run.json`). After `make scenario NAME=… && make eval`,
+do not pass a different `NAME=` to `eval` unless you re-ran that scenario.
 CI keeps `LLM_PROVIDER=fake`; optional local Gemini is documented in
 [llm.md](llm.md).
 

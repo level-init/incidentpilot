@@ -1,0 +1,25 @@
+# N14 / #111 — queue backlog scored scenario (Level 2 harness).
+key: queue_backlog
+aliases:
+  - queue-backlog
+  - queue_backlog
+title: Queue backlog
+injector_id: queue_backlog
+autonomy_level: 2
+harness: level2
+origin_service: notification
+symptom_services:
+  - notification
+expected_action_types:
+  - SCALE_WORKLOAD
+expected_severity: SEV3
+expected_hypothesis_class: queue_backlog
+ground_truth_key: queue_backlog
+seed_change_type: null
+action_parameters:
+  workload: notification
+  replicas: 4
+notes: >
+  N14 scored path: notification queue backlog injector → Level-2 REQUIRE_APPROVAL
+  (SCALE_WORKLOAD) → dual-stage eval → ScenarioRun EVALUATED.
+  Runner never reads GroundTruth.
