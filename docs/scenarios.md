@@ -36,6 +36,9 @@ curl -s -X POST -H 'Authorization: Bearer local-dev-evaluator' \
 
 `POST …/evaluate` refuses `FAILED` runs (HTTP 409).
 
+Eval UI (N17) surfaces the same distinction under `/eval` — see
+[web.md](web.md#eval-ui-n17).
+
 ## Environment manifest pin (N4)
 
 Every new `ScenarioRun` captures a `scenarios.environment_manifest` row and

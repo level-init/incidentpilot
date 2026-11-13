@@ -141,6 +141,7 @@ test-isolation: $(VENV)
 		tests/test_ground_truth_n2.py \
 		tests/test_scenario_runner_n1.py::test_runner_cannot_select_ground_truth \
 		tests/test_eval_entitlement.py \
+		tests/test_eval_ui_n17.py \
 		-q
 	$(PYTEST) tests/test_sim_contract.py tests/test_sim_services.py -k "contract or forbidden" -q
 	$(BIN)/python scripts/sim_contract_scan.py

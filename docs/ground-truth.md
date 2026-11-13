@@ -41,6 +41,9 @@ curl -s -H 'Authorization: Bearer local-dev-evaluator' \
 
 Ops Responder/Admin → **403**. DB role denial is the second line of defense.
 
+UI viewer (N17): `/eval/ground-truth` under the Eval shell — see
+[web.md](web.md#eval-ui-n17). Ops Incident Detail never links here.
+
 ## Seeds
 
 Migration `0020` seeds the eight scenario classes. Tightened scored keys:

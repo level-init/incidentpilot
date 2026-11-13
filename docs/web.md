@@ -120,7 +120,41 @@ curl -s -H 'Authorization: Bearer local-dev-admin' \
   http://localhost:8000/ai-invocations/<invocation>/provenance
 ```
 
-Eval snapshot UI remains out of scope.
+## Eval UI (N17)
+
+Separate evaluation surfaces under `/eval` — not live ops. Requires
+`eval_entitled` (`local-dev-evaluator`). Ops Admin alone does **not** unlock
+these routes.
+
+| Route | Purpose |
+| --- | --- |
+| `/eval` | ScenarioRun list with FAILED vs EVALUATED+passed=false labels |
+| `/eval/runs/{id}` | Run detail, pinned manifest, dual-stage family, GT link |
+| `/eval/ground-truth` | Answer-key viewer (evaluator-only) |
+
+Product rules in the UI:
+
+- Banner: **Immutable snapshot** — not a live ops incident
+- `FAILED` → **INVALID RUN** (`passed` stays null) — not a scored miss
+- `EVALUATED` + `passed=false` → **SCORED MISS**
+- GroundTruth navigation exists only under `/eval/*`
+- Ops Incident Detail (`/incidents/[id]`) must never link to GT
+
+```bash
+# Session must be evaluator
+curl -s -H 'Authorization: Bearer local-dev-evaluator' \
+  http://localhost:8000/auth/me
+# → eval_entitled: true
+
+curl -s -H 'Authorization: Bearer local-dev-evaluator' \
+  'http://localhost:8000/eval/scenario-runs?limit=20'
+curl -s -H 'Authorization: Bearer local-dev-evaluator' \
+  'http://localhost:8000/eval/ground-truth?scenario_key=bad_deploy'
+```
+
+UI checklist: sign in as Evaluator → Eval nav → open a FAILED run and an
+EVALUATED miss → confirm labels differ → open GT viewer → confirm ops
+incident detail has no GT link.
 
 ## Admin: policies / runbooks / integrations (M8)
 
@@ -206,7 +240,7 @@ curl -s -H 'Authorization: Bearer local-dev' \
 | --- | --- | --- |
 | Ops | viewer / responder / admin | `/incidents`, `/topology` |
 | Admin | admin only | `/admin` |
-| Eval | none (out of scope) | — |
+| Eval | `eval_entitled` only | `/eval`, `/eval/runs/[id]`, `/eval/ground-truth` |
 
 Actor identity is never taken from form bodies — only from the Bearer session
 resolved by the API (`docs/auth.md`).

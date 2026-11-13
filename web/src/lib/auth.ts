@@ -16,10 +16,17 @@ export const STUB_PERSONAS: ReadonlyArray<{
   token: string;
   label: string;
   role: OpsRole;
+  evalEntitled?: boolean;
 }> = [
   { token: "local-dev", label: "Responder", role: "responder" },
   { token: "local-dev-admin", label: "Admin", role: "admin" },
   { token: "local-dev-viewer", label: "Viewer", role: "viewer" },
+  {
+    token: "local-dev-evaluator",
+    label: "Evaluator",
+    role: "viewer",
+    evalEntitled: true,
+  },
 ];
 
 export function apiBase(): string {
