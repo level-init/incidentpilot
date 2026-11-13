@@ -74,6 +74,7 @@ RESOLVED, Postmortem @ CLOSED → `ScenarioRun EVALUATED` with manifest pinned.
 | `cpu-exhaustion` | `cpu_exhaustion` | `SCALE_WORKLOAD` (N13) |
 | `queue-backlog` | `queue_backlog` | `SCALE_WORKLOAD` (N14, SEV3) |
 | `bad-config` | `bad_config` | `DISABLE_FEATURE_FLAG` (N15) |
+| `cascading-failure` | `cascading_failure` | `ROLLBACK_DEPLOYMENT` (N16, SEV1, origin≠symptom) |
 
 ```bash
 make migrate
@@ -85,6 +86,7 @@ make scenario NAME=memory-leak && make eval
 make scenario NAME=cpu-exhaustion && make eval
 make scenario NAME=queue-backlog && make eval
 make scenario NAME=bad-config && make eval
+make scenario NAME=cascading-failure && make eval
 ```
 
 `make scenario` records a FAULT_INJECTED run + Level-2 harness path.

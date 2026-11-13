@@ -20,6 +20,8 @@ class ScenarioDefinition:
     autonomy_level: int = 2
     harness: str = "level2"
     origin_service: str = "payment"
+    # Extra origin services linked on the incident (e.g. cascading multi-origin).
+    additional_origin_services: tuple[str, ...] = ()
     symptom_services: tuple[str, ...] = ()
     expected_action_types: tuple[str, ...] = ()
     expected_severity: str | None = None
@@ -42,6 +44,15 @@ class ScenarioDefinition:
             return self.expected_action_types[0]
         return "ROLLBACK_DEPLOYMENT"
 
+    @property
+    def all_origin_services(self) -> tuple[str, ...]:
+        seen: list[str] = []
+        for key in (self.origin_service, *self.additional_origin_services):
+            k = str(key).strip()
+            if k and k not in seen:
+                seen.append(k)
+        return tuple(seen)
+
 
 def _parse(doc: dict[str, Any]) -> ScenarioDefinition:
     key = str(doc["key"]).strip()
@@ -49,6 +60,13 @@ def _parse(doc: dict[str, Any]) -> ScenarioDefinition:
     symptoms = tuple(str(s).strip() for s in (doc.get("symptom_services") or []) if str(s).strip())
     actions = tuple(
         str(a).strip() for a in (doc.get("expected_action_types") or []) if str(a).strip()
+    )
+    origin = str(doc.get("origin_service") or "payment")
+    extra_raw = doc.get("additional_origin_services") or doc.get("origin_services") or []
+    if isinstance(extra_raw, str):
+        extra_raw = [extra_raw]
+    additional = tuple(
+        str(s).strip() for s in extra_raw if str(s).strip() and str(s).strip() != origin
     )
     params = doc.get("action_parameters")
     action_parameters = dict(params) if isinstance(params, dict) else {}
@@ -60,7 +78,8 @@ def _parse(doc: dict[str, Any]) -> ScenarioDefinition:
         injector_id=str(doc.get("injector_id") or key),
         autonomy_level=int(doc.get("autonomy_level") or 2),
         harness=str(doc.get("harness") or "level2"),
-        origin_service=str(doc.get("origin_service") or "payment"),
+        origin_service=origin,
+        additional_origin_services=additional,
         symptom_services=symptoms,
         expected_action_types=actions,
         expected_severity=(str(doc["expected_severity"]) if doc.get("expected_severity") else None),

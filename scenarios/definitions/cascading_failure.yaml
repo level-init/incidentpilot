@@ -1,0 +1,28 @@
+# N16 / #113 — cascading failure scored scenario (Level 2 harness).
+# Origin services (payment, inventory) ≠ symptom (gateway).
+key: cascading_failure
+aliases:
+  - cascading-failure
+  - cascading_failure
+title: Cascading failure
+injector_id: cascading_failure
+autonomy_level: 2
+harness: level2
+origin_service: payment
+additional_origin_services:
+  - inventory
+symptom_services:
+  - gateway
+expected_action_types:
+  - ROLLBACK_DEPLOYMENT
+expected_severity: SEV1
+expected_hypothesis_class: cascading_failure
+ground_truth_key: cascading_failure
+seed_change_type: DEPLOYMENT
+action_parameters:
+  revision: prev
+  deployment: checkout
+notes: >
+  N16 scored path: multi-service cascade injector → Level-2 REQUIRE_APPROVAL
+  (ROLLBACK_DEPLOYMENT; REROUTE_TRAFFIC remains an alternate) → dual-stage eval.
+  Origin ≠ symptom. Runner never reads GroundTruth.
