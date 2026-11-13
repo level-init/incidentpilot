@@ -1,0 +1,26 @@
+# N13 / #110 — CPU exhaustion scored scenario (Level 2 harness).
+key: cpu_exhaustion
+aliases:
+  - cpu-exhaustion
+  - cpu_exhaustion
+title: CPU / resource exhaustion
+injector_id: cpu_exhaustion
+autonomy_level: 2
+harness: level2
+origin_service: checkout
+symptom_services:
+  - checkout
+  - gateway
+expected_action_types:
+  - SCALE_WORKLOAD
+expected_severity: SEV2
+expected_hypothesis_class: resource_exhaustion
+ground_truth_key: cpu_exhaustion
+seed_change_type: null
+action_parameters:
+  workload: checkout
+  replicas: 4
+notes: >
+  N13 scored path: checkout CPU burn injector → Level-2 REQUIRE_APPROVAL
+  (SCALE_WORKLOAD) → dual-stage eval → ScenarioRun EVALUATED.
+  Runner never reads GroundTruth.
