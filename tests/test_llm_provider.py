@@ -135,6 +135,23 @@ def test_resolve_unknown_provider_fails(monkeypatch: pytest.MonkeyPatch) -> None
         resolve_llm_provider()
 
 
+def test_resolve_gemini_requires_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "gemini")
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="LLM_API_KEY"):
+        resolve_llm_provider()
+
+
+def test_resolve_gemini_with_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "gemini")
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_MODEL", "gemini-2.0-flash")
+    provider = resolve_llm_provider()
+    assert provider.name == "gemini"
+
+
 def test_literal_status_values() -> None:
     statuses: tuple[Literal["succeeded", "failed", "timeout", "cancelled"], ...] = (
         "succeeded",

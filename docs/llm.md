@@ -72,9 +72,23 @@ Bucket: `incidentpilot-ai-artifacts` (`S3_BUCKET_AI_ARTIFACTS`); resolver
 
 | Variable | Role |
 | --- | --- |
-| `LLM_PROVIDER` | `fake` (default) — live vendors later |
-| `LLM_MODEL` | model id string |
-| `OPENAI_API_KEY` / `LLM_API_KEY` | reserved for vendor adapters |
+| `LLM_PROVIDER` | `fake` (default / CI) or `gemini` (local live) |
+| `LLM_MODEL` | model id (`fake-test`, `gemini-2.0-flash`, …) |
+| `LLM_API_KEY` / `GEMINI_API_KEY` | Gemini key — **local `.env` only** until a live Actions job exists |
+| `OPENAI_API_KEY` | reserved for a future OpenAI adapter |
+| `LLM_BASE_URL` | optional Gemini API base override |
+
+```bash
+# Local only — never commit. CI must stay on fake.
+LLM_PROVIDER=gemini
+LLM_MODEL=gemini-2.0-flash
+LLM_API_KEY=…   # or GEMINI_API_KEY
+```
+
+`resolve_llm_provider()` constructs `GeminiLLMProvider` for `gemini` /
+`google`. Adapter uses HTTPS `generateContent` only — **no domain writes**.
+Do **not** add a GitHub Actions secret until there is a live LLM job (N9
+scored vertical itself stays deterministic/`fake`).
 
 Keep keys **off** evidence-worker and remediation-worker (same privilege split
 as G7 inverted: reasoning on general, telemetry creds on evidence). Slack bot

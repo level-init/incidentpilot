@@ -22,7 +22,7 @@ RPS ?= 1
 	temporal-queue-smoke test-temporal-d6 sim-happy-path sim-contract-scan test-sim-contract \
 	test-isolation isolation-scan \
 	obs-smoke sim-traffic sim-baseline-gate sim-inject \
-	scenario-list scenario-run scenario-reset
+	scenario-list scenario-run scenario-reset scenario eval
 
 help:
 	@echo "Targets:"
@@ -53,6 +53,8 @@ help:
 	@echo "  make scenario-list         - list scenarios.scenario catalog (N1)"
 	@echo "  make scenario-run ARGS='…' - run scenario (baseline→inject; FAILED if dirty)"
 	@echo "  make scenario-reset        - clear faults; keep ScenarioRun history"
+	@echo "  make scenario NAME=…       - N9 scored vertical (Level 2 harness; CLI NAME= only)"
+	@echo "  make eval                  - N9 pin dual-stage eval for last scenario"
 	@echo "  make obs-smoke             - Prom/Loki/Tempo/Grafana/AM health (evidence profile)"
 	@echo "  make openapi-export        - write openapi/openapi.json"
 	@echo "  make api-run               - run FastAPI on :8000"
@@ -163,6 +165,23 @@ scenario-run: $(VENV)
 scenario-reset: $(VENV)
 	PYTHONPATH="$(CURDIR)/scenario_runner:$(CURDIR)/simulation" \
 		$(BIN)/python -m incidentpilot_scenario_runner reset
+
+# N9: first scored vertical. Verify with: make scenario NAME=bad-deployment && make eval
+# Do not inherit ambient shell NAME= (often the hostname); only honor CLI NAME=….
+ifeq ($(origin NAME),command line)
+  SCENARIO := $(NAME)
+else
+  SCENARIO ?= bad-deployment
+endif
+SCENARIO_PYTHONPATH := $(CURDIR)/scenario_runner:$(CURDIR)/simulation:$(CURDIR)/shared:$(CURDIR)/adapters:$(CURDIR)/evaluator
+
+scenario: $(VENV)
+	PYTHONPATH="$(SCENARIO_PYTHONPATH)" \
+		$(BIN)/python -m incidentpilot_scenario_runner scored $(SCENARIO)
+
+eval: $(VENV)
+	PYTHONPATH="$(SCENARIO_PYTHONPATH)" \
+		$(BIN)/python -m incidentpilot_scenario_runner eval --name $(SCENARIO)
 
 obs-smoke:
 	./scripts/verify_obs_stack.sh
