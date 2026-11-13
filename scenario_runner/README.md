@@ -20,6 +20,7 @@ make scenario NAME=bad-deployment && make eval
 make scenario NAME=dependency-timeout && make eval
 make scenario NAME=db-exhaustion && make eval
 make scenario NAME=memory-leak && make eval
+make scenario NAME=cpu-exhaustion && make eval
 ```
 
 YAML definitions live under `scenarios/definitions/` (loaded by the runner;
