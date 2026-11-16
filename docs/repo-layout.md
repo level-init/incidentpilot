@@ -42,6 +42,11 @@ and `values.schema.json`. Validate: `make helm-validate`. See [helm.md](helm.md)
 `deploy/k8s/networkpolicies/` — default-deny + allowlists; control plane cannot
 reach eval plane. See [network-policies.md](network-policies.md).
 
+## Ingress split (O5)
+
+Helm `ingress-user` / `ingress-webhooks` templates — OIDC for humans, webhook
+secrets for providers. See [ingress.md](ingress.md).
+
 ## Python packages
 
 | Directory | Import package | Role |

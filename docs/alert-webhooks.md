@@ -122,3 +122,6 @@ receivers:
             type: Bearer
             credentials: dev-am-webhook-token
 ```
+
+In Kubernetes, point AM at the **webhooks** Ingress host (not the OIDC-gated
+user API host) — [ingress.md](ingress.md).

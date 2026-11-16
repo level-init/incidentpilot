@@ -6,6 +6,7 @@ Components:
   web={{ .Values.web.enabled }} evaluator={{ .Values.evaluator.enabled }}
   scenarioRunner={{ .Values.scenarioRunner.enabled }}
 
-ServiceAccounts are name-only placeholders — IRSA / SA manifests are O3.
-Ingress split (user/API vs webhooks) is O5.
-Validate: make helm-validate
+ServiceAccounts: O3 / IRSA. Ingress split (user OIDC vs webhooks): O5.
+  ingress.enabled={{ .Values.ingress.enabled }}
+  user={{ .Values.ingress.user.enabled }} webhooks={{ .Values.ingress.webhooks.enabled }}
+Validate: make helm-validate; docs/ingress.md

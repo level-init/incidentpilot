@@ -156,3 +156,42 @@ config:
   temporalHost: temporal-frontend:7233
   s3Endpoint: ""
   logLevel: info
+
+# O5: separate Ingress for humans (OIDC/session) vs providers (webhook secrets).
+# Disabled by default; enable per env. Never put OIDC auth on webhooks.*.
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  user:
+    enabled: true
+    # OIDC / oauth2-proxy belongs on the user Ingress only.
+    annotations:
+      nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.auth.svc.cluster.local/oauth2/auth"
+      nginx.ingress.kubernetes.io/auth-signin: "https://app.incidentpilot.example/oauth2/start?rd=$scheme://$host$escaped_request_uri"
+    tls: []
+    hosts:
+      - host: app.incidentpilot.example
+        paths:
+          - path: /
+            pathType: Prefix
+            service: incidentpilot-web
+            port: 3000
+      - host: api.incidentpilot.example
+        paths:
+          - path: /
+            pathType: Prefix
+            service: incidentpilot-api
+            port: 8000
+  webhooks:
+    enabled: true
+    # Intentionally empty of OIDC/oauth2 annotations — AM/Slack/GitHub secrets only.
+    annotations: {}
+    tls: []
+    hosts:
+      - host: hooks.incidentpilot.example
+        paths:
+          - path: /webhooks
+            pathType: Prefix
+            service: incidentpilot-api
+            port: 8000

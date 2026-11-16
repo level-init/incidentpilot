@@ -51,3 +51,7 @@ config:
   temporalHost: temporal-frontend.temporal:7233
   s3Endpoint: "http://minio:9000"
   logLevel: debug
+
+# Local Compose remains primary DX; enable for kind/k3d ingress experiments.
+ingress:
+  enabled: false

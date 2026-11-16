@@ -24,6 +24,8 @@ Kustomize for the same Deployments.
 `scenarioRunner` — each toggled with `enabled` and a dedicated ServiceAccount
 (O3 creates SAs; optional `irsa.roleArns` annotations). Pod templates also set
 `incidentpilot.io/privilege-class` for NetworkPolicy selection (O4).
+Optional Ingress split (O5): `ingress-user` (OIDC) vs `ingress-webhooks`
+(provider secrets only) — [ingress.md](ingress.md).
 Evaluator/runner run in `incidentpilot-eval`. No shared admin SA —
 [identity-irsa.md](identity-irsa.md), [network-policies.md](network-policies.md).
 
@@ -49,5 +51,5 @@ helm upgrade --install ip deploy/helm/incidentpilot \
 | Issue | Work |
 | --- | --- |
 | O3 / #118 | Namespaces + SAs + IRSA |
-| O5 / #120 | Ingress split |
+| O5 / #120 | Ingress split — done; see [ingress.md](ingress.md) |
 | O7 / #122 | kind/k3d chart validation in CI |
