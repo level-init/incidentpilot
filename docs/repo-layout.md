@@ -15,10 +15,16 @@ incidentpilot/
 ├── simulation/             # demo microservices + local world
 ├── scenario_runner/        # scenario runner (isolated from investigation)
 ├── evaluator/              # evaluator (GroundTruth-only; isolated)
-├── deploy/                 # compose, db init, k8s RBAC (J11) / charts (O*)
+├── deploy/                 # compose, db init, k8s RBAC (J11), terraform (O1), charts (O2+)
 ├── docs/                   # product + git standards + this file
 └── .github/                # GitHub Actions / project metadata
 ```
+
+## Terraform (O1)
+
+`deploy/terraform/` — modules (`vpc`, `eks`, `rds`, `s3`, `iam`, `secrets`) and
+`environments/staging`. Validate: `make terraform-validate`. See
+[terraform.md](terraform.md).
 
 ## Python packages
 
