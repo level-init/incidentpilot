@@ -34,9 +34,12 @@ Evaluator/runner run in `incidentpilot-eval`. No shared admin SA —
 ```bash
 make helm-validate
 # helm lint + helm template for local, staging, production-demo
+
+# O7: install into kind/k3d (cluster must already exist)
+make helm-kind-smoke
 ```
 
-Requires Helm 3 on `PATH`.
+Requires Helm 3 on `PATH`. kind/k3d smoke: [helm-kind.md](helm-kind.md).
 
 ## Install sketch (after O3 SA/IRSA)
 
@@ -53,4 +56,4 @@ helm upgrade --install ip deploy/helm/incidentpilot \
 | O3 / #118 | Namespaces + SAs + IRSA |
 | O5 / #120 | Ingress split — done; see [ingress.md](ingress.md) |
 | O6 / #121 | Temporal Cloud — [temporal-cloud.md](temporal-cloud.md) |
-| O7 / #122 | kind/k3d chart validation in CI |
+| O7 / #122 | kind/k3d chart CI — [helm-kind.md](helm-kind.md) |

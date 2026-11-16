@@ -52,6 +52,10 @@ secrets for providers. See [ingress.md](ingress.md).
 Helm `config.temporal` + Secrets Manager placeholder; Cloud preferred for
 staging/demo, self-host documented fallback. See [temporal-cloud.md](temporal-cloud.md).
 
+## kind chart CI (O7)
+
+CI job `helm-kind` installs the chart into kind. See [helm-kind.md](helm-kind.md).
+
 ## Python packages
 
 | Directory | Import package | Role |
