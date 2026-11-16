@@ -23,6 +23,7 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/terraform.md](docs/terraform.md) | Terraform skeleton: VPC/EKS/RDS/S3/IAM/Secrets (O1) |
 | [docs/helm.md](docs/helm.md) | Helm chart + per-env values schema (O2) |
 | [docs/identity-irsa.md](docs/identity-irsa.md) | Namespaces + SAs + IRSA per privilege class (O3) |
+| [docs/network-policies.md](docs/network-policies.md) | NetworkPolicies default-deny + allowlists (O4) |
 | [docs/postmortem-evaluation.md](docs/postmortem-evaluation.md) | PostmortemEvaluation pin at CLOSED + eval family (N7) |
 | [docs/isolation.md](docs/isolation.md) | Isolation-integrity suite — GT never in investigation path (N8) |
 | [docs/sim-baseline.md](docs/sim-baseline.md) | Sim health/ready baseline contract (E4) |

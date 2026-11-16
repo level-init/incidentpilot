@@ -37,6 +37,11 @@ and `values.schema.json`. Validate: `make helm-validate`. See [helm.md](helm.md)
 `deploy/terraform/modules/irsa` — IAM roles + OIDC trust. See
 [identity-irsa.md](identity-irsa.md).
 
+## NetworkPolicies (O4)
+
+`deploy/k8s/networkpolicies/` — default-deny + allowlists; control plane cannot
+reach eval plane. See [network-policies.md](network-policies.md).
+
 ## Python packages
 
 | Directory | Import package | Role |

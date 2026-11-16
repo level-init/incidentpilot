@@ -39,5 +39,8 @@ migrations.
 | `ip_app` / `ip_runner` / AI tools | **Denied** |
 | `ip_evaluator` + eval-entitled APIs | Allowed |
 | Ops incident/hypothesis APIs | Must not embed GT answer keys |
+| Network (O4) | Control plane cannot reach `incidentpilot-eval` |
+
+NetworkPolicies: [network-policies.md](network-policies.md).
 
 See [ground-truth.md](ground-truth.md), [sim-contract.md](sim-contract.md).

@@ -1,0 +1,134 @@
+# O4: control-plane allowlists. No egress/ingress to incidentpilot-eval.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: incidentpilot-system
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Temporal frontend (namespace label applied by Temporal Helm / operators).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-temporal-egress
+  namespace: incidentpilot-system
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+spec:
+  podSelector:
+    matchExpressions:
+      - key: incidentpilot.io/privilege-class
+        operator: In
+        values:
+          - api
+          - worker
+          - evidence
+          - remediation
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              incidentpilot.io/allow-temporal: "true"
+      ports:
+        - protocol: TCP
+          port: 7233
+---
+# Postgres / SoR (label the DB namespace or use CIDR via overlay later).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgres-egress
+  namespace: incidentpilot-system
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+spec:
+  podSelector:
+    matchExpressions:
+      - key: incidentpilot.io/privilege-class
+        operator: In
+        values:
+          - api
+          - worker
+          - evidence
+          - remediation
+          - web
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              incidentpilot.io/allow-postgres: "true"
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# Intra-namespace: api ← workers/web; services within control plane.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-system
+  namespace: incidentpilot-system
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector: {}
+  egress:
+    - to:
+        - podSelector: {}
+---
+# North/south: API + web (ingress controller namespace labeled).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-web-ingress
+  namespace: incidentpilot-system
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+spec:
+  podSelector:
+    matchExpressions:
+      - key: incidentpilot.io/privilege-class
+        operator: In
+        values:
+          - api
+          - web
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              incidentpilot.io/allow-ingress: "true"
+      ports:
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 3000

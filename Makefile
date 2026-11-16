@@ -23,7 +23,7 @@ RPS ?= 1
 	test-isolation isolation-scan \
 	obs-smoke sim-traffic sim-baseline-gate sim-inject \
 	scenario-list scenario-run scenario-reset scenario eval \
-	terraform-validate helm-validate
+	terraform-validate helm-validate network-policies-validate
 
 help:
 	@echo "Targets:"
@@ -62,6 +62,7 @@ help:
 	@echo "  make web-dev               - Next.js dashboard on :3000 (M1)"
 	@echo "  make terraform-validate    - O1 fmt + validate staging (no AWS apply)"
 	@echo "  make helm-validate         - O2 helm lint + template (local/staging/prod-demo)"
+	@echo "  make network-policies-validate - O4 kustomize NetworkPolicies render"
 
 bootstrap:
 	$(PYTHON) -m venv $(VENV)
@@ -211,6 +212,10 @@ terraform-validate:
 # O2: lint + template for each env values file. Requires helm 3 on PATH.
 helm-validate:
 	./scripts/helm_validate.sh
+
+# O4: kustomize-render NetworkPolicies (kubectl or kustomize on PATH).
+network-policies-validate:
+	./scripts/network_policies_validate.sh
 
 $(VENV):
 	@echo "Missing $(VENV). Run: make bootstrap" >&2
