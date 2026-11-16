@@ -1,0 +1,9 @@
+# O7 CI overlay on values-local: namespaces are pre-created by helm_kind_smoke.sh
+# so the chart must not also emit Namespace objects (Helm "already exists").
+namespace:
+  create: false
+  name: incidentpilot-system
+
+evalNamespace:
+  create: false
+  name: incidentpilot-eval

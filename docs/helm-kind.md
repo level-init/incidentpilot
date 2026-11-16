@@ -8,8 +8,10 @@ scope.
 
 1. Create a kind cluster (`helm/kind-action`)
 2. `make helm-validate` — lint + template all env values
-3. `./scripts/helm_kind_smoke.sh` — `helm upgrade --install` with
-   `values-local.yaml`, assert Deployments / Services / SAs / namespaces
+3. `./scripts/helm_kind_smoke.sh` — pre-create namespaces, then
+   `helm upgrade --install` with `values-local.yaml` + `values-kind-ci.yaml`
+   (`namespace.create: false` so Helm does not hit “already exists”), assert
+   Deployments / Services / SAs / namespaces
 
 Pods may `ImagePullBackOff` (GHCR digests not built in this job). The smoke
 uses `--wait=false` and checks **API objects**, not Ready.

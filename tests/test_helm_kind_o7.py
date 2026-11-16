@@ -18,9 +18,25 @@ def test_smoke_script_exists_and_is_safe() -> None:
     assert "--wait=false" in text
     assert "incidentpilot-api" in text
     assert "privilege-class" in text
+    assert "values-kind-ci" in text
+    assert "ensure_ns" in text or "Namespace" in text
+    assert "kind create cluster" in text
+    # Avoid double-create on the helm CLI (comment may still mention the flag).
+    assert "helm upgrade --install" in text
+    assert "--create-namespace \\" not in text
+    assert "--create-namespace\n" not in text
     # Must not require AWS / Temporal Cloud for PR CI.
     assert "TEMPORAL_API_KEY" not in text
     assert "enable_expensive_resources" not in text
+
+
+def test_kind_ci_values_disable_namespace_create() -> None:
+    path = ROOT / "deploy/helm/incidentpilot/values-kind-ci.yaml"
+    assert path.is_file()
+    text = path.read_text(encoding="utf-8")
+    assert "create: false" in text
+    assert "incidentpilot-system" in text
+    assert "incidentpilot-eval" in text
 
 
 def test_ci_has_helm_kind_job() -> None:

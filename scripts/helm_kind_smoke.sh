@@ -6,6 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHART="${ROOT}/deploy/helm/incidentpilot"
 VALUES="${HELM_VALUES:-${CHART}/values-local.yaml}"
+VALUES_KIND_CI="${HELM_VALUES_KIND_CI:-${CHART}/values-kind-ci.yaml}"
 RELEASE="${HELM_RELEASE:-ip-o7}"
 NS="${HELM_NAMESPACE:-incidentpilot-system}"
 EVAL_NS="${HELM_EVAL_NAMESPACE:-incidentpilot-eval}"
@@ -20,15 +21,55 @@ need() {
 need kubectl
 need helm
 
+if ! kubectl config current-context >/dev/null 2>&1; then
+  cat >&2 <<'EOF'
+helm-kind-smoke: no kubectl current-context.
+
+Create a local cluster first (matches CI), then re-run:
+
+  kind create cluster --name incidentpilot-o7
+  make helm-kind-smoke
+
+  # cleanup later:
+  kind delete cluster --name incidentpilot-o7
+
+Or use k3d:
+
+  k3d cluster create incidentpilot-o7
+  make helm-kind-smoke
+EOF
+  exit 1
+fi
+
 echo "kubectl context: $(kubectl config current-context)"
 kubectl cluster-info >/dev/null
 helm version --short
 
-echo "helm upgrade --install ${RELEASE} (values=$(basename "${VALUES}"))…"
+# Pre-create namespaces (idempotent). Chart Namespace objects are disabled via
+# values-kind-ci.yaml so we never fight --create-namespace / prior applies.
+ensure_ns() {
+  local name="$1"
+  local plane="$2"
+  kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${name}
+  labels:
+    incidentpilot.io/plane: ${plane}
+    app.kubernetes.io/part-of: incidentpilot
+EOF
+}
+
+echo "ensure namespaces ${NS} + ${EVAL_NS}…"
+ensure_ns "${NS}" control
+ensure_ns "${EVAL_NS}" eval
+
+echo "helm upgrade --install ${RELEASE} (values=$(basename "${VALUES}")+$(basename "${VALUES_KIND_CI}"))…"
 helm upgrade --install "${RELEASE}" "${CHART}" \
   --namespace "${NS}" \
-  --create-namespace \
   -f "${VALUES}" \
+  -f "${VALUES_KIND_CI}" \
   --wait=false \
   --timeout 2m
 
