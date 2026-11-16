@@ -23,7 +23,7 @@ RPS ?= 1
 	test-isolation isolation-scan \
 	obs-smoke sim-traffic sim-baseline-gate sim-inject \
 	scenario-list scenario-run scenario-reset scenario eval \
-	terraform-validate helm-validate network-policies-validate
+	terraform-validate helm-validate helm-kind-smoke network-policies-validate
 
 help:
 	@echo "Targets:"
@@ -63,6 +63,7 @@ help:
 	@echo "  make web-dev               - Next.js dashboard on :3000 (M1)"
 	@echo "  make terraform-validate    - O1 fmt + validate staging (no AWS apply)"
 	@echo "  make helm-validate         - O2 helm lint + template (local/staging/prod-demo)"
+	@echo "  make helm-kind-smoke       - O7 install chart into current kind/k3d context"
 	@echo "  make network-policies-validate - O4 kustomize NetworkPolicies render"
 
 bootstrap:
@@ -217,6 +218,10 @@ terraform-validate:
 # O2: lint + template for each env values file. Requires helm 3 on PATH.
 helm-validate:
 	./scripts/helm_validate.sh
+
+# O7: helm install into the current kube context (kind/k3d). Requires kubectl + helm.
+helm-kind-smoke:
+	./scripts/helm_kind_smoke.sh
 
 # O4: kustomize-render NetworkPolicies (kubectl or kustomize on PATH).
 network-policies-validate:
