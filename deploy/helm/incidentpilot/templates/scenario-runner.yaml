@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "incidentpilot.fullname" . }}-runner
-  namespace: {{ .Values.namespace.name }}
+  namespace: {{ .Values.evalNamespace.name }}
   labels:
     {{- include "incidentpilot.labels" . | nindent 4 }}
     app.kubernetes.io/component: runner

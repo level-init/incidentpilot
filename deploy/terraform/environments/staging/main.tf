@@ -3,7 +3,7 @@ locals {
     Project     = "incidentpilot"
     Environment = "staging"
     ManagedBy   = "terraform"
-    Epic        = "O1"
+    Epic        = "O1-O3"
   }
 }
 
@@ -46,6 +46,31 @@ module "eks" {
   cluster_role_arn   = module.iam.eks_cluster_role_arn
   node_role_arn      = module.iam.eks_node_role_arn
   tags               = local.common_tags
+}
+
+data "tls_certificate" "eks_oidc" {
+  count = var.enable_expensive_resources ? 1 : 0
+  url   = module.eks[0].oidc_issuer_url
+}
+
+resource "aws_iam_openid_connect_provider" "eks" {
+  count = var.enable_expensive_resources ? 1 : 0
+
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.eks_oidc[0].certificates[0].sha1_fingerprint]
+  url             = module.eks[0].oidc_issuer_url
+
+  tags = local.common_tags
+}
+
+# O3: privilege-class IRSA roles (cheap IAM even when EKS gated off).
+module "irsa" {
+  source = "../../modules/irsa"
+
+  name_prefix       = var.name_prefix
+  oidc_provider_arn = try(aws_iam_openid_connect_provider.eks[0].arn, "")
+  oidc_issuer_url   = try(module.eks[0].oidc_issuer_url, "")
+  tags              = local.common_tags
 }
 
 module "s3" {

@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TF = ROOT / "deploy" / "terraform"
 
-MODULES = ("vpc", "eks", "rds", "s3", "iam", "secrets")
+MODULES = ("vpc", "eks", "rds", "s3", "iam", "secrets", "irsa")
 MODULE_FILES = ("main.tf", "variables.tf", "outputs.tf", "versions.tf")
 STAGING_FILES = (
     "main.tf",
@@ -41,6 +41,7 @@ def test_staging_env_and_gate() -> None:
     assert 'source = "../../modules/s3"' in main
     assert 'source = "../../modules/iam"' in main
     assert 'source = "../../modules/secrets"' in main
+    assert 'source = "../../modules/irsa"' in main
 
 
 def test_docs_and_validate_script() -> None:
@@ -52,8 +53,12 @@ def test_docs_and_validate_script() -> None:
 
 
 def test_privilege_classes_have_no_shared_admin() -> None:
-    iam = (TF / "modules" / "iam" / "main.tf").read_text(encoding="utf-8")
-    for cls in ("api", "worker", "evidence", "remediation", "runner", "evaluator"):
-        assert cls in iam
-    assert "admin" not in iam.lower() or "no shared admin" in iam.lower()
-    assert "AdministratorAccess" not in iam
+    irsa = (TF / "modules" / "irsa" / "main.tf").read_text(encoding="utf-8")
+    for cls in ("api", "worker", "evidence", "remediation", "runner", "evaluator", "web"):
+        # class names live in variables defaults; trust policy is generic
+        assert "privilege_class" in irsa or "PrivilegeClass" in irsa
+    vars_tf = (TF / "modules" / "irsa" / "variables.tf").read_text(encoding="utf-8")
+    for cls in ("api", "worker", "evidence", "remediation", "runner", "evaluator", "web"):
+        assert cls in vars_tf
+    assert "AdministratorAccess" not in irsa
+    assert "no shared admin" in irsa.lower() or "No shared admin" in irsa

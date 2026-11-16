@@ -12,8 +12,13 @@ namespace:
   create: false
   name: incidentpilot-system
 
-# ServiceAccount names (IRSA bindings land in O3 — no shared admin SA).
+evalNamespace:
+  create: false
+  name: incidentpilot-eval
+
+# One privilege class → one SA (O3). No shared admin SA.
 serviceAccounts:
+  create: true
   api: incidentpilot-api
   worker: incidentpilot-worker
   evidence: incidentpilot-evidence
@@ -21,6 +26,18 @@ serviceAccounts:
   evaluator: incidentpilot-evaluator
   runner: incidentpilot-runner
   web: incidentpilot-web
+
+# Annotate SAs with Terraform module.irsa outputs when deploying to EKS.
+irsa:
+  enabled: false
+  roleArns:
+    api: ""
+    worker: ""
+    evidence: ""
+    remediation: ""
+    evaluator: ""
+    runner: ""
+    web: ""
 
 api:
   enabled: true

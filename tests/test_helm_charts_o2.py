@@ -31,6 +31,7 @@ def test_chart_metadata_and_templates() -> None:
         "web.yaml",
         "evaluator.yaml",
         "scenario-runner.yaml",
+        "serviceaccounts.yaml",
         "configmap.yaml",
         "namespace.yaml",
         "_helpers.tpl",
@@ -52,8 +53,19 @@ def test_values_schema_enforces_environments() -> None:
     env_enum = schema["properties"]["global"]["properties"]["environment"]["enum"]
     assert set(env_enum) == set(ENVS)
     sa = schema["properties"]["serviceAccounts"]["required"]
-    for key in ("api", "worker", "evidence", "remediation", "evaluator", "runner", "web"):
+    for key in (
+        "create",
+        "api",
+        "worker",
+        "evidence",
+        "remediation",
+        "evaluator",
+        "runner",
+        "web",
+    ):
         assert key in sa
+    assert "evalNamespace" in schema["properties"]
+    assert "irsa" in schema["properties"]
 
 
 def test_defaults_cover_components_and_no_admin_sa() -> None:

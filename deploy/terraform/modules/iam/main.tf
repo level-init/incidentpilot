@@ -1,4 +1,4 @@
-# Cluster / node roles for EKS. IRSA per privilege class is O3 — no shared admin SA.
+# EKS cluster / node IAM roles (O1). Privilege-class IRSA roles live in modules/irsa (O3).
 
 data "aws_iam_policy_document" "eks_assume" {
   statement {
@@ -50,38 +50,4 @@ resource "aws_iam_role_policy_attachment" "eks_cni" {
 resource "aws_iam_role_policy_attachment" "eks_ecr_readonly" {
   role       = aws_iam_role.eks_node.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-}
-
-# Placeholder role names for O3 IRSA wiring (created empty; policies attach later).
-locals {
-  privilege_classes = [
-    "api",
-    "worker",
-    "evidence",
-    "remediation",
-    "runner",
-    "evaluator",
-  ]
-}
-
-data "aws_iam_policy_document" "irsa_placeholder_assume" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["ec2.amazonaws.com"]
-    }
-    # O3 replaces this with OIDC federated trust per SA — no shared admin.
-  }
-}
-
-resource "aws_iam_role" "privilege_class" {
-  for_each = toset(local.privilege_classes)
-
-  name               = "${var.name_prefix}-${each.key}"
-  assume_role_policy = data.aws_iam_policy_document.irsa_placeholder_assume.json
-  tags = merge(var.tags, {
-    PrivilegeClass = each.key
-    IRSA           = "pending-O3"
-  })
 }

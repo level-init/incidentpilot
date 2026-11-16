@@ -22,7 +22,8 @@ Kustomize for the same Deployments.
 
 `api`, `worker`, `evidenceWorker`, `remediation`, `web`, `evaluator`,
 `scenarioRunner` — each toggled with `enabled` and a dedicated ServiceAccount
-**name** (IRSA wiring is O3; no shared admin SA).
+(O3 creates SAs; optional `irsa.roleArns` annotations). Evaluator/runner run in
+`incidentpilot-eval`. No shared admin SA — [identity-irsa.md](identity-irsa.md).
 
 ## Validate
 

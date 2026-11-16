@@ -1,0 +1,18 @@
+# O3: control-plane + eval namespaces. Namespaces organize; identity is the SA/IRSA.
+# Approved sim target namespaces stay under deploy/k8s/namespaces/approved-targets.yaml.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: incidentpilot-system
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/plane: control
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: incidentpilot-eval
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/plane: eval

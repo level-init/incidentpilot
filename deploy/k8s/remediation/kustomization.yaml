@@ -1,8 +1,8 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../namespaces/incidentpilot-system.yaml
+  - ../identity
   - ../namespaces/approved-targets.yaml
-  - serviceaccount.yaml
   - rolebindings.yaml
 # role.yaml is the canonical rules template; rolebindings.yaml materializes it.
+# ServiceAccount for remediation is owned by ../identity (O3) — no shared admin SA.

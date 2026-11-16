@@ -96,6 +96,12 @@ def _all_remediation_docs() -> list[dict]:
         if path.name == "kustomization.yaml":
             continue
         docs.extend(_load_docs(path))
+    # O3: SAs + control/eval namespaces live under identity/
+    identity = K8S / "identity"
+    for path in sorted(identity.glob("*.yaml")):
+        if path.name == "kustomization.yaml":
+            continue
+        docs.extend(_load_docs(path))
     for path in sorted((K8S / "namespaces").glob("*.yaml")):
         docs.extend(_load_docs(path))
     return docs
@@ -123,9 +129,10 @@ def test_no_cluster_role_or_binding_for_remediation() -> None:
 
 def test_serviceaccount_is_remediation_only() -> None:
     sas = [d for d in _all_remediation_docs() if d.get("kind") == "ServiceAccount"]
-    assert len(sas) == 1
-    sa = sas[0]
-    assert sa["metadata"]["name"] == SA_NAME
+    names = {d["metadata"]["name"] for d in sas}
+    assert SA_NAME in names
+    assert "incidentpilot-admin" not in names
+    sa = next(d for d in sas if d["metadata"]["name"] == SA_NAME)
     assert sa["metadata"]["namespace"] == SA_NS
     assert sa["metadata"]["labels"]["incidentpilot.io/privilege-class"] == "remediation"
 

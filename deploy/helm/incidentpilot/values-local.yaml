@@ -8,6 +8,16 @@ namespace:
   create: true
   name: incidentpilot-system
 
+evalNamespace:
+  create: true
+  name: incidentpilot-eval
+
+serviceAccounts:
+  create: true
+
+irsa:
+  enabled: false
+
 api:
   replicaCount: 1
   env:

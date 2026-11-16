@@ -3,7 +3,7 @@
   "title": "IncidentPilot Helm values",
   "type": "object",
   "additionalProperties": false,
-  "required": ["global", "namespace", "serviceAccounts", "api", "worker", "evidenceWorker", "remediation", "web", "evaluator", "scenarioRunner", "config"],
+  "required": ["global", "namespace", "evalNamespace", "serviceAccounts", "irsa", "api", "worker", "evidenceWorker", "remediation", "web", "evaluator", "scenarioRunner", "config"],
   "properties": {
     "global": {
       "type": "object",
@@ -34,11 +34,21 @@
         "name": { "type": "string", "minLength": 1 }
       }
     },
+    "evalNamespace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["create", "name"],
+      "properties": {
+        "create": { "type": "boolean" },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    },
     "serviceAccounts": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["api", "worker", "evidence", "remediation", "evaluator", "runner", "web"],
+      "required": ["create", "api", "worker", "evidence", "remediation", "evaluator", "runner", "web"],
       "properties": {
+        "create": { "type": "boolean" },
         "api": { "type": "string", "minLength": 1 },
         "worker": { "type": "string", "minLength": 1 },
         "evidence": { "type": "string", "minLength": 1 },
@@ -46,6 +56,28 @@
         "evaluator": { "type": "string", "minLength": 1 },
         "runner": { "type": "string", "minLength": 1 },
         "web": { "type": "string", "minLength": 1 }
+      }
+    },
+    "irsa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "roleArns"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "roleArns": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["api", "worker", "evidence", "remediation", "evaluator", "runner", "web"],
+          "properties": {
+            "api": { "type": "string" },
+            "worker": { "type": "string" },
+            "evidence": { "type": "string" },
+            "remediation": { "type": "string" },
+            "evaluator": { "type": "string" },
+            "runner": { "type": "string" },
+            "web": { "type": "string" }
+          }
+        }
       }
     },
     "api": { "$ref": "#/definitions/component" },

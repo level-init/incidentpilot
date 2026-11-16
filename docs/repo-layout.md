@@ -31,6 +31,12 @@ incidentpilot/
 `deploy/helm/incidentpilot/` — umbrella chart + `values-{local,staging,production-demo}.yaml`
 and `values.schema.json`. Validate: `make helm-validate`. See [helm.md](helm.md).
 
+## Identity / IRSA (O3)
+
+`deploy/k8s/identity/` — namespaces + ServiceAccounts per privilege class.
+`deploy/terraform/modules/irsa` — IAM roles + OIDC trust. See
+[identity-irsa.md](identity-irsa.md).
+
 ## Python packages
 
 | Directory | Import package | Role |

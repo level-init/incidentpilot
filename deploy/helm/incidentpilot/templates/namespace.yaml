@@ -5,4 +5,15 @@ metadata:
   name: {{ .Values.namespace.name }}
   labels:
     {{- include "incidentpilot.labels" . | nindent 4 }}
+    incidentpilot.io/plane: control
+{{- end }}
+{{- if .Values.evalNamespace.create }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.evalNamespace.name }}
+  labels:
+    {{- include "incidentpilot.labels" . | nindent 4 }}
+    incidentpilot.io/plane: eval
 {{- end }}
