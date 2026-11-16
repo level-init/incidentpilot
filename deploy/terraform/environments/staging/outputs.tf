@@ -3,9 +3,14 @@ output "iam_eks_cluster_role_arn" {
   value       = module.iam.eks_cluster_role_arn
 }
 
-output "iam_privilege_class_role_arns" {
-  description = "Privilege-class IAM roles (IRSA in O3)."
-  value       = module.iam.privilege_class_role_arns
+output "irsa_privilege_class_role_arns" {
+  description = "Privilege-class IAM roles for SA IRSA annotations (O3)."
+  value       = module.irsa.privilege_class_role_arns
+}
+
+output "irsa_enabled" {
+  description = "True when EKS OIDC provider is wired into IRSA trusts."
+  value       = module.irsa.irsa_enabled
 }
 
 output "secrets_arns" {
@@ -21,6 +26,11 @@ output "vpc_id" {
 output "eks_cluster_name" {
   description = "EKS cluster name when enabled."
   value       = try(module.eks[0].cluster_name, null)
+}
+
+output "eks_oidc_issuer_url" {
+  description = "EKS OIDC issuer when enabled."
+  value       = try(module.eks[0].oidc_issuer_url, null)
 }
 
 output "rds_endpoint" {

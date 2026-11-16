@@ -12,7 +12,8 @@ deploy/terraform/
 │   ├── eks/        # cluster + default managed node group
 │   ├── rds/        # Postgres Multi-AZ staging shape
 │   ├── s3/         # evidence + exports buckets
-│   ├── iam/        # EKS roles + privilege-class role placeholders (IRSA → O3)
+│   ├── iam/        # EKS cluster/node roles
+│   ├── irsa/       # Privilege-class IAM roles + OIDC trust (O3)
 │   └── secrets/    # Secrets Manager (DB master generated; Slack/OIDC placeholders)
 └── environments/
     └── staging/    # staging-shape root module

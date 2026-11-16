@@ -10,7 +10,8 @@ Cloud demo uses real IaC patterns under `deploy/terraform/`.
 | `eks` | EKS control plane + default managed node group |
 | `rds` | Encrypted Postgres, Multi-AZ flag, private subnets |
 | `s3` | `evidence` + `exports` buckets (SSE, versioning, public access blocked) |
-| `iam` | EKS cluster/node roles + per-privilege-class role placeholders |
+| `iam` | EKS cluster/node roles |
+| `irsa` | Privilege-class IAM roles + OIDC trust (O3) |
 | `secrets` | Secrets Manager: generated DB master; Slack/OIDC placeholders |
 
 Environment root: `deploy/terraform/environments/staging`.
@@ -36,5 +37,5 @@ make terraform-validate
 | Issue | Work |
 | --- | --- |
 | O2 / #117 | Helm charts + per-env values — [helm.md](helm.md) |
-| O3 / #118 | Namespaces + SAs + IRSA on privilege-class roles |
+| O3 / #118 | Namespaces + SAs + IRSA — [identity-irsa.md](identity-irsa.md) |
 | O8 / #123 | Staging EKS ephemeral path + remote state |

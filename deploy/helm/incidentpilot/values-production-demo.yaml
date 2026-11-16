@@ -8,6 +8,24 @@ namespace:
   create: false
   name: incidentpilot-system
 
+evalNamespace:
+  create: false
+  name: incidentpilot-eval
+
+serviceAccounts:
+  create: true
+
+irsa:
+  enabled: true
+  roleArns:
+    api: ""
+    worker: ""
+    evidence: ""
+    remediation: ""
+    evaluator: ""
+    runner: ""
+    web: ""
+
 api:
   replicaCount: 2
   image:

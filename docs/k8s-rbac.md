@@ -9,9 +9,12 @@ they are not the only security boundary.
 | Privilege class | ServiceAccount | Namespace | Notes |
 | --- | --- | --- | --- |
 | remediation | `incidentpilot-remediation` | `incidentpilot-system` | Only SA with mutate RoleBindings |
-| (others) | owned by O3 | — | api / worker / evidence / runner / evaluator — **no shared admin SA** |
+| api / worker / evidence / web / evaluator / runner | see O3 | system or eval | **no shared admin SA** |
 
-Manifests: `deploy/k8s/remediation/` + `deploy/k8s/namespaces/`.
+Full matrix + IRSA: [identity-irsa.md](identity-irsa.md).
+
+Manifests: `deploy/k8s/identity/` (SAs + namespaces) + `deploy/k8s/remediation/`
+(RoleBindings) + `deploy/k8s/namespaces/approved-targets.yaml`.
 
 **Out of scope:** `cluster-admin` convenience. There is **no** ClusterRole or
 ClusterRoleBinding for the remediation identity.
@@ -74,6 +77,6 @@ kubectl auth can-i '*' '*' \
 
 ## Relation to O3
 
-O3 (#118) owns the full namespace + SA + IRSA matrix for every privilege class.
-J11 seeds the remediation SA and approved-target RoleBindings so remediation
-cannot cluster-admin before Helm/IRSA land.
+O3 (#118) owns the full namespace + SA + IRSA matrix
+([identity-irsa.md](identity-irsa.md)). J11 keeps narrow remediation
+RoleBindings on approved sim namespaces only.
