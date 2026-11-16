@@ -1,0 +1,61 @@
+# Staging shape on EKS (O2). Wire IRSA in O3; ingress split in O5.
+global:
+  environment: staging
+  imageRegistry: ghcr.io/level-init
+  imagePullPolicy: IfNotPresent
+
+namespace:
+  create: false
+  name: incidentpilot-system
+
+api:
+  replicaCount: 2
+  image:
+    tag: "staging"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  env:
+    AUTH_MODE: oidc
+    CORS_ORIGINS: "https://staging.incidentpilot.example"
+
+worker:
+  replicaCount: 2
+  image:
+    tag: "staging"
+
+evidenceWorker:
+  replicaCount: 2
+  image:
+    tag: "staging"
+
+remediation:
+  replicaCount: 2
+  image:
+    tag: "staging"
+
+web:
+  replicaCount: 2
+  image:
+    tag: "staging"
+  env:
+    NEXT_PUBLIC_API_BASE_URL: "https://api.staging.incidentpilot.example"
+
+evaluator:
+  enabled: true
+  replicaCount: 1
+  image:
+    tag: "staging"
+
+scenarioRunner:
+  enabled: false
+
+config:
+  databaseSecretName: incidentpilot-db
+  temporalHost: temporal-frontend.temporal:7233
+  s3Endpoint: ""
+  logLevel: info

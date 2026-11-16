@@ -1,0 +1,43 @@
+# Local / kind / k3d shape (O2). Compose remains the primary local DX path.
+global:
+  environment: local
+  imageRegistry: ghcr.io/level-init
+  imagePullPolicy: IfNotPresent
+
+namespace:
+  create: true
+  name: incidentpilot-system
+
+api:
+  replicaCount: 1
+  env:
+    AUTH_MODE: stub
+    CORS_ORIGINS: "http://localhost:3000"
+
+worker:
+  replicaCount: 1
+
+evidenceWorker:
+  replicaCount: 1
+
+remediation:
+  replicaCount: 1
+
+web:
+  replicaCount: 1
+  service:
+    type: NodePort
+    port: 3000
+  env:
+    NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000"
+
+evaluator:
+  enabled: false
+
+scenarioRunner:
+  enabled: false
+
+config:
+  temporalHost: temporal-frontend.temporal:7233
+  s3Endpoint: "http://minio:9000"
+  logLevel: debug

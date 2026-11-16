@@ -1,0 +1,11 @@
+IncidentPilot chart rendered for environment={{ .Values.global.environment }}.
+
+Components:
+  api={{ .Values.api.enabled }} worker={{ .Values.worker.enabled }}
+  evidence={{ .Values.evidenceWorker.enabled }} remediation={{ .Values.remediation.enabled }}
+  web={{ .Values.web.enabled }} evaluator={{ .Values.evaluator.enabled }}
+  scenarioRunner={{ .Values.scenarioRunner.enabled }}
+
+ServiceAccounts are name-only placeholders — IRSA / SA manifests are O3.
+Ingress split (user/API vs webhooks) is O5.
+Validate: make helm-validate

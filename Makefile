@@ -23,7 +23,7 @@ RPS ?= 1
 	test-isolation isolation-scan \
 	obs-smoke sim-traffic sim-baseline-gate sim-inject \
 	scenario-list scenario-run scenario-reset scenario eval \
-	terraform-validate
+	terraform-validate helm-validate
 
 help:
 	@echo "Targets:"
@@ -61,6 +61,7 @@ help:
 	@echo "  make api-run               - run FastAPI on :8000"
 	@echo "  make web-dev               - Next.js dashboard on :3000 (M1)"
 	@echo "  make terraform-validate    - O1 fmt + validate staging (no AWS apply)"
+	@echo "  make helm-validate         - O2 helm lint + template (local/staging/prod-demo)"
 
 bootstrap:
 	$(PYTHON) -m venv $(VENV)
@@ -206,6 +207,10 @@ web-dev:
 # O1: fmt + validate staging root. Requires terraform >= 1.5 on PATH.
 terraform-validate:
 	./scripts/terraform_validate.sh
+
+# O2: lint + template for each env values file. Requires helm 3 on PATH.
+helm-validate:
+	./scripts/helm_validate.sh
 
 $(VENV):
 	@echo "Missing $(VENV). Run: make bootstrap" >&2

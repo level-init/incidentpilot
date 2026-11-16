@@ -1,0 +1,29 @@
+{{- if .Values.remediation.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "incidentpilot.fullname" . }}-remediation
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "incidentpilot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: remediation
+spec:
+  replicas: {{ .Values.remediation.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "incidentpilot.selectorLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" "remediation") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "incidentpilot.selectorLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" "remediation") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccounts.remediation }}
+      containers:
+        - name: remediation
+          image: {{ include "incidentpilot.image" (dict "root" . "image" .Values.remediation.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            {{- include "incidentpilot.componentEnv" (dict "root" . "extra" dict) | nindent 12 }}
+          resources:
+            {{- toYaml .Values.remediation.resources | nindent 12 }}
+{{- end }}

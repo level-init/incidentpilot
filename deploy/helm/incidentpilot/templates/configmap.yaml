@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "incidentpilot.fullname" . }}-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "incidentpilot.labels" . | nindent 4 }}
+data:
+  environment: {{ .Values.global.environment | quote }}
+  temporalHost: {{ .Values.config.temporalHost | quote }}
+  logLevel: {{ .Values.config.logLevel | quote }}
+  s3Endpoint: {{ .Values.config.s3Endpoint | quote }}

@@ -35,6 +35,6 @@ make terraform-validate
 
 | Issue | Work |
 | --- | --- |
-| O2 / #117 | Helm charts + per-env values |
+| O2 / #117 | Helm charts + per-env values — [helm.md](helm.md) |
 | O3 / #118 | Namespaces + SAs + IRSA on privilege-class roles |
 | O8 / #123 | Staging EKS ephemeral path + remote state |

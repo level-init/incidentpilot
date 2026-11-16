@@ -1,0 +1,11 @@
+apiVersion: v2
+name: incidentpilot
+description: IncidentPilot control-plane components (API, workers, web, eval)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - incidentpilot
+  - ops
+maintainers:
+  - name: level-init

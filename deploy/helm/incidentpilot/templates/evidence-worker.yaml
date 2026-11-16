@@ -1,0 +1,31 @@
+{{- if .Values.evidenceWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "incidentpilot.fullname" . }}-evidence
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "incidentpilot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: evidence
+spec:
+  replicas: {{ .Values.evidenceWorker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "incidentpilot.selectorLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" "evidence") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "incidentpilot.selectorLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" "evidence") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccounts.evidence }}
+      containers:
+        - name: evidence
+          image: {{ include "incidentpilot.image" (dict "root" . "image" .Values.evidenceWorker.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args:
+            {{- toYaml .Values.evidenceWorker.args | nindent 12 }}
+          env:
+            {{- include "incidentpilot.componentEnv" (dict "root" . "extra" dict) | nindent 12 }}
+          resources:
+            {{- toYaml .Values.evidenceWorker.resources | nindent 12 }}
+{{- end }}

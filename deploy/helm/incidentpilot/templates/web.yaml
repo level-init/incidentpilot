@@ -1,0 +1,49 @@
+{{- if .Values.web.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "incidentpilot.fullname" . }}-web
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "incidentpilot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ .Values.web.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "incidentpilot.selectorLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" "web") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "incidentpilot.selectorLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" "web") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccounts.web }}
+      containers:
+        - name: web
+          image: {{ include "incidentpilot.image" (dict "root" . "image" .Values.web.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.web.service.port }}
+          env:
+            {{- include "incidentpilot.componentEnv" (dict "root" . "extra" .Values.web.env) | nindent 12 }}
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: incidentpilot-web
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "incidentpilot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  type: {{ .Values.web.service.type }}
+  selector:
+    {{- include "incidentpilot.selectorLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" "web") | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.web.service.port }}
+      targetPort: http
+{{- end }}

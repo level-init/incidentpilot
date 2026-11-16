@@ -1,0 +1,141 @@
+# Default values — override with values-<env>.yaml (O2).
+# Secrets are references only; never put raw tokens here.
+
+global:
+  environment: local
+  imageRegistry: ghcr.io/level-init
+  imagePullPolicy: IfNotPresent
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+
+namespace:
+  create: false
+  name: incidentpilot-system
+
+# ServiceAccount names (IRSA bindings land in O3 — no shared admin SA).
+serviceAccounts:
+  api: incidentpilot-api
+  worker: incidentpilot-worker
+  evidence: incidentpilot-evidence
+  remediation: incidentpilot-remediation
+  evaluator: incidentpilot-evaluator
+  runner: incidentpilot-runner
+  web: incidentpilot-web
+
+api:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: incidentpilot-api
+    tag: "dev"
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    AUTH_MODE: stub
+    CORS_ORIGINS: "http://localhost:3000"
+
+worker:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: incidentpilot-worker
+    tag: "dev"
+  args: ["general"]
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+evidenceWorker:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: incidentpilot-worker
+    tag: "dev"
+  args: ["evidence"]
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+remediation:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: incidentpilot-remediation
+    tag: "dev"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+web:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: incidentpilot-web
+    tag: "dev"
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  env:
+    NEXT_PUBLIC_API_BASE_URL: "http://incidentpilot-api:8000"
+
+evaluator:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: incidentpilot-evaluator
+    tag: "dev"
+  args: ["pin"]
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+scenarioRunner:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: incidentpilot-scenario-runner
+    tag: "dev"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+config:
+  databaseSecretName: incidentpilot-db
+  temporalHost: temporal-frontend:7233
+  s3Endpoint: ""
+  logLevel: info

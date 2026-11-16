@@ -1,0 +1,61 @@
+# production-demo promote target (O2 / O9). Same chart; digests pinned later.
+global:
+  environment: production-demo
+  imageRegistry: ghcr.io/level-init
+  imagePullPolicy: IfNotPresent
+
+namespace:
+  create: false
+  name: incidentpilot-system
+
+api:
+  replicaCount: 2
+  image:
+    tag: "production-demo"
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  env:
+    AUTH_MODE: oidc
+    CORS_ORIGINS: "https://demo.incidentpilot.example"
+
+worker:
+  replicaCount: 2
+  image:
+    tag: "production-demo"
+
+evidenceWorker:
+  replicaCount: 2
+  image:
+    tag: "production-demo"
+
+remediation:
+  replicaCount: 2
+  image:
+    tag: "production-demo"
+
+web:
+  replicaCount: 2
+  image:
+    tag: "production-demo"
+  env:
+    NEXT_PUBLIC_API_BASE_URL: "https://api.demo.incidentpilot.example"
+
+evaluator:
+  enabled: true
+  replicaCount: 1
+  image:
+    tag: "production-demo"
+
+scenarioRunner:
+  enabled: false
+
+config:
+  databaseSecretName: incidentpilot-db
+  temporalHost: temporal-frontend.temporal:7233
+  s3Endpoint: ""
+  logLevel: info
