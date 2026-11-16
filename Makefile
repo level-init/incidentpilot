@@ -22,7 +22,8 @@ RPS ?= 1
 	temporal-queue-smoke test-temporal-d6 sim-happy-path sim-contract-scan test-sim-contract \
 	test-isolation isolation-scan \
 	obs-smoke sim-traffic sim-baseline-gate sim-inject \
-	scenario-list scenario-run scenario-reset scenario eval
+	scenario-list scenario-run scenario-reset scenario eval \
+	terraform-validate
 
 help:
 	@echo "Targets:"
@@ -59,6 +60,7 @@ help:
 	@echo "  make openapi-export        - write openapi/openapi.json"
 	@echo "  make api-run               - run FastAPI on :8000"
 	@echo "  make web-dev               - Next.js dashboard on :3000 (M1)"
+	@echo "  make terraform-validate    - O1 fmt + validate staging (no AWS apply)"
 
 bootstrap:
 	$(PYTHON) -m venv $(VENV)
@@ -200,6 +202,10 @@ api-run: $(VENV)
 
 web-dev:
 	cd web && npm install && npm run dev
+
+# O1: fmt + validate staging root. Requires terraform >= 1.5 on PATH.
+terraform-validate:
+	./scripts/terraform_validate.sh
 
 $(VENV):
 	@echo "Missing $(VENV). Run: make bootstrap" >&2

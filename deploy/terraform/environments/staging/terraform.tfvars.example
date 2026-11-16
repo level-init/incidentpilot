@@ -1,0 +1,17 @@
+# Copy to terraform.tfvars for a real staging apply (never commit secrets).
+# O1: keep enable_expensive_resources=false until reviewed.
+
+aws_region  = "us-east-1"
+name_prefix = "ip-staging-YOURUNIQUE"
+
+# Staging Multi-AZ shape
+azs                  = ["us-east-1a", "us-east-1b"]
+vpc_cidr             = "10.40.0.0/16"
+public_subnet_cidrs  = ["10.40.0.0/24", "10.40.1.0/24"]
+private_subnet_cidrs = ["10.40.10.0/24", "10.40.11.0/24"]
+
+kubernetes_version = "1.29"
+db_username        = "ip_migrator"
+
+# Flip only after review — creates VPC/EKS/RDS/S3 (costly).
+enable_expensive_resources = false
