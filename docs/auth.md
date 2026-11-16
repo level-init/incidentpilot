@@ -91,3 +91,9 @@ denied on `eval.ground_truth`) remains the second line of defense — see
    `principal.actor_id` from `get_principal()`.
 
 Until OIDC is wired, leave `AUTH_MODE=stub` for local Compose.
+
+## Edge vs app auth (O5)
+
+Kubernetes **user** Ingress may gate UI/API with oauth2-proxy / OIDC
+annotations. The **webhooks** Ingress must not — Alertmanager and Slack use
+provider secrets at the app layer. See [ingress.md](ingress.md).

@@ -1,4 +1,4 @@
-# Staging shape on EKS (O2). Wire IRSA in O3; ingress split in O5.
+# Staging shape on EKS (O2). Ingress split (O5): user OIDC vs webhook secrets.
 global:
   environment: staging
   imageRegistry: ghcr.io/level-init
@@ -78,3 +78,35 @@ config:
   temporalHost: temporal-frontend.temporal:7233
   s3Endpoint: ""
   logLevel: info
+
+ingress:
+  enabled: true
+  className: nginx
+  user:
+    enabled: true
+    annotations:
+      nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.auth.svc.cluster.local/oauth2/auth"
+      nginx.ingress.kubernetes.io/auth-signin: "https://staging.incidentpilot.example/oauth2/start?rd=$scheme://$host$escaped_request_uri"
+    hosts:
+      - host: staging.incidentpilot.example
+        paths:
+          - path: /
+            pathType: Prefix
+            service: incidentpilot-web
+            port: 3000
+      - host: api.staging.incidentpilot.example
+        paths:
+          - path: /
+            pathType: Prefix
+            service: incidentpilot-api
+            port: 8000
+  webhooks:
+    enabled: true
+    annotations: {}
+    hosts:
+      - host: hooks.staging.incidentpilot.example
+        paths:
+          - path: /webhooks
+            pathType: Prefix
+            service: incidentpilot-api
+            port: 8000

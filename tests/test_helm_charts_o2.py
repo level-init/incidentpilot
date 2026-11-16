@@ -34,6 +34,8 @@ def test_chart_metadata_and_templates() -> None:
         "serviceaccounts.yaml",
         "configmap.yaml",
         "namespace.yaml",
+        "ingress-user.yaml",
+        "ingress-webhooks.yaml",
         "_helpers.tpl",
         "NOTES.txt",
     ):
@@ -66,6 +68,7 @@ def test_values_schema_enforces_environments() -> None:
         assert key in sa
     assert "evalNamespace" in schema["properties"]
     assert "irsa" in schema["properties"]
+    assert "ingress" in schema["properties"]
 
 
 def test_defaults_cover_components_and_no_admin_sa() -> None:

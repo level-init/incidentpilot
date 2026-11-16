@@ -28,6 +28,16 @@ for env in "${ENVS[@]}"; do
   grep -q "incidentpilot-web" "${out}"
   if [[ "${env}" != "local" ]]; then
     grep -q "component: evaluator" "${out}" || grep -q "incidentpilot-evaluator\|-evaluator" "${out}"
+    # O5: staging/production-demo enable the user vs webhooks Ingress split.
+    grep -q "incidentpilot.io/ingress-class: user" "${out}"
+    grep -q "incidentpilot.io/ingress-class: webhooks" "${out}"
+    grep -q 'path: "/webhooks"\|path: /webhooks' "${out}"
+    # Webhooks Ingress block must not carry oauth2-proxy / OIDC auth-url.
+    hooks_block="$(awk '/ingress-class: webhooks/,/^---$/' "${out}" || true)"
+    if printf '%s\n' "${hooks_block}" | grep -qi 'auth-url'; then
+      echo "fail: webhooks ingress has auth-url (OIDC)" >&2
+      exit 1
+    fi
   fi
   rm -f "${out}"
   echo "ok helm template (${env})"
