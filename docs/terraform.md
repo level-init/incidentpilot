@@ -12,7 +12,7 @@ Cloud demo uses real IaC patterns under `deploy/terraform/`.
 | `s3` | `evidence` + `exports` buckets (SSE, versioning, public access blocked) |
 | `iam` | EKS cluster/node roles |
 | `irsa` | Privilege-class IAM roles + OIDC trust (O3) |
-| `secrets` | Secrets Manager: generated DB master; Slack/OIDC placeholders |
+| `secrets` | Secrets Manager: DB master; Slack/OIDC/Temporal Cloud placeholders |
 
 Environment root: `deploy/terraform/environments/staging`.
 
@@ -30,7 +30,8 @@ make terraform-validate
 
 - Applying expensive prod without review (`enable_expensive_resources` defaults
   **false**)
-- Helm charts (O2), IRSA/SA wiring (O3), NetworkPolicies (O4), Temporal Cloud (O6)
+- Helm charts (O2), IRSA/SA wiring (O3), NetworkPolicies (O4)
+- Temporal Cloud wiring details: [temporal-cloud.md](temporal-cloud.md) (O6)
 
 ## Next
 

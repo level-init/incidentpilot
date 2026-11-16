@@ -34,9 +34,12 @@ Allowlisted peers must carry labels (Temporal / Postgres / ingress installs):
 
 | Label | Meaning |
 | --- | --- |
-| `incidentpilot.io/allow-temporal: "true"` | Temporal frontend namespace |
+| `incidentpilot.io/allow-temporal: "true"` | Temporal frontend namespace (self-host) |
 | `incidentpilot.io/allow-postgres: "true"` | Postgres / RDS proxy namespace |
 | `incidentpilot.io/allow-ingress: "true"` | Ingress controller namespace |
+
+Temporal Cloud (O6) also has `allow-temporal-cloud-egress` (TCP/7233). See
+[temporal-cloud.md](temporal-cloud.md).
 
 ## Pod identity
 

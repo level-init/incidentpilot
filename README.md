@@ -25,6 +25,7 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/identity-irsa.md](docs/identity-irsa.md) | Namespaces + SAs + IRSA per privilege class (O3) |
 | [docs/network-policies.md](docs/network-policies.md) | NetworkPolicies default-deny + allowlists (O4) |
 | [docs/ingress.md](docs/ingress.md) | Ingress split: user/API OIDC vs webhooks (O5) |
+| [docs/temporal-cloud.md](docs/temporal-cloud.md) | Temporal Cloud preferred; self-host fallback (O6) |
 | [docs/postmortem-evaluation.md](docs/postmortem-evaluation.md) | PostmortemEvaluation pin at CLOSED + eval family (N7) |
 | [docs/isolation.md](docs/isolation.md) | Isolation-integrity suite — GT never in investigation path (N8) |
 | [docs/sim-baseline.md](docs/sim-baseline.md) | Sim health/ready baseline contract (E4) |

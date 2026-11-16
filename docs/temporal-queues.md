@@ -23,6 +23,9 @@ Source of truth: `shared/incidentpilot_shared/temporal_queues.py`.
 | `remediation-worker` | `python -m incidentpilot_remediation` | `incidentpilot-remediation` |
 
 Temporal address defaults to `TEMPORAL_ADDRESS` (`localhost:7233` in Compose).
+Staging / production-demo prefer **Temporal Cloud** (TLS + API key) —
+[temporal-cloud.md](temporal-cloud.md) (O6). Self-host remains the local
+fallback.
 
 ## Smoke
 

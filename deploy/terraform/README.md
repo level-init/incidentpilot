@@ -14,7 +14,7 @@ deploy/terraform/
 │   ├── s3/         # evidence + exports buckets
 │   ├── iam/        # EKS cluster/node roles
 │   ├── irsa/       # Privilege-class IAM roles + OIDC trust (O3)
-│   └── secrets/    # Secrets Manager (DB master generated; Slack/OIDC placeholders)
+│   └── secrets/    # Secrets Manager (DB; Slack/OIDC/Temporal Cloud placeholders)
 └── environments/
     └── staging/    # staging-shape root module
 ```

@@ -75,7 +75,15 @@ scenarioRunner:
 
 config:
   databaseSecretName: incidentpilot-db
-  temporalHost: temporal-frontend.temporal:7233
+  temporalHost: REPLACE_ME.tmprl.cloud:7233
+  # O6: Temporal Cloud (fill address/namespace; API key via K8s secret from Secrets Manager).
+  temporal:
+    hosting: cloud
+    address: REPLACE_ME.tmprl.cloud:7233
+    namespace: REPLACE_ME
+    tls: true
+    apiKeySecretName: incidentpilot-temporal-cloud
+    apiKeySecretKey: api_key
   s3Endpoint: ""
   logLevel: info
 

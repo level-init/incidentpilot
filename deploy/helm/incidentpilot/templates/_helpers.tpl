@@ -40,8 +40,21 @@ incidentpilot.io/privilege-class: {{ .component }}
   value: {{ .root.Values.global.environment | quote }}
 - name: LOG_LEVEL
   value: {{ .root.Values.config.logLevel | quote }}
-- name: TEMPORAL_HOST
-  value: {{ .root.Values.config.temporalHost | quote }}
+- name: TEMPORAL_ADDRESS
+  value: {{ .root.Values.config.temporal.address | quote }}
+- name: TEMPORAL_NAMESPACE
+  value: {{ .root.Values.config.temporal.namespace | quote }}
+- name: TEMPORAL_HOSTING
+  value: {{ .root.Values.config.temporal.hosting | quote }}
+- name: TEMPORAL_TLS
+  value: {{ .root.Values.config.temporal.tls | toString | quote }}
+{{- if and .root.Values.config.temporal.apiKeySecretName (ne .root.Values.config.temporal.apiKeySecretName "") }}
+- name: TEMPORAL_API_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ .root.Values.config.temporal.apiKeySecretName | quote }}
+      key: {{ .root.Values.config.temporal.apiKeySecretKey | default "api_key" | quote }}
+{{- end }}
 - name: DATABASE_SECRET_NAME
   value: {{ .root.Values.config.databaseSecretName | quote }}
 {{- if .root.Values.config.s3Endpoint }}

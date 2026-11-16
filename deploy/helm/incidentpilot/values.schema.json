@@ -90,10 +90,26 @@
     "config": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["databaseSecretName", "temporalHost", "logLevel"],
+      "required": ["databaseSecretName", "temporalHost", "temporal", "logLevel"],
       "properties": {
         "databaseSecretName": { "type": "string", "minLength": 1 },
         "temporalHost": { "type": "string", "minLength": 1 },
+        "temporal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hosting", "address", "namespace", "tls"],
+          "properties": {
+            "hosting": {
+              "type": "string",
+              "enum": ["cloud", "selfhosted"]
+            },
+            "address": { "type": "string", "minLength": 1 },
+            "namespace": { "type": "string", "minLength": 1 },
+            "tls": { "type": "boolean" },
+            "apiKeySecretName": { "type": "string" },
+            "apiKeySecretKey": { "type": "string" }
+          }
+        },
         "s3Endpoint": { "type": "string" },
         "logLevel": {
           "type": "string",
