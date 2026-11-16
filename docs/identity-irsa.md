@@ -69,4 +69,4 @@ kubectl get sa -A | grep incidentpilot
 - J11 remediation RBAC: [k8s-rbac.md](k8s-rbac.md)
 - Helm packaging: [helm.md](helm.md)
 - Terraform: [terraform.md](terraform.md)
-- NetworkPolicies (GT unreachable): O4 / #119
+- NetworkPolicies (GT unreachable): [network-policies.md](network-policies.md)

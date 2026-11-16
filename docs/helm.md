@@ -22,8 +22,10 @@ Kustomize for the same Deployments.
 
 `api`, `worker`, `evidenceWorker`, `remediation`, `web`, `evaluator`,
 `scenarioRunner` — each toggled with `enabled` and a dedicated ServiceAccount
-(O3 creates SAs; optional `irsa.roleArns` annotations). Evaluator/runner run in
-`incidentpilot-eval`. No shared admin SA — [identity-irsa.md](identity-irsa.md).
+(O3 creates SAs; optional `irsa.roleArns` annotations). Pod templates also set
+`incidentpilot.io/privilege-class` for NetworkPolicy selection (O4).
+Evaluator/runner run in `incidentpilot-eval`. No shared admin SA —
+[identity-irsa.md](identity-irsa.md), [network-policies.md](network-policies.md).
 
 ## Validate
 

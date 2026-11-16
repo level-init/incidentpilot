@@ -1,0 +1,92 @@
+# O4: eval-plane allowlists. No ingress from incidentpilot-system / plane=control.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: incidentpilot-eval
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Evaluator reaches Postgres (GT lives in DB isolation + this network boundary).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgres-egress
+  namespace: incidentpilot-eval
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+spec:
+  podSelector:
+    matchLabels:
+      incidentpilot.io/privilege-class: evaluator
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              incidentpilot.io/allow-postgres: "true"
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# Runner may need Temporal / API for harness — still never labeled as GT peer.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-runner-temporal-egress
+  namespace: incidentpilot-eval
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+spec:
+  podSelector:
+    matchLabels:
+      incidentpilot.io/privilege-class: runner
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              incidentpilot.io/allow-temporal: "true"
+      ports:
+        - protocol: TCP
+          port: 7233
+---
+# Intra-eval only (evaluator ↔ runner). Not from control plane.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-eval
+  namespace: incidentpilot-eval
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector: {}
+  egress:
+    - to:
+        - podSelector: {}

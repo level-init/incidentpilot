@@ -1,0 +1,28 @@
+# O4: default-deny in the control plane. Allowlists are explicit elsewhere.
+# GT / eval plane is unreachable unless an allowlist says otherwise (none do).
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: incidentpilot-system
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/plane: control
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: incidentpilot-system
+  labels:
+    app.kubernetes.io/part-of: incidentpilot
+    incidentpilot.io/plane: control
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress

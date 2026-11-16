@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - system-default-deny.yaml
+  - system-allowlists.yaml
+  - eval-default-deny.yaml
+  - eval-allowlists.yaml

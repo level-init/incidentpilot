@@ -28,6 +28,7 @@ incidentpilot.environment: {{ .Values.global.environment | quote }}
 app.kubernetes.io/name: {{ include "incidentpilot.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/component: {{ .component }}
+incidentpilot.io/privilege-class: {{ .component }}
 {{- end -}}
 
 {{- define "incidentpilot.image" -}}
