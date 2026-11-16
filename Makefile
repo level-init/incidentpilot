@@ -19,7 +19,7 @@ RPS ?= 1
 .PHONY: bootstrap lint format typecheck test help \
 	compose-core compose-full compose-up compose-down compose-ps compose-config \
 	migrate db-verify-isolation verify-local-infra openapi-export api-run web-dev \
-	temporal-queue-smoke test-temporal-d6 sim-happy-path sim-contract-scan test-sim-contract \
+	temporal-queue-smoke temporal-cloud-smoke test-temporal-d6 sim-happy-path sim-contract-scan test-sim-contract \
 	test-isolation isolation-scan \
 	obs-smoke sim-traffic sim-baseline-gate sim-inject \
 	scenario-list scenario-run scenario-reset scenario eval \
@@ -42,6 +42,7 @@ help:
 	@echo "  make db-verify-isolation   - prove GT denied for ip_app/ip_runner; no app DDL"
 	@echo "  make verify-local-infra    - Temporal UI + local S3 put/get smoke"
 	@echo "  make temporal-queue-smoke  - workers subscribe to general/evidence/remediation"
+	@echo "  make temporal-cloud-smoke  - O6 smoke vs Temporal Cloud (API key required)"
 	@echo "  make test-temporal-d6      - D6 five-test Temporal regression (needs Postgres)"
 	@echo "  make sim-happy-path        - curl checkout happy path via sim-gateway :8100"
 	@echo "  make sim-contract-scan     - fail if sim exposes GT / root-cause cheat routes"
@@ -119,6 +120,10 @@ temporal-queue-smoke: $(VENV)
 		$(BIN)/python -m incidentpilot_worker evidence smoke
 	PYTHONPATH="$(CURDIR)/remediation_worker:$(CURDIR)/shared:$$PYTHONPATH" \
 		$(BIN)/python -m incidentpilot_remediation smoke
+
+# O6: Temporal Cloud smoke (TLS + API key). Guides to self-host fallback if unset.
+temporal-cloud-smoke: $(VENV)
+	./scripts/temporal_cloud_smoke.sh
 
 # D6: approval wait+kill, validation single result, reconcile no-dup,
 # stale revision non-retryable, BEST_EFFORT Slack failure leaves domain intact.

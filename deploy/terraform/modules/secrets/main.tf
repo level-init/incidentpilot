@@ -58,3 +58,23 @@ resource "aws_secretsmanager_secret_version" "oidc" {
     client_secret = "REPLACE_ME"
   })
 }
+
+# O6: Temporal Cloud API key (preferred for staging / production-demo).
+resource "aws_secretsmanager_secret" "temporal_cloud" {
+  name                    = "${var.name_prefix}/temporal/cloud"
+  description             = "Temporal Cloud connection (address, namespace, api_key)"
+  recovery_window_in_days = 0
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-temporal-cloud"
+  })
+}
+
+resource "aws_secretsmanager_secret_version" "temporal_cloud" {
+  secret_id = aws_secretsmanager_secret.temporal_cloud.id
+  secret_string = jsonencode({
+    address   = "REPLACE_ME.tmprl.cloud:7233"
+    namespace = "REPLACE_ME"
+    api_key   = "REPLACE_ME"
+  })
+}

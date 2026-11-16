@@ -19,11 +19,17 @@ output "oidc_secret_arn" {
   value       = aws_secretsmanager_secret.oidc.arn
 }
 
+output "temporal_cloud_secret_arn" {
+  description = "ARN of the Temporal Cloud secret placeholder (O6)."
+  value       = aws_secretsmanager_secret.temporal_cloud.arn
+}
+
 output "secret_arns" {
   description = "Map of logical name → secret ARN."
   value = {
-    db_master = aws_secretsmanager_secret.db_master.arn
-    slack_bot = aws_secretsmanager_secret.slack_bot.arn
-    oidc      = aws_secretsmanager_secret.oidc.arn
+    db_master      = aws_secretsmanager_secret.db_master.arn
+    slack_bot      = aws_secretsmanager_secret.slack_bot.arn
+    oidc           = aws_secretsmanager_secret.oidc.arn
+    temporal_cloud = aws_secretsmanager_secret.temporal_cloud.arn
   }
 }

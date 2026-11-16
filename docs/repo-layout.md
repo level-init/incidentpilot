@@ -47,6 +47,11 @@ reach eval plane. See [network-policies.md](network-policies.md).
 Helm `ingress-user` / `ingress-webhooks` templates — OIDC for humans, webhook
 secrets for providers. See [ingress.md](ingress.md).
 
+## Temporal Cloud (O6)
+
+Helm `config.temporal` + Secrets Manager placeholder; Cloud preferred for
+staging/demo, self-host documented fallback. See [temporal-cloud.md](temporal-cloud.md).
+
 ## Python packages
 
 | Directory | Import package | Role |

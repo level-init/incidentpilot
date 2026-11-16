@@ -49,6 +49,12 @@ scenarioRunner:
 
 config:
   temporalHost: temporal-frontend.temporal:7233
+  temporal:
+    hosting: selfhosted
+    address: temporal-frontend.temporal:7233
+    namespace: default
+    tls: false
+    apiKeySecretName: ""
   s3Endpoint: "http://minio:9000"
   logLevel: debug
 

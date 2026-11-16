@@ -52,4 +52,5 @@ helm upgrade --install ip deploy/helm/incidentpilot \
 | --- | --- |
 | O3 / #118 | Namespaces + SAs + IRSA |
 | O5 / #120 | Ingress split — done; see [ingress.md](ingress.md) |
+| O6 / #121 | Temporal Cloud — [temporal-cloud.md](temporal-cloud.md) |
 | O7 / #122 | kind/k3d chart validation in CI |

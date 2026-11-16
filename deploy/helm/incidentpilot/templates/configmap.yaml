@@ -7,6 +7,8 @@ metadata:
     {{- include "incidentpilot.labels" . | nindent 4 }}
 data:
   environment: {{ .Values.global.environment | quote }}
-  temporalHost: {{ .Values.config.temporalHost | quote }}
+  temporalHost: {{ .Values.config.temporal.address | quote }}
+  temporalHosting: {{ .Values.config.temporal.hosting | quote }}
+  temporalNamespace: {{ .Values.config.temporal.namespace | quote }}
   logLevel: {{ .Values.config.logLevel | quote }}
   s3Endpoint: {{ .Values.config.s3Endpoint | quote }}

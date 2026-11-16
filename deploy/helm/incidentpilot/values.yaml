@@ -153,7 +153,16 @@ scenarioRunner:
 
 config:
   databaseSecretName: incidentpilot-db
+  # Deprecated alias — prefer config.temporal.address (kept for schema/back-compat).
   temporalHost: temporal-frontend:7233
+  # O6: Temporal Cloud preferred for staging/production-demo; selfhosted = Compose/in-cluster.
+  temporal:
+    hosting: selfhosted
+    address: temporal-frontend:7233
+    namespace: default
+    tls: false
+    apiKeySecretName: ""
+    apiKeySecretKey: api_key
   s3Endpoint: ""
   logLevel: info
 
