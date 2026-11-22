@@ -74,11 +74,12 @@ Bucket: `incidentpilot-ai-artifacts` (`S3_BUCKET_AI_ARTIFACTS`); resolver
 | --- | --- |
 | `LLM_PROVIDER` | `fake` (default / CI) or `gemini` (local live) |
 | `LLM_MODEL` | model id (`fake-test`, `gemini-2.0-flash`, …) |
-| `LLM_API_KEY` / `GEMINI_API_KEY` | **Your** Gemini key — local `.env` only; never commit; self-host BYO (Q7) |
-
-Quickstart optional step: [quickstart.md](quickstart.md#6-optional-your-gemini-key-q7).
+| `LLM_API_KEY` / `GEMINI_API_KEY` | **Your** Gemini key — local `.env` only; never commit |
 | `OPENAI_API_KEY` | reserved for a future OpenAI adapter |
 | `LLM_BASE_URL` | optional Gemini API base override |
+
+Self-host BYO guide: [byo-llm.md](byo-llm.md). Quickstart step:
+[quickstart.md](quickstart.md#6-optional-your-gemini-key-q7).
 
 ```bash
 # Local only — never commit. CI must stay on fake.

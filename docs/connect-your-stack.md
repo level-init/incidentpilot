@@ -35,7 +35,7 @@ both hit `http://localhost:8000` but **still** use different auth mechanisms.
 | `SLACK_COMMAND_RESPONDERS` | api | Slack user ids allowed to mutate via `/ip` |
 | `SLACK_COMMANDS_OPEN` | api | `1` = local/demo allow all mutators |
 | `INCIDENTPILOT_WEB_BASE_URL` | workers | Deep links in Slack messages |
-| `LLM_PROVIDER` / `LLM_API_KEY` | general worker | Optional BYO Gemini — [llm.md](llm.md), [quickstart](quickstart.md#6-optional-your-gemini-key-q7) |
+| `LLM_PROVIDER` / `LLM_API_KEY` | general worker | Optional BYO Gemini — [byo-llm.md](byo-llm.md) |
 
 Never put `SLACK_SIGNING_SECRET` or bot tokens on the general AI worker
 ([slack.md](slack.md) privilege split).
