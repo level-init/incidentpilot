@@ -30,19 +30,19 @@ make terraform-validate
 Requires Terraform ≥ 1.5. Does **not** call AWS APIs (`init -backend=false` +
 `fmt -check` + `validate`).
 
-## Staging apply path (reviewed)
+## Staging apply path (O8 ephemeral)
 
-O1 documents the path; it does **not** authorize unreviewed expensive applies.
+Full runbook: [docs/staging-eks.md](../../docs/staging-eks.md).
 
 1. Install Terraform ≥ 1.5 and configure AWS credentials for a **staging** account.
 2. `cd deploy/terraform/environments/staging`
 3. `cp terraform.tfvars.example terraform.tfvars` and set a unique `name_prefix`.
-4. Keep `enable_expensive_resources = false` for a cheap IAM/Secrets-only plan.
-5. Review: `terraform init && terraform plan`
-6. Only after review, set `enable_expensive_resources = true` and re-plan before
-   `terraform apply`.
-
-Remote state backend is left commented for O8.
+4. Optional: `cp backend.hcl.example backend.hcl` then
+   `terraform init -backend-config=backend.hcl`.
+5. Keep `enable_expensive_resources = false` for a cheap IAM/Secrets/IRSA plan.
+6. Review: `terraform init && terraform plan`
+7. After review, set `enable_expensive_resources = true` for VPC/EKS/RDS/S3,
+   `terraform apply`, then `make staging-eks-smoke`, then **destroy same day**.
 
 ## Privilege classes
 

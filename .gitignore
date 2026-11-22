@@ -46,3 +46,8 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+# O8: local apply config (keep examples committed)
+**/terraform.tfvars
+**/backend.hcl
+!**/terraform.tfvars.example
+!**/backend.hcl.example

@@ -23,7 +23,8 @@ RPS ?= 1
 	test-isolation isolation-scan \
 	obs-smoke sim-traffic sim-baseline-gate sim-inject \
 	scenario-list scenario-run scenario-reset scenario eval \
-	terraform-validate helm-validate helm-kind-smoke network-policies-validate
+	terraform-validate helm-validate helm-kind-smoke network-policies-validate \
+	staging-eks-smoke staging-eks-teardown
 
 help:
 	@echo "Targets:"
@@ -65,6 +66,8 @@ help:
 	@echo "  make helm-validate         - O2 helm lint + template (local/staging/prod-demo)"
 	@echo "  make helm-kind-smoke       - O7 install chart into current kind/k3d context"
 	@echo "  make network-policies-validate - O4 kustomize NetworkPolicies render"
+	@echo "  make staging-eks-smoke     - O8 check staging TF outputs (after apply)"
+	@echo "  make staging-eks-teardown  - O8 terraform destroy (FORCE=1 to skip prompt)"
 
 bootstrap:
 	$(PYTHON) -m venv $(VENV)
@@ -214,6 +217,14 @@ web-dev:
 # O1: fmt + validate staging root. Requires terraform >= 1.5 on PATH.
 terraform-validate:
 	./scripts/terraform_validate.sh
+
+# O8: after terraform apply — assert Secrets/IRSA (+ EKS/RDS/S3 when expensive).
+staging-eks-smoke:
+	./scripts/staging_eks_smoke.sh
+
+# O8: destroy ephemeral staging stack. FORCE=1 skips interactive confirm.
+staging-eks-teardown:
+	./scripts/staging_eks_teardown.sh
 
 # O2: lint + template for each env values file. Requires helm 3 on PATH.
 helm-validate:

@@ -16,7 +16,10 @@ terraform {
     }
   }
 
-  # Remote state for real applies lands with O8. Local backend for validate/fmt.
+  # O8: for ephemeral/shared staging applies, uncomment and init with backend.hcl:
+  #   cp backend.hcl.example backend.hcl   # fill bucket/key (do not commit)
+  #   terraform init -backend-config=backend.hcl
+  # Leave commented for `make terraform-validate` (init -backend=false).
   # backend "s3" {}
 }
 
