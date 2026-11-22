@@ -26,6 +26,7 @@ Point providers only at the **webhooks** host:
 
 Human session Bearer / OIDC stays on the **user** hosts — see [auth.md](auth.md).
 Webhook secret config: [alert-webhooks.md](alert-webhooks.md), [slack.md](slack.md).
+Operator recipes: [connect-your-stack.md](connect-your-stack.md).
 
 ## Helm
 

@@ -27,6 +27,7 @@ make api-run   # then POST /webhooks/alerts/alertmanager — see quickstart
 | Doc | Purpose |
 | --- | --- |
 | [docs/quickstart.md](docs/quickstart.md) | Clone → first incident in ~30 minutes (Q1) |
+| [docs/connect-your-stack.md](docs/connect-your-stack.md) | Wire Alertmanager + Slack to self-hosted IP (Q2) |
 | [docs/product-overview.md](docs/product-overview.md) | Product goal, closed loop, locked design decisions |
 | [docs/llm.md](docs/llm.md) | LLM providers; BYO Gemini (`LLM_PROVIDER=gemini`) |
 | [docs/scenarios.md](docs/scenarios.md) | Scenario runner (N1): baseline gate, FAILED vs scored |

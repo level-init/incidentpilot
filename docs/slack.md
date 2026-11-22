@@ -168,3 +168,5 @@ set_fake_slack_notifier(fake)
 | `SLACK_NOTIFIER` | `fake` | `fake` / `http` |
 | `SLACK_BOT_TOKEN` | — | required for `http`; notify process only |
 | `INCIDENTPILOT_WEB_BASE_URL` | `http://localhost:3000` | UI deep links in templates (K4) |
+
+Self-host wiring (Slack app URLs + AM): [connect-your-stack.md](connect-your-stack.md).
