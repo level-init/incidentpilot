@@ -148,7 +148,7 @@ Restart the general worker after editing `.env`. CI and default clone stay on
 | Goal | Doc / issue |
 | --- | --- |
 | Point **your** Alertmanager / Slack at IP | [connect-your-stack.md](connect-your-stack.md) (Q2) |
-| Turn off simulation; wire your system | Q6 — swap guide |
+| Turn off simulation; wire your system | [swap-your-app.md](swap-your-app.md) (Q6) |
 | K8s chart locally | [helm-kind.md](helm-kind.md) |
 | Ephemeral AWS staging (optional $) | [staging-eks.md](staging-eks.md) |
 

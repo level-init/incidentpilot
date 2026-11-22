@@ -72,6 +72,10 @@ Alertmanager + Slack recipes for self-host: [connect-your-stack.md](connect-your
 
 Bundled `simulation/` as optional sample system: [demo-app.md](demo-app.md).
 
+## Swap your app (Q6)
+
+Leave simulation off; wire your stack: [swap-your-app.md](swap-your-app.md).
+
 ## Python packages
 
 | Directory | Import package | Role |
