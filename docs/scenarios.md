@@ -82,6 +82,9 @@ RESOLVED, Postmortem @ CLOSED → `ScenarioRun EVALUATED` with manifest pinned.
 | `bad-config` | `bad_config` | `DISABLE_FEATURE_FLAG` (N15) |
 | `cascading-failure` | `cascading_failure` | `ROLLBACK_DEPLOYMENT` (N16, SEV1, origin≠symptom) |
 
+Portfolio walkthrough (bad-deploy hero path): [demo-guide.md](demo-guide.md)
+(`make demo-bad-deploy`).
+
 ```bash
 make migrate
 make test-isolation

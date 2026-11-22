@@ -150,6 +150,7 @@ Restart the general worker after editing `.env`. Full BYO guide:
 | --- | --- |
 | Point **your** Alertmanager / Slack at IP | [connect-your-stack.md](connect-your-stack.md) (Q2) |
 | Turn off simulation; wire your system | [swap-your-app.md](swap-your-app.md) (Q6) |
+| Full scored portfolio demo | [demo-guide.md](demo-guide.md) (P8) — `make demo-bad-deploy` |
 | K8s chart locally | [helm-kind.md](helm-kind.md) |
 | Ephemeral AWS staging (optional $) | [staging-eks.md](staging-eks.md) |
 

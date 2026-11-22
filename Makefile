@@ -22,7 +22,7 @@ RPS ?= 1
 	temporal-queue-smoke temporal-cloud-smoke test-temporal-d6 sim-happy-path sim-contract-scan test-sim-contract \
 	test-isolation isolation-scan \
 	obs-smoke sim-traffic sim-baseline-gate sim-inject \
-	scenario-list scenario-run scenario-reset scenario eval \
+	scenario-list scenario-run scenario-reset scenario eval demo-bad-deploy \
 	terraform-validate helm-validate helm-kind-smoke network-policies-validate \
 	staging-eks-smoke staging-eks-teardown
 
@@ -58,6 +58,7 @@ help:
 	@echo "  make scenario-reset        - clear faults; keep ScenarioRun history"
 	@echo "  make scenario NAME=…       - N9 scored vertical (Level 2 harness; CLI NAME= only)"
 	@echo "  make eval                  - N9 pin dual-stage eval for last scenario"
+	@echo "  make demo-bad-deploy       - P8 scored bad-deployment demo (+ isolation + eval)"
 	@echo "  make obs-smoke             - Prom/Loki/Tempo/Grafana/AM health (evidence profile)"
 	@echo "  make openapi-export        - write openapi/openapi.json"
 	@echo "  make api-run               - run FastAPI on :8000"
@@ -200,6 +201,10 @@ scenario: $(VENV)
 eval: $(VENV)
 	PYTHONPATH="$(SCENARIO_PYTHONPATH)" \
 		$(BIN)/python -m incidentpilot_scenario_runner eval $(EVAL_NAME_FLAG)
+
+# P8: isolation → scored bad-deployment → dual-stage eval (see docs/demo-guide.md).
+demo-bad-deploy:
+	./scripts/demo_bad_deploy.sh
 
 obs-smoke:
 	./scripts/verify_obs_stack.sh
