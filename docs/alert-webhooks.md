@@ -125,3 +125,5 @@ receivers:
 
 In Kubernetes, point AM at the **webhooks** Ingress host (not the OIDC-gated
 user API host) — [ingress.md](ingress.md).
+
+Self-host wiring (AM + Slack recipes): [connect-your-stack.md](connect-your-stack.md).

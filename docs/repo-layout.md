@@ -64,6 +64,10 @@ Apply / smoke / teardown runbook for IRSA/RDS/S3/Secrets — [staging-eks.md](st
 
 Clone → Compose → first incident: [quickstart.md](quickstart.md).
 
+## Connect your stack (Q2)
+
+Alertmanager + Slack recipes for self-host: [connect-your-stack.md](connect-your-stack.md).
+
 ## Python packages
 
 | Directory | Import package | Role |
