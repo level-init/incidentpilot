@@ -7,14 +7,28 @@ response (Slack + dashboard), and can remediate only through
 **policy + approval + a reserved execution attempt**—then validates recovery
 and produces an evidence-grounded postmortem.
 
-It is built as a **portfolio / production-style demo**: a simulated distributed
-system plus IncidentPilot, with reproducible scenario evaluation. 
+It is built as an **open-source, self-hosted** incident copilot you run next to
+your systems: clone it, wire Alertmanager/Slack (and optionally your own Gemini
+key), and keep the bundled `simulation/` demo app or swap in your stack.
+
+## Quickstart
+
+First incident locally in ~30 minutes (Compose, no AWS):
+
+→ **[docs/quickstart.md](docs/quickstart.md)**
+
+```bash
+make bootstrap && make compose-core && make migrate
+make api-run   # then POST /webhooks/alerts/alertmanager — see quickstart
+```
 
 ## Documentation
 
 | Doc | Purpose |
 | --- | --- |
+| [docs/quickstart.md](docs/quickstart.md) | Clone → first incident in ~30 minutes (Q1) |
 | [docs/product-overview.md](docs/product-overview.md) | Product goal, closed loop, locked design decisions |
+| [docs/llm.md](docs/llm.md) | LLM providers; BYO Gemini (`LLM_PROVIDER=gemini`) |
 | [docs/scenarios.md](docs/scenarios.md) | Scenario runner (N1): baseline gate, FAILED vs scored |
 | [docs/ground-truth.md](docs/ground-truth.md) | Evaluator-only GroundTruth schema + isolation (N2) |
 | [docs/eval-metrics.md](docs/eval-metrics.md) | Operational metric formulas + RootCauseMatchSpec (N5) |
