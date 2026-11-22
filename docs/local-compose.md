@@ -12,6 +12,9 @@ Profiles match the product overview environments for shared local DX.
 
 ## Quick start
 
+For **first incident** (API + webhook), prefer the timed guide:
+[quickstart.md](quickstart.md).
+
 ```bash
 cp .env.example .env   # optional overrides; do not commit .env
 
