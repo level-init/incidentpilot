@@ -17,7 +17,7 @@ key), and keep the bundled `simulation/` demo app or swap in your stack.
 | --- | --- |
 | **`simulation/`** | Optional **sample** commerce stack (faults → telemetry). Compose profile `simulation` / `full`. Not required for a production IP install. |
 | **`web/`** | Product ops dashboard (incidents, evidence, eval) — this is the real UI. |
-| **Your systems** | Point Alertmanager / Slack at your self-hosted IP — [connect-your-stack.md](docs/connect-your-stack.md). |
+| **Your systems** | Leave simulation off; point Alertmanager / Slack at IP — [connect-your-stack.md](docs/connect-your-stack.md), [swap-your-app.md](docs/swap-your-app.md). |
 
 Details: [docs/demo-app.md](docs/demo-app.md).
 
@@ -38,6 +38,8 @@ make api-run   # then POST /webhooks/alerts/alertmanager — see quickstart
 | --- | --- |
 | [docs/quickstart.md](docs/quickstart.md) | Clone → first incident in ~30 minutes (Q1) |
 | [docs/connect-your-stack.md](docs/connect-your-stack.md) | Wire Alertmanager + Slack to self-hosted IP (Q2) |
+| [docs/demo-app.md](docs/demo-app.md) | Bundled simulation as optional demo app (Q5) |
+| [docs/swap-your-app.md](docs/swap-your-app.md) | Leave demo app off; wire your systems (Q6) |
 | [docs/product-overview.md](docs/product-overview.md) | Product goal, closed loop, locked design decisions |
 | [docs/llm.md](docs/llm.md) | LLM providers; BYO Gemini (`LLM_PROVIDER=gemini`) |
 | [docs/scenarios.md](docs/scenarios.md) | Scenario runner (N1): baseline gate, FAILED vs scored |

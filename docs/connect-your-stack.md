@@ -12,8 +12,7 @@ Slack                   →  POST /webhooks/slack/…  (signing secret)
 
 Bundled `simulation/` is only a **sample** system for demos —
 [demo-app.md](demo-app.md), [quickstart](quickstart.md). To drop it and use
-production apps later, see Q6
-([#298](https://github.com/level-init/incidentpilot/issues/298)).
+your production apps: [swap-your-app.md](swap-your-app.md).
 
 ## Auth split (do not mix)
 
@@ -152,6 +151,7 @@ See [ingress.md](ingress.md).
 | --- | --- |
 | [quickstart.md](quickstart.md) | First incident without Slack |
 | [demo-app.md](demo-app.md) | Bundled simulation as optional sample system |
+| [swap-your-app.md](swap-your-app.md) | Turn demo app off; use your systems |
 | [alert-webhooks.md](alert-webhooks.md) | AM auth, replay, correlation |
 | [slack.md](slack.md) | Inbound verify, ChatOps, notifier |
 | [ingress.md](ingress.md) | User vs webhooks Ingress split |

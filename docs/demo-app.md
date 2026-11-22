@@ -6,7 +6,7 @@ production apps on day one.
 
 It is **not** part of a production IncidentPilot deploy. Adopters run IP
 (`core`) against **their** stack; simulation is optional Compose profile
-content. To swap it out: Q6 ([#298](https://github.com/level-init/incidentpilot/issues/298)).
+content. To swap it out: [swap-your-app.md](swap-your-app.md) (Q6).
 
 ```text
 [ simulation/  = demo app ]  --telemetry / AM-->  [ IncidentPilot ]
@@ -97,4 +97,5 @@ Sim must never expose GT cheat routes — [sim-contract.md](sim-contract.md).
 
 - Quickstart: [quickstart.md](quickstart.md)  
 - Connect providers: [connect-your-stack.md](connect-your-stack.md)  
+- Swap for your system: [swap-your-app.md](swap-your-app.md)  
 - Baseline / traffic: [sim-baseline.md](sim-baseline.md)  
