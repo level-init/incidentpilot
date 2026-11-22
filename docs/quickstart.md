@@ -116,7 +116,7 @@ Details: [alert-webhooks.md](alert-webhooks.md).
 make web-dev                  # http://localhost:3000 — Bearer local-dev in UI
 ```
 
-**Bundled demo app** (`simulation/` — checkout/payment/… world):
+**Bundled demo app** (`simulation/` — optional sample system, not your prod app):
 
 ```bash
 make compose-up PROFILE=simulation
@@ -125,7 +125,7 @@ docker compose --profile evidence --profile simulation up -d
 make sim-happy-path
 ```
 
-Faults / scored scenarios (longer path): [scenarios.md](scenarios.md),
+See [demo-app.md](demo-app.md). Faults / scored scenarios: [scenarios.md](scenarios.md),
 [sim-faults.md](sim-faults.md). Simulation is **not** required for §4.
 
 ## 6. Optional — your Gemini key (Q7)

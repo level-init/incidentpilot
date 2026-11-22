@@ -11,6 +11,16 @@ It is built as an **open-source, self-hosted** incident copilot you run next to
 your systems: clone it, wire Alertmanager/Slack (and optionally your own Gemini
 key), and keep the bundled `simulation/` demo app or swap in your stack.
 
+### Included demo app vs your app
+
+| | Role |
+| --- | --- |
+| **`simulation/`** | Optional **sample** commerce stack (faults → telemetry). Compose profile `simulation` / `full`. Not required for a production IP install. |
+| **`web/`** | Product ops dashboard (incidents, evidence, eval) — this is the real UI. |
+| **Your systems** | Point Alertmanager / Slack at your self-hosted IP — [connect-your-stack.md](docs/connect-your-stack.md). |
+
+Details: [docs/demo-app.md](docs/demo-app.md).
+
 ## Quickstart
 
 First incident locally in ~30 minutes (Compose, no AWS):

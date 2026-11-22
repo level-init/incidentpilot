@@ -68,6 +68,10 @@ Clone → Compose → first incident: [quickstart.md](quickstart.md).
 
 Alertmanager + Slack recipes for self-host: [connect-your-stack.md](connect-your-stack.md).
 
+## Demo app (Q5)
+
+Bundled `simulation/` as optional sample system: [demo-app.md](demo-app.md).
+
 ## Python packages
 
 | Directory | Import package | Role |

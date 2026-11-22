@@ -4,11 +4,13 @@ Profiles match the product overview environments for shared local DX.
 
 | Profile | What starts |
 | --- | --- |
-| `core` | Postgres, Temporal (+ UI), Silo/S3 (+ bucket bootstrap) |
+| `core` | Postgres, Temporal (+ UI), Silo/S3 (+ bucket bootstrap) — **IncidentPilot infra** |
 | `redis` | Optional cache-only Redis (never authoritative) |
 | `evidence` | Prometheus, Loki, Tempo, Grafana, Alertmanager, Promtail (E3) |
-| `simulation` | Demo microservices (gateway/auth/checkout/payment/inventory/notification) |
+| `simulation` | **Demo app only** — sample microservices (not required for IP itself) |
 | `full` | core + redis + evidence + simulation |
+
+Demo app vs product: [demo-app.md](demo-app.md).
 
 ## Quick start
 
