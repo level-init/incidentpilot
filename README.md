@@ -32,6 +32,9 @@ make bootstrap && make compose-core && make migrate
 make api-run   # then POST /webhooks/alerts/alertmanager — see quickstart
 ```
 
+Optional live LLM: set **your** Gemini key — [docs/byo-llm.md](docs/byo-llm.md)
+(`LLM_PROVIDER=fake` works with no key).
+
 ## Documentation
 
 | Doc | Purpose |
@@ -41,7 +44,8 @@ make api-run   # then POST /webhooks/alerts/alertmanager — see quickstart
 | [docs/demo-app.md](docs/demo-app.md) | Bundled simulation as optional demo app (Q5) |
 | [docs/swap-your-app.md](docs/swap-your-app.md) | Leave demo app off; wire your systems (Q6) |
 | [docs/product-overview.md](docs/product-overview.md) | Product goal, closed loop, locked design decisions |
-| [docs/llm.md](docs/llm.md) | LLM providers; BYO Gemini (`LLM_PROVIDER=gemini`) |
+| [docs/byo-llm.md](docs/byo-llm.md) | Bring your own Gemini key for self-host (Q7) |
+| [docs/llm.md](docs/llm.md) | LLM providers, provenance, tool broker |
 | [docs/scenarios.md](docs/scenarios.md) | Scenario runner (N1): baseline gate, FAILED vs scored |
 | [docs/ground-truth.md](docs/ground-truth.md) | Evaluator-only GroundTruth schema + isolation (N2) |
 | [docs/eval-metrics.md](docs/eval-metrics.md) | Operational metric formulas + RootCauseMatchSpec (N5) |

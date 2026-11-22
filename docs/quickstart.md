@@ -130,7 +130,8 @@ See [demo-app.md](demo-app.md). Faults / scored scenarios: [scenarios.md](scenar
 
 ## 6. Optional — your Gemini key (Q7)
 
-Live reasoning on the **general worker only** (never evidence/remediation):
+Live reasoning on the **general worker only** (never evidence/remediation).
+Default clone stays on `LLM_PROVIDER=fake` (no key).
 
 ```bash
 # in .env — use YOUR key; never commit
@@ -140,8 +141,8 @@ LLM_API_KEY=your-key-here
 # or: GEMINI_API_KEY=your-key-here
 ```
 
-Restart the general worker after editing `.env`. CI and default clone stay on
-`LLM_PROVIDER=fake`. Full notes: [llm.md](llm.md).
+Restart the general worker after editing `.env`. Full BYO guide:
+[byo-llm.md](byo-llm.md). Provider/provenance: [llm.md](llm.md).
 
 ## 7. What next
 

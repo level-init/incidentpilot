@@ -76,6 +76,10 @@ Bundled `simulation/` as optional sample system: [demo-app.md](demo-app.md).
 
 Leave simulation off; wire your stack: [swap-your-app.md](swap-your-app.md).
 
+## BYO LLM (Q7)
+
+Self-host Gemini with your key: [byo-llm.md](byo-llm.md).
+
 ## Python packages
 
 | Directory | Import package | Role |
