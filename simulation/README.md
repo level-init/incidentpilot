@@ -1,5 +1,8 @@
 # simulation
 
+**Demo app** (Q5): sample distributed system for local demos — not part of a
+production IncidentPilot install. Productize overview: [docs/demo-app.md](../docs/demo-app.md).
+
 Demo distributed system used as IncidentPilot’s production-like world (Epic E).
 
 | Directory | Service | Local port |

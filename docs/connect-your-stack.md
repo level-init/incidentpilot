@@ -10,9 +10,10 @@ Humans (browser)        →  UI / API (session or OIDC)
 Slack                   →  POST /webhooks/slack/…  (signing secret)
 ```
 
-Bundled `simulation/` is only a **sample** system for demos
-([quickstart](quickstart.md)). To drop it and use production apps later, see
-Q6 ([#298](https://github.com/level-init/incidentpilot/issues/298)).
+Bundled `simulation/` is only a **sample** system for demos —
+[demo-app.md](demo-app.md), [quickstart](quickstart.md). To drop it and use
+production apps later, see Q6
+([#298](https://github.com/level-init/incidentpilot/issues/298)).
 
 ## Auth split (do not mix)
 
@@ -150,6 +151,7 @@ See [ingress.md](ingress.md).
 | Doc | Role |
 | --- | --- |
 | [quickstart.md](quickstart.md) | First incident without Slack |
+| [demo-app.md](demo-app.md) | Bundled simulation as optional sample system |
 | [alert-webhooks.md](alert-webhooks.md) | AM auth, replay, correlation |
 | [slack.md](slack.md) | Inbound verify, ChatOps, notifier |
 | [ingress.md](ingress.md) | User vs webhooks Ingress split |
