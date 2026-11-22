@@ -80,6 +80,10 @@ Leave simulation off; wire your stack: [swap-your-app.md](swap-your-app.md).
 
 Self-host Gemini with your key: [byo-llm.md](byo-llm.md).
 
+## Demo guide (P8)
+
+Scored bad-deployment portfolio path: [demo-guide.md](demo-guide.md).
+
 ## Python packages
 
 | Directory | Import package | Role |

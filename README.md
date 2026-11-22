@@ -35,11 +35,18 @@ make api-run   # then POST /webhooks/alerts/alertmanager — see quickstart
 Optional live LLM: set **your** Gemini key — [docs/byo-llm.md](docs/byo-llm.md)
 (`LLM_PROVIDER=fake` works with no key).
 
+Portfolio scored demo (bad-deployment):
+
+```bash
+make demo-bad-deploy    # see docs/demo-guide.md
+```
+
 ## Documentation
 
 | Doc | Purpose |
 | --- | --- |
 | [docs/quickstart.md](docs/quickstart.md) | Clone → first incident in ~30 minutes (Q1) |
+| [docs/demo-guide.md](docs/demo-guide.md) | Portfolio demo: scored bad-deployment + eval (P8) |
 | [docs/connect-your-stack.md](docs/connect-your-stack.md) | Wire Alertmanager + Slack to self-hosted IP (Q2) |
 | [docs/demo-app.md](docs/demo-app.md) | Bundled simulation as optional demo app (Q5) |
 | [docs/swap-your-app.md](docs/swap-your-app.md) | Leave demo app off; wire your systems (Q6) |
