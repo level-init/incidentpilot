@@ -56,6 +56,10 @@ staging/demo, self-host documented fallback. See [temporal-cloud.md](temporal-cl
 
 CI job `helm-kind` installs the chart into kind. See [helm-kind.md](helm-kind.md).
 
+## Staging EKS ephemeral (O8)
+
+Apply / smoke / teardown runbook for IRSA/RDS/S3/Secrets — [staging-eks.md](staging-eks.md).
+
 ## Python packages
 
 | Directory | Import package | Role |

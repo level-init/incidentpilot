@@ -27,6 +27,7 @@ system plus IncidentPilot, with reproducible scenario evaluation.
 | [docs/ingress.md](docs/ingress.md) | Ingress split: user/API OIDC vs webhooks (O5) |
 | [docs/temporal-cloud.md](docs/temporal-cloud.md) | Temporal Cloud preferred; self-host fallback (O6) |
 | [docs/helm-kind.md](docs/helm-kind.md) | kind/k3d Helm chart CI smoke (O7) |
+| [docs/staging-eks.md](docs/staging-eks.md) | Staging EKS ephemeral apply/smoke/teardown (O8) |
 | [docs/postmortem-evaluation.md](docs/postmortem-evaluation.md) | PostmortemEvaluation pin at CLOSED + eval family (N7) |
 | [docs/isolation.md](docs/isolation.md) | Isolation-integrity suite — GT never in investigation path (N8) |
 | [docs/sim-baseline.md](docs/sim-baseline.md) | Sim health/ready baseline contract (E4) |

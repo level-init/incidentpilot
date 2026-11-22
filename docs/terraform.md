@@ -33,10 +33,15 @@ make terraform-validate
 - Helm charts (O2), IRSA/SA wiring (O3), NetworkPolicies (O4)
 - Temporal Cloud wiring details: [temporal-cloud.md](temporal-cloud.md) (O6)
 
-## Next
+## Staging ephemeral apply (O8)
 
-| Issue | Work |
-| --- | --- |
-| O2 / #117 | Helm charts + per-env values — [helm.md](helm.md) |
-| O3 / #118 | Namespaces + SAs + IRSA — [identity-irsa.md](identity-irsa.md) |
-| O8 / #123 | Staging EKS ephemeral path + remote state |
+Apply → smoke → destroy the same day. Remote state via `backend.hcl.example`.
+
+See [staging-eks.md](staging-eks.md).
+
+```bash
+make terraform-validate
+# after apply:
+make staging-eks-smoke
+make staging-eks-teardown   # or FORCE=1 make staging-eks-teardown
+```

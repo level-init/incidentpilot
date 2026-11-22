@@ -38,9 +38,12 @@ registers the cluster OIDC provider and switches trusts to
 
 ```bash
 make terraform-validate
-# after apply with EKS:
+# after apply with EKS (O8 ephemeral runbook):
 terraform -chdir=deploy/terraform/environments/staging output irsa_privilege_class_role_arns
+make staging-eks-smoke
 ```
+
+Full path: [staging-eks.md](staging-eks.md).
 
 Annotate Helm values:
 

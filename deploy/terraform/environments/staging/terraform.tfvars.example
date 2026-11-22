@@ -1,5 +1,5 @@
 # Copy to terraform.tfvars for a real staging apply (never commit secrets).
-# O1: keep enable_expensive_resources=false until reviewed.
+# O8 ephemeral path: docs/staging-eks.md — apply → smoke → destroy same day.
 
 aws_region  = "us-east-1"
 name_prefix = "ip-staging-YOURUNIQUE"
@@ -13,5 +13,6 @@ private_subnet_cidrs = ["10.40.10.0/24", "10.40.11.0/24"]
 kubernetes_version = "1.29"
 db_username        = "ip_migrator"
 
-# Flip only after review — creates VPC/EKS/RDS/S3 (costly).
+# false = cheap IAM/Secrets/IRSA skeleton only.
+# true  = VPC/EKS/RDS/S3 (costly) — tear down after make staging-eks-smoke.
 enable_expensive_resources = false

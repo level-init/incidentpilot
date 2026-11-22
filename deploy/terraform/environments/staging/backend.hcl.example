@@ -1,0 +1,11 @@
+# O8: copy to backend.hcl (gitignored locally) and:
+#   terraform init -backend-config=backend.hcl
+#
+# Create the bucket once in the staging account (versioning + SSE recommended).
+# Do not commit real bucket names if they encode account secrets.
+
+bucket         = "ip-tfstate-YOURACCOUNT-staging"
+key            = "incidentpilot/staging/terraform.tfstate"
+region         = "us-east-1"
+encrypt        = true
+# dynamodb_table = "ip-tfstate-locks"   # optional locking
